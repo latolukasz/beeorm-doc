@@ -1,8 +1,6 @@
-const { description } = require('../../package')
-
 module.exports = {
   title: ' ',
-  description: description,
+  description: 'Golang ORM for high traffic applications',
   head: [
     ['meta', { name: 'theme-color', content: '#D7A318' }],
     ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
