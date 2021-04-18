@@ -1,7 +1,7 @@
 const { description } = require('../../package')
 
 module.exports = {
-  title: 'BeeORM',
+  title: ' ',
   description: description,
   head: [
     ['meta', { name: 'theme-color', content: '#D7A318' }],

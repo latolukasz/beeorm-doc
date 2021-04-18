@@ -1,6 +1,6 @@
 ---
 home: true
-heroImage: logo.svg
+heroImage: logo2.svg
 tagline: Golang ORM for high traffic applications
 actionText: Quick Start →
 actionLink: /guide/
