@@ -10,6 +10,7 @@ module.exports = {
   ],
   themeConfig: {
     repo: 'https://github.com/latolukasz/orm',
+    logo: 'logo-small.svg',
     editLinks: false,
     docsDir: '',
     editLinkText: '',
