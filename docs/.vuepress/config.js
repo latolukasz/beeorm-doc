@@ -1,5 +1,5 @@
 module.exports = {
-  title: ' ',
+  title: 'BeeORM',
   description: 'Golang ORM for high traffic applications',
   head: [
     ['meta', { name: 'theme-color', content: '#D7A318' }],

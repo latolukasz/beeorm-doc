@@ -1,5 +1,7 @@
 ---
 home: true
+heroText:  
+siteTitle: 
 heroImage: logo.svg
 tagline: Golang ORM for high traffic applications
 actionText: Quick Start →
