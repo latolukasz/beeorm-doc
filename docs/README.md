@@ -1,6 +1,6 @@
 ---
 home: true
-heroImage: https://v1.vuepress.vuejs.org/hero.png
+heroImage: logo.svg
 tagline: Golang ORM for high traffic applications
 actionText: Quick Start →
 actionLink: /guide/
