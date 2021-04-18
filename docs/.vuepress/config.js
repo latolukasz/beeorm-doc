@@ -10,11 +10,13 @@ module.exports = {
   ],
   themeConfig: {
     repo: 'https://github.com/latolukasz/orm',
+    docsRepo: 'https://github.com/latolukasz/beeorm-doc',
     logo: '/logo-small.svg',
-    editLinks: false,
-    docsDir: '',
+    editLinks: true,
+    docsDir: 'docs',
     editLinkText: '',
-    lastUpdated: false,
+    lastUpdated: true,
+    smoothScroll: true,
     nav: [
       {
         text: 'Guide',
