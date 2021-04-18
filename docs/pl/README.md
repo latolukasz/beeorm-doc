@@ -1,8 +1,8 @@
 ---
 home: true
 heroImage: logo.svg
-tagline: Golang ORM for high traffic applications
-actionText: Quick Start →
+tagline: Golang ORM dla aplikacji o ekstrealnym ruchu
+actionText: Szybki Start →
 actionLink: /guide/
 features:
 - title: Top performance
