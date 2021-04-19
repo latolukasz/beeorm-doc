@@ -36,7 +36,7 @@ module.exports = {
           collapsable: false,
           children: [
             '',
-            'using-vue',
+            'registry',
           ]
         }
       ],

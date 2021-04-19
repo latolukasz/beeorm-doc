@@ -12,7 +12,6 @@ Loading one entity using primary key.
 
 Cached in local in-memory cache.
 
-
 <code-group>
 <code-block title="Results">
 ```
