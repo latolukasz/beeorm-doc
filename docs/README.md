@@ -8,10 +8,10 @@ actionText: Quick Start →
 actionLink: /guide/
 features:
 - title: Top performance
-  details: Feature 1 Description
+  details: Build to get the best performance including query time, allocated memory, number of requests to data layer.
 - title: Centralised access to data
-  details: Feature 2 Description
+  details: Uses MySQL for relational data, ClickHouse for time series data, Redis with search module for in-memory database, message broker and full text search.
 - title: Scales data horizontally
-  details: Feature 3 Description
-footer: Made by Łukasz Lato with ❤️
+  details: Scale your data by adding additional machine, not a better one. With this ORM it's even simpler you may think.
+footer: MIT Licensed | Copyright © 2021-present Łukasz Lato
 ---

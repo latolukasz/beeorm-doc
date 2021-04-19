@@ -21,8 +21,12 @@ module.exports = {
         link: '/guide/',
       },
       {
-        text: 'Config',
-        link: '/config/'
+        text: 'Benchmarks',
+        link: '/benchmarks/'
+      },
+      {
+        text: 'Roadmap',
+        link: '/roadmap/'
       },
     ],
     sidebar: {
