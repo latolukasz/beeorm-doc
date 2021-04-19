@@ -1,18 +1,55 @@
 # Registry
 
-## MySQL database
+TODO
+
+```go
+package main
+
+import "github.com/latolukasz/beeorm"
+
+func main() {
+    registry := &beeorm.Registry{}
+    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
+    validatedRegistry, err := registry.Validate()
+    if err != nil {
+       panic(err)
+    }
+}  
+```
 
 TODO
 
 <code-group>
-<code-block title="GO">
+<code-block title="go">
 ```go
-registry := &orm.Registry{}
-registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
+package main
+
+import (
+    "github.com/latolukasz/beeorm"
+    "io/ioutil"
+    "gopkg.in/yaml.v2"
+)
+
+func main() {
+    data, err := ioutil.ReadFile("./config.yaml")
+    if err != nil {
+        panic(err)
+    }
+    var parsedYaml map[string]interface{}
+    err = yaml.Unmarshal(yamlFileData, &parsedYaml)
+    if err != nil {
+        panic(err)
+    }
+    registry := beeorm.InitByYaml(parsedYaml)
+    validatedRegistry, err := registry.Validate()
+    if err != nil {
+        panic(err)
+    }
+}
 ```
 </code-block>
 
-<code-block title="YAML">
+<code-block title="config.yaml">
 ```yml
 default:
   mysql: user:password@tcp(localhost:3306)/db
@@ -20,6 +57,3 @@ default:
 </code-block>
 </code-group>
 
-## Local in-memory cache
-
-TODO

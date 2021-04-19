@@ -37,6 +37,7 @@ module.exports = {
           children: [
             '',
             'registry',
+            'datapools',
           ]
         }
       ],
