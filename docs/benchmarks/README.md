@@ -35,7 +35,7 @@ func BenchmarkLoadByIDLocalCacheLazy(b *testing.B) {
 }
 
 func benchmarkLoadByIDLocalCache(b *testing.B, lazy bool) {
-	entity := &loadByIdBenchmarkEntity{}
+	entity := &LoadByIDBenchmarkEntity{}
 
 	registry := &Registry{}
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/test")
@@ -68,7 +68,7 @@ func benchmarkLoadByIDLocalCache(b *testing.B, lazy bool) {
 <code-block title="Entity">
 ```go
 
-type LoadByIdBenchmarkEntity struct {
+type LoadByIDBenchmarkEntity struct {
 	ORM      `orm:"localCache"`
 	ID       uint
 	Name     string
