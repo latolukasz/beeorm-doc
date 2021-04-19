@@ -10,7 +10,7 @@ TODO
 <code-group>
 <code-block title="manual">
 ```go
-registry := &orm.Registry{}
+registry := beeorm.NewRegistry()
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
 ```
 </code-block>

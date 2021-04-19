@@ -8,7 +8,7 @@ package main
 import "github.com/latolukasz/beeorm"
 
 func main() {
-    registry := &beeorm.Registry{}
+    registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
     validatedRegistry, err := registry.Validate()
     if err != nil {
@@ -40,7 +40,8 @@ func main() {
     if err != nil {
         panic(err)
     }
-    registry := beeorm.InitByYaml(parsedYaml)
+    registry := beeorm.NewRegistry()
+    registry.InitByYaml(parsedYaml)
     validatedRegistry, err := registry.Validate()
     if err != nil {
         panic(err)
