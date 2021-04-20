@@ -139,11 +139,11 @@ TODO
 <code-block title="in go">
 ```go
 //pool with name "default" and redis database #0: 
-pool1 := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
-registry.RegisterRedisSentinel("master", 0, pool1)
+poolDefault := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
+registry.RegisterRedisSentinel("master", 0, poolDefault)
 //pool with name "products" and redis database #1: 
-pool2 := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
-registry.RegisterRedisSentinel("master", 1, pool2, "products") 
+poolProducts := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
+registry.RegisterRedisSentinel("master", 1, poolProducts, "products") 
 ```
 </code-block>
 
