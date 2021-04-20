@@ -1,9 +1,14 @@
 # Data pools
 
+Every ORM needs connection to database. In BeeORM you can define connection by registering
+data pools in `beeorm.Registy`. 
 
-TODO
+Every data pool has a name that we call `pool name`.
+All methods used to register data pool accepts optional last argument that defines data pool name.
+If not provided pool is registered with name `default`.
 
-## MySQL database
+
+## MySQL data pool
 
 Connection to MySQL database can be defined using `RegisterMySQLPool` method
 which requires [MySQL golang sql driver data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name).
@@ -13,6 +18,9 @@ which requires [MySQL golang sql driver data source name](https://github.com/go-
 ```go
 registry := beeorm.NewRegistry()
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
+// above line is equivalent to  
+registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db", "default")
+
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/logs", "logs")
 ```
 </code-block>
@@ -45,6 +53,23 @@ because some goroutines need to wait for another connections to be returned
 to pool after query execution.
 :::
 
+By default all tables use character set `utf8mb4`. You can change that with `SetDefaultEncoding` method:
+
+<code-group>
+<code-block title="manual">
+```go{2}
+registry := beeorm.NewRegistry()
+registry.SetDefaultEncoding("latin2")
+```
+</code-block>
+
+<code-block title="yaml">
+```yml
+default:
+  mysqlEncoding: latin2
+```
+</code-block>
+</code-group>
 
 ## Local in-memory cache
 
