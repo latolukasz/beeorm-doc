@@ -14,7 +14,7 @@ Connection to MySQL database can be defined using `RegisterMySQLPool` method
 which requires [MySQL golang sql driver data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name).
 
 <code-group>
-<code-block title="manual">
+<code-block title="in go">
 ```go
 registry := beeorm.NewRegistry()
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
@@ -56,7 +56,7 @@ to pool after query execution.
 By default all tables use character set `utf8mb4`. You can change that with `SetDefaultEncoding` method:
 
 <code-group>
-<code-block title="manual">
+<code-block title="in go">
 ```go{2}
 registry := beeorm.NewRegistry()
 registry.SetDefaultEncoding("latin2")
