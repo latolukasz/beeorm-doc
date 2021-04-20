@@ -1,11 +1,9 @@
 # Data pools
 
-So you know now how to create `beeorm.Registry` object. Now it's time to learn how to 
-configure connections to your databases. 
+Now it's time to learn how to configure connections to your databases. 
 
 In BeeORM every connection pool requires a name that will be used later in your code to define
 where data is located.
-
 
 ## MySQL pool
 
