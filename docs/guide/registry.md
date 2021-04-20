@@ -1,6 +1,9 @@
 # Registry
 
-TODO
+Every journey with BeeORM starts always with method called `beeorm.NewRegistry()` that return.
+Returned object is used to configure connections to your databases and register all structs that are used
+to represent your data as a go object.
+
 
 ```go
 package main
@@ -9,19 +12,15 @@ import "github.com/latolukasz/beeorm"
 
 func main() {
     registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
-    validatedRegistry, err := registry.Validate()
-    if err != nil {
-       panic(err)
-    }
+    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db") 
 }  
 ```
 
-TODO
+You can also configure `Registry` using data stored in a yaml file with `InitByYaml()` method:
 
 <code-group>
 <code-block title="go">
-```go
+```go{20}
 package main
 
 import (
@@ -42,10 +41,6 @@ func main() {
     }
     registry := beeorm.NewRegistry()
     registry.InitByYaml(parsedYaml)
-    validatedRegistry, err := registry.Validate()
-    if err != nil {
-        panic(err)
-    }
 }
 ```
 </code-block>
@@ -57,4 +52,3 @@ default:
 ```
 </code-block>
 </code-group>
-
