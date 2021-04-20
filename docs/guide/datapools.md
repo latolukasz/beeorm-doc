@@ -110,7 +110,8 @@ Keep popular data in big pools and other values in small pools.
 
 ## Redis server pool
 
-TODO
+Connection to single Redis server can be defined using `RegisterRedis` method
+which requires connection URI in format `HOST:PORT` followed by reds database number (0-15).
 
 <code-group>
 <code-block title="in go">
@@ -127,7 +128,7 @@ registry.RegisterRedis("198.112.22.21:6379", 1, "products")
 default:
   redis:localhost:6379:0
 products:
-  98.112.22.21:6379:1
+  198.112.22.21:6379:1
 ```
 </code-block>
 </code-group>
@@ -140,14 +141,11 @@ TODO
 <code-block title="in go">
 ```go
 //pool with name "default" and redis database #0: 
-registry.RegisterRedisSentinel("master", 
-    0,
-    []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"})
+pool1 := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
+registry.RegisterRedisSentinel("master", 0, pool1)
 //pool with name "products" and redis database #1: 
-registry.RegisterRedisSentinel("master", 
-    1,
-    []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"},
-    "products") 
+pool2 := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
+registry.RegisterRedisSentinel("master", 1, pool2, "products") 
 ```
 </code-block>
 
