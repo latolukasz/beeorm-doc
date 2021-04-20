@@ -1,7 +1,7 @@
 # Registry
 
-Every journey with BeeORM starts always with method called `beeorm.NewRegistry()` that return.
-Returned object is used to configure connections to your databases and register all structs that are used
+Every journey with BeeORM starts always with method called `beeorm.NewRegistry()`.
+It initialises object `beeorm.Registry` used to configure database connections and structs that are used
 to represent your data as a go object.
 
 
@@ -16,7 +16,7 @@ func main() {
 }  
 ```
 
-You can also configure `Registry` using data stored in a yaml file with `InitByYaml()` method:
+You can also configure `beeorm.Registry` using data from a yaml file:
 
 <code-group>
 <code-block title="go">
