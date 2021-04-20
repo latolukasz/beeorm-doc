@@ -131,3 +131,40 @@ products:
 ```
 </code-block>
 </code-group>
+
+## Redis sentinel pool
+
+TODO
+
+<code-group>
+<code-block title="in go">
+```go
+//pool with name "default" and redis database #0: 
+registry.RegisterRedisSentinel("master", 
+    0,
+    []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"})
+//pool with name "products" and redis database #1: 
+registry.RegisterRedisSentinel("master", 
+    1,
+    []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"},
+    "products") 
+```
+</code-block>
+
+<code-block title="yaml">
+```yml
+default:
+  sentinel:
+    master:0:
+      - :26379
+      - 192.156.23.11:26379
+      - 192.156.23.12:26379
+products:
+  sentinel:
+    my-master:1:
+      - :26380
+      - 192.156.23.24:26379
+      - 192.156.23.25:26379
+```
+</code-block>
+</code-group>
