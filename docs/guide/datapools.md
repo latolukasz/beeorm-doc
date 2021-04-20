@@ -6,8 +6,7 @@ TODO
 ## MySQL database
 
 Connection to MySQL database can be defined using `RegisterMySQLPool` method
-which requires [MySQL golang sql driver data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name)
-followed by optional pool name.
+which requires [MySQL golang sql driver data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name).
 
 <code-group>
 <code-block title="manual">
@@ -28,8 +27,22 @@ logs:
 </code-block>
 </code-group>
 
+By default BeeORM allows to open 100 maximum permitted number of simultaneous 
+client connections in one MySQL pool.
+But no more than 90% of current [MySQL max_connections system variable](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_max_connections).
+For example if your MySQL server has `max_connections = 50` BeeORM will set limit to 45. But you can define your own
+limit of connection using special parameter `limit_connections` in data source URI, for example:
+
+```go
+registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db?limit_connections=10")
+```
+
 ::: tip
-By default BeeORM allows to open up to 90% of
+Setting correct`limit_connections` value is very important. You should try to find a right balance.
+Setting low value will protect you MySQL server from too many connections that slows down server and 
+even can block new connections. But at the same time too low value will slow down your application 
+because some goroutines need to wait for another connections to be returned 
+to pool after query execution.
 :::
 
 
