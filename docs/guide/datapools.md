@@ -74,12 +74,18 @@ default:
 
 ## Local cache pool
 
-TODO
+BeeORM provides simple and extremely fast in-memory key-value cache. 
+Values are stored in local map using [LRU](https://en.wikipedia.org/wiki/Cache_replacement_policies#Least_recently_used_(LRU))
+algorithm to evict least recently used value in case cache is full. 
+
+Simply define pool name and cache size (maximum number of cached keys):
 
 <code-group>
 <code-block title="in go">
 ```go
+// default pool with max 100 000 values
 registry.RegisterLocalCache(100000)
+// pool "last_searches" with max 1000 values
 registry.RegisterLocalCache(1000, "last_searches")
 ```
 </code-block>
@@ -93,3 +99,11 @@ last_searches:
 ```
 </code-block>
 </code-group>
+
+
+::: tip
+Be sure that cache size is not too small (data is evicted very often, low hit rate) 
+or too big (cache is using lots of memory, most of data is not used anymore).
+Remember you can also define many pools with different cache size to optimise evictions.
+Keep popular data in big pools and other values in small pools.
+:::
