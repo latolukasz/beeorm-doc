@@ -16,11 +16,11 @@ which requires [MySQL golang sql driver data source name](https://github.com/go-
 <code-block title="in go">
 ```go
 registry := beeorm.NewRegistry()
-//register MySQL pool with name "default":
+//MySQL pool with name "default":
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db")
 //above line is equivalent to:
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db", "default")
-//register pool with name "logs":
+//pool with name "logs":
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/logs", "logs")
 ```
 </code-block>
@@ -107,3 +107,27 @@ or too big (cache is using lots of memory, most of data is not used anymore).
 Remember you can also define many pools with different cache size to optimise evictions.
 Keep popular data in big pools and other values in small pools.
 :::
+
+## Redis server pool
+
+TODO
+
+<code-group>
+<code-block title="in go">
+```go
+//pool with name "default" and redis database #0: 
+registry.RegisterRedis("localhost:6379", 0)
+//pool with name "products" and redis database #1: 
+registry.RegisterRedis("198.112.22.21:6379", 1, "products")
+```
+</code-block>
+
+<code-block title="yaml">
+```yml
+default:
+  redis:localhost:6379:0
+products:
+  98.112.22.21:6379:1
+```
+</code-block>
+</code-group>
