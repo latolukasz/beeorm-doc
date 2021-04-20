@@ -1,6 +1,6 @@
 # Registry
 
-Every journey with BeeORM starts always with method called `beeorm.NewRegistry()`.
+Our journey with BeeORM starts always with method called `beeorm.NewRegistry()`.
 It initialises object `beeorm.Registry` used to configure database connections and structs that are used
 to represent your data as a go object.
 
