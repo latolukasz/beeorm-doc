@@ -133,7 +133,11 @@ products:
 
 ## Redis sentinel pool
 
-TODO
+You can define redis pool connected to [Redis Sentinel](https://redis.io/topics/sentinel) group
+using `RegisterRedisSentinel` method that requires master name, list with
+addresses to sentinel deamons and redis database number.
+
+
 
 <code-group>
 <code-block title="in go">
@@ -164,3 +168,8 @@ products:
 ```
 </code-block>
 </code-group>
+
+::: tip
+We strongly recommend to use Redis Sentinel pools instead of single server pool 
+in your production environment. 
+:::

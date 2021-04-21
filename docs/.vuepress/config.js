@@ -38,6 +38,7 @@ module.exports = {
             '',
             'registry',
             'datapools',
+            'entities',
           ]
         }
       ],
