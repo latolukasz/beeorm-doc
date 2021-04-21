@@ -92,3 +92,11 @@ func main() {
     registry.RegisterEntity(&UserEntity{}, &OrderEntity{}) 
 }  
 ```
+
+::: tip
+For redis used as cache for Entities you should always set `maxmemory` setting to some value 
+(below machine memory size) and enable `allkeys-lru` policy. 
+Also, you should disable persistence storage because if data is lost
+in redis BeeORM will fill it back from MySQL. Thanks to that you can get top performance and even
+if you reach max memory application should be up and running.
+:::
