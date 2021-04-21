@@ -194,8 +194,6 @@ type CategoryEntity struct {
 Redis search works only with redis database nr **0**. So be sure you are using pool with this value.
 :::
 
-In most cases
-
 ::: tip
 We strongly recommend using one redis pool for cache data 
 (without [Redis search](https://oss.redislabs.com/redisearch/) module) and another one
@@ -206,3 +204,15 @@ Reasons are two:
 
 Simply use `beeorm:"redisCache=first_pool;redisSearch=another_pool"` tag.
 :::
+
+### Defining entity table name
+
+By default, BeORM uses entity struct name as a MySQL table name.
+You can define your own name using `table=table_name` tag setting:
+
+```go{2}
+type UserEntity struct {
+	beeorm.ORM `beeorm:"table=users"`
+	ID   uint
+}
+```
