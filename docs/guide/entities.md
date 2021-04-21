@@ -37,7 +37,7 @@ code you will see compilation error in above code.
 
 ### Mysql pool
 
-By default Entity is connected to `default` [data pool](/guide/datapools.html#mysql-pool).
+By default, Entity is connected to `default` [data pool](/guide/datapools.html#mysql-pool).
 You can define different pool with special setting **mysql=pool_name** put in tag `beeorm` 
 for `beeorm.ORM` field:
 
@@ -55,5 +55,40 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/sales", "sales") 
     registry.RegisterEntity(&OrderEntity{}) 
+}  
+```
+
+### Redis pool
+
+Entity can be automatically cached in Redis to protect MySQL from queries when Entity
+data is needed. This topic is described on next pages. Use setting **redisCache=pool_name**
+in tag `beeorm` for `beeorm.ORM` field to enable redis cache for this entity and define 
+which redis server or sentinel pool should be used to store data.
+
+For pool with name `default` you can use short version without pool name ``beeorm:"redisCache"``.
+
+```go{6,11}
+package main
+
+import "github.com/latolukasz/beeorm"
+
+type UserEntity struct {
+	beeorm.ORM `beeorm:"redisCache"`
+	ID   uint
+}
+
+type OrderEntity struct {
+	beeorm.ORM `beeorm:"redisCache=sales"`
+	ID   uint
+}
+
+func main() {
+    registry := beeorm.NewRegistry()
+    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data")
+    egistry.RegisterRedis("localhost:6379", 0) 
+    poolSales := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
+    registry.RegisterRedisSentinel("master", 1, poolSales, "sales") 
+    
+    registry.RegisterEntity(&UserEntity{}, &OrderEntity{}) 
 }  
 ```
