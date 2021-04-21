@@ -24,13 +24,36 @@ type SimpleEntity struct {
 
 Every entity must be registered in `beeomr.Registry`:
 
-```go
-var simpleEntity *SimpleEntity
-
+```go{2}
 registry := beeorm.NewRegistry()
-registry.RegisterEntity(simpleEntity) 
+registry.RegisterEntity(&beeorm.NewRegistry()) 
 ```
 
 As you can see you must pass reference to actual variable, not a string 
 with name of entity. Thanks to this approach if entity was removed from your
 code you will see compilation error in above code.
+
+## Defining data pools
+
+### Mysql pool
+
+By default Entity is connected to `default` [data pool](/guide/datapools.html#mysql-pool).
+You can define different pool with special setting **mysql=pool_name** put in tag `beeorm` 
+for `beeorm.ORM` field:
+
+```go{6}
+package main
+
+import "github.com/latolukasz/beeorm"
+
+type OrderEntity struct {
+	beeorm.ORM `beeorm:"mysql=sales"`
+	ID   uint
+}
+
+func main() {
+    registry := beeorm.NewRegistry()
+    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/sales", "sales") 
+    registry.RegisterEntity(&OrderEntity{}) 
+}  
+```
