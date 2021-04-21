@@ -61,7 +61,7 @@ func main() {
 ### Redis pool
 
 Entity can be automatically cached in Redis to protect MySQL from queries when Entity
-data is needed. This topic is described on next pages. Use setting **redisCache=pool_name**
+data is needed. Use setting **redisCache=pool_name**
 in tag `beeorm` for `beeorm.ORM` field to enable redis cache for this entity and define 
 which redis server or sentinel pool should be used to store data.
 
@@ -99,4 +99,67 @@ For redis used as cache for Entities you should always set `maxmemory` setting t
 Also, you should disable persistence storage because if data is lost
 in redis BeeORM will fill it back from MySQL. Thanks to that you can get top performance and even
 if you reach max memory application should be up and running.
+:::
+
+### Local in-memory pool
+
+In the same way as registering redis pool (see example above) you can enable local in-memory
+cache to cache Entity data using this time **localCache=pool_name** setting.
+
+```go{6,11}
+package main
+
+import "github.com/latolukasz/beeorm"
+
+type CategoryEntity struct {
+	beeorm.ORM `beeorm:"localCache"`
+	ID   uint
+}
+
+type BrandEntity struct {
+	beeorm.ORM `beeorm:"localCache=settings"`
+	ID   uint
+}
+
+func main() {
+    registry := beeorm.NewRegistry()
+    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data")
+    registry.RegisterLocalCache(100000)
+    registry.RegisterLocalCache(1000, "settings") 
+    
+    registry.RegisterEntity(&CategoryEntity{}, &BrandEntity{}) 
+}  
+```
+
+::: tip
+Local cache is not shared across all servers. Entity updated on one server is
+still cached with old value on other servers. Data is cached forever until it's evicted
+by LRU algorithm. That's why you should use local cache for data that is not changed very often 
+(developer is responsible to clear local cache on all machines if needed).
+:::
+
+### Using both redis and local cache at once
+
+What if you want to cache Entity in local cache and redis? In BeeORM it's possible:
+
+```go{2,7}
+type CategoryEntity struct {
+	beeorm.ORM `beeorm:"localCache;redisCache"`
+	ID   uint
+}
+
+type BrandEntity struct {
+	beeorm.ORM `beeorm:"localCache=settings;redisCache=settings"`
+	ID   uint
+}
+```
+
+::: tip
+We strongly recommend enabling local cache in entity together with redis cache.
+It helps protect MySQL from queries when your code is distributed across many physical servers, 
+or you are autoscaling your services based on actual traffic. 
+When data is missing in local cache BeORM will try to load it from redis cache, if still not there
+data is loaded from MySQL, stored in redis and local cache. So next request to the same app loads
+data from local cache, and request on another machine loads data from redis, not MySQL and store it
+in local cache.
 :::
