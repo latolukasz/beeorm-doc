@@ -37,8 +37,6 @@ This table describes how integer fields are mapped to MySQL column types:
 | uint64 | bigint      |    	0 | 	2<sup>64</sup>-1 |
 | uint16 with tag `beeorm:"year"` | year      |    [0 or 1901](https://dev.mysql.com/doc/refman/8.0/en/year.html) | 2155 |
 
-All above MySQL fields are defined as `NOT NULL DEFAULT '0'`. 
-
 ::: tip
 Always spend extra time to analise your data and choose best `int` type for every field:
  * if field contains only positive numbers always use unsigned type (`uint`, `uint16`...)
@@ -48,3 +46,18 @@ Always spend extra time to analise your data and choose best `int` type for ever
  * using correct type for primary keys (`ID`) and fields that are part of MySQL index is very important.
 Using low but type is not only saving MySQL disk space but also memory used to cache index. 
 :::
+
+All above MySQL fields are defined as `NOT NULL DEFAULT '0'`. If you need to store also `NULL` value use
+reference to int primitive type: `*int8`, `*int16`, `*in32`, `*int`, `*rune`, `*int64`, `*uint8`, `*uint16`, `*uin32`, 
+`*uint`, `*uint64`. Then fields in MySQL are defined as `DEFAULT NULL`.
+
+```go{6}
+
+type PersonEntity struct {
+    beeorm.ORM
+    // null if we don't know how many friends this person has
+    // zero if noone likes him:)
+    ID                 uint
+}
+```
+
