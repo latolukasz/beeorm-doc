@@ -39,6 +39,7 @@ module.exports = {
             'registry',
             'datapools',
             'entities',
+            'entity_fields',
           ]
         }
       ],
