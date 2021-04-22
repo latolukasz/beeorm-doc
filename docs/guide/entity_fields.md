@@ -51,13 +51,14 @@ All above MySQL fields are defined as `NOT NULL DEFAULT '0'`. If you need to sto
 reference to int primitive type: `*int8`, `*int16`, `*in32`, `*int`, `*rune`, `*int64`, `*uint8`, `*uint16`, `*uin32`, 
 `*uint`, `*uint64`. Then fields in MySQL are defined as `DEFAULT NULL`.
 
-```go{6}
+```go{7}
 
 type PersonEntity struct {
     beeorm.ORM
+    ID         uint
     // null if we don't know how many friends this person has
     // zero if noone likes him:)
-    ID                 uint
+    ID         *uint
 }
 ```
 
