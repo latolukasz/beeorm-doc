@@ -3,15 +3,15 @@ home: true
 heroText:  
 siteTitle: 
 heroImage: logo.svg
-tagline: Golang ORM for high traffic applications
+tagline: Golang ORM build for MySQL and Redis with search module
 actionText: Quick Start →
 actionLink: /guide/
 features:
-- title: Top performance
-  details: Build to get the best performance including query time, allocated memory, number of requests to data layer.
-- title: Centralised access to data and cache
-  details: Uses MySQL for relational data, Redis with search module for in-memory database, message broker and full text search.
-- title: Scales data horizontally
-  details: Scale your data by adding additional machine, not a better one. With BeeORM it's even simpler you may think.
+- title: For MySQL lovers
+  details: If you love MySQL for its stability and reliability you are in right place. Our ORM is designed to use MySQL in most optimal way.  
+- title: For Redis enthusiastic
+  details: If you believe Redis is one of the best open sourced project providing top edge performance then this ORM is for you. 
+- title: For performance geeks
+  details: Now try to imagine we are combining speed of golang, reliability of MySQL and performance of Redis with search module. Perfect match right? Try it out! 
 footer: MIT Licensed | Copyright © 2021-present Łukasz Lato
 ---
