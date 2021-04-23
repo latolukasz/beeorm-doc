@@ -178,13 +178,63 @@ type UserEntity struct {
 | []uint8 with tag `beeorm:"mediumblob"` | mediumblob      |
 | []uint8 with tag `beeorm:"longblob"` | longblob      |
 
-## Enums
+## Enums and sets
 
-TODO
+If one of your field contains text from
+predefined list you should use MySQL `ENUM` or `SET` field type to store it.
 
-## Sets
+### Example using structs (recommended):
 
-TODO
+To use struct as a list of enum/set definition you must follow these three rules:
+ * first field must be anonymous field of type `beeorm.EnumModel`
+ * all public fields with type `string` are used as set/enum value
+ * first public `string` field is used as default value in MySQL column definition (when `beeorm:"required"` is used)
+
+
+```go{5-14,19-20,25}
+package main
+
+import "github.com/latolukasz/beeorm"
+
+var Colors = &struct{
+	beeorm.EnumModel
+	Red    string
+	Blue   string
+	Yellow string
+}{
+	Red:    "red",
+	Blue:   "blue",
+	Yellow: "yellow",
+}
+
+type UserEntity struct {
+    beeorm.ORM
+    ID              uint
+    FavoriteColor   string `beeorm:"enum=colors;required"`
+    HatedColors     []string `beeorm:"set=colors"`
+}
+
+func main() {
+   registry := beeorm.NewRegistry()
+   registry.RegisterEnumStruct("colors", Colors)
+   registry.RegisterEntity("colors", &UserEntity{})
+}
+```
+| go        | MySQL         |
+| ------------- |:-------------:|
+| string with tag `beeorm:"enum=colors"` | enum('red', 'blue', 'yellow') DEFAULT NULL     |
+| string with tag `beeorm:"enum=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
+| []string with tag `beeorm:"set=colors"` | set('red', 'blue', 'yellow') DEFAULT NULL     |
+| []string with tag `beeorm:"set=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
+
+Struct `Colors` thanks to anonymous `beeorm.EnumModel` interface has many useful methods:
+
+```go
+Colors.GetDefault() // "red"
+Colors.Has("yellow") // true
+Colors.GetFields() // []string{"red", "blue", "yellow"}
+Colors.GetMapping() // map[string]string{"red": "red", "blue": "blue", "yellow": "yellow"}
+```
 
 ## Subfields
 
