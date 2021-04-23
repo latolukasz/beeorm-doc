@@ -185,19 +185,17 @@ predefined list you should use MySQL `ENUM` or `SET` field type to store it.
 
 ### Example using structs (recommended):
 
-To use struct as a list of enum/set definition you must follow these three rules:
- * first field must be anonymous field of type `beeorm.EnumModel`
- * all public fields with type `string` are used as set/enum value
- * first public `string` field is used as default value in MySQL column definition (when `beeorm:"required"` is used)
+If you use struct as a set/enum definition 
+BeeORM search for all public fields with type of `string` int this struct
+and use them as values. First field is used as default one when field has 
+tag `beeorm:"required"`.
 
-
-```go{5-14,19-20,25}
+```go{5-13,18-19,24}
 package main
 
 import "github.com/latolukasz/beeorm"
 
 var Colors = &struct{
-	beeorm.EnumModel
 	Red    string
 	Blue   string
 	Yellow string
@@ -227,20 +225,11 @@ func main() {
 | []string with tag `beeorm:"set=colors"` | set('red', 'blue', 'yellow') DEFAULT NULL     |
 | []string with tag `beeorm:"set=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
 
-Struct `Colors` thanks to anonymous `beeorm.EnumModel` interface has many useful methods:
-
-```go
-Colors.GetDefault() // "red"
-Colors.Has("yellow") // true
-Colors.GetFields() // []string{"red", "blue", "yellow"}
-Colors.GetMapping() // map[string]string{"red": "red", "blue": "blue", "yellow": "yellow"}
-```
-
-### Example using simple values:
+### Example using list of values:
 
 Second argument is used as default value when `beeorm:"required"` tag is used.
 
-```go{14}
+```go{8-9,14}
 package main
 
 import "github.com/latolukasz/beeorm"
