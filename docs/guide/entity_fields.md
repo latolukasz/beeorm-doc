@@ -158,3 +158,22 @@ type UserEntity struct {
 | *time.Time      | date |
 | *time.Time with tag `beeorm:"time"` | datetime      |
 `
+
+## Binary strings
+
+You can store binary strings using `[]uint8` type:
+
+```go{5}
+
+type UserEntity struct {
+    beeorm.ORM
+    ID              uint
+    CVFileContent   []uint8
+}
+```
+
+| go        | MySQL         |
+| ------------- |:-------------:|
+| []uint8      | blob |
+| []uint8 with tag `beeorm:"mediumblob"` | mediumblob      |
+| []uint8 with tag `beeorm:"longblob"` | longblob      |
