@@ -90,3 +90,48 @@ type PersonEntity struct {
 
 All above MySQL fields are defined as `NOT NULL`. If you need to store also `NULL` value use
 reference to float primitive type: `*float32`, `*float64`. Then fields in MySQL are defined as `DEFAULT NULL`.
+
+## Booleans
+
+Working with booleans is very simple. Use `bool` type or `*bool` if MySQL
+field can hold `NULL` values.
+
+```go{5-7}
+
+type PersonEntity struct {
+    beeorm.ORM
+    ID           uint
+    Married      bool
+    HasChidlren  *bool
+}
+```
+| go        | MySQL         |
+| ------------- |:-------------:|
+| bool      | tinyint(1)  |
+
+## Strings
+
+If you need to store text use `string` type:
+
+```go{5-7}
+
+type ProductEntity struct {
+    beeorm.ORM
+    ID           uint
+    Title        string `beeorm:"required;length=150"`
+    Description  string `beeorm:"required;length=max"`
+    Brand        string
+}
+```
+
+| go        | MySQL         |
+| ------------- |:-------------:|
+| string      | varchar(255)  |
+| string with tag `beeorm:"required"` | varchar(255) NOT NULL      |
+| string with tag `beeorm:"length=X"` | varchar(X)      |
+| string with tag `beeorm:"length=max"` | mediumtext      |
+`
+::: tip
+Always add `beeorm:"required"`tag for `string` fields that never holds empty string.
+Thanks to it you can save extra disc space used to store data in MySQL table.
+:::
