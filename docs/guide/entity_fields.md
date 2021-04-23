@@ -62,3 +62,31 @@ type PersonEntity struct {
 }
 ```
 
+## Floats
+
+Working with float values is always challenging. In BeORM you should
+use one of `float32` or `float64` primitive types. Then using special tags you
+can decide how float value is stored in MySQL. Check example below:
+
+```go{5-7}
+
+type PersonEntity struct {
+    beeorm.ORM
+    ID          uint
+    Balance     float64
+    Temperature float32 `orm:"decimal=3,1;unsigned"`
+    Weight      float32 `orm:"unsigned"`
+}
+```
+
+| go        | MySQL         |
+| ------------- |:-------------:|
+| float32      | float  |
+| float32 with tag `beeorm:"unsigned"` | float unsigned      |
+| float64      | double  |
+| float64 with tag `beeorm:"unsigned"` | double unsigned      |
+| float32,float64 with tag `beeorm:"decimal=X,Y"`     | decimal(X,Y)  |
+| float32,float64 with tag `beeorm:"decimal=X,Y;unsigned"`     | decimal(X,Y) unsigned  |
+
+All above MySQL fields are defined as `NOT NULL`. If you need to store also `NULL` value use
+reference to float primitive type: `*float32`, `*float64`. Then fields in MySQL are defined as `DEFAULT NULL`.
