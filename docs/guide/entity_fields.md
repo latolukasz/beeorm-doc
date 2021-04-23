@@ -135,3 +135,26 @@ type ProductEntity struct {
 Always add `beeorm:"required"`tag for `string` fields that never holds empty string.
 Thanks to it you can save extra disc space used to store data in MySQL table.
 :::
+
+## Dates and time
+
+If you want to store date or date with time use `time.Time`:
+
+```go{5-7}
+
+type UserEntity struct {
+    beeorm.ORM
+    ID              uint
+    DateOfBirth     time.Time
+    CreatedAt       time.Time `orm:"time"`
+    UpdatedAt       *time.Time `orm:"time"`
+}
+```
+
+| go        | MySQL         |
+| ------------- |:-------------:|
+| time.Time      | date NOT NULL |
+| time.Time with tag `beeorm:"time"` | datetime NOT NULL      |
+| *time.Time      | date |
+| *time.Time with tag `beeorm:"time"` | datetime      |
+`
