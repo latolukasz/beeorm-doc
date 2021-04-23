@@ -12,7 +12,7 @@ is stored in MySQL.
 Most go developers use `int` primitive type forgetting go has much more to offer, 
 e.g. `int8, int16`, `uint`, `uint32`. BeeORM supports all of them.
 
-```go{5-7}
+```go{5-6}
 
 type PersonEntity struct {
     beeorm.ORM
@@ -217,7 +217,7 @@ type UserEntity struct {
 func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterEnumStruct("colors", Colors)
-   registry.RegisterEntity("colors", &UserEntity{})
+   registry.RegisterEntity(&UserEntity{})
 }
 ```
 | go        | MySQL         |
@@ -234,6 +234,29 @@ Colors.GetDefault() // "red"
 Colors.Has("yellow") // true
 Colors.GetFields() // []string{"red", "blue", "yellow"}
 Colors.GetMapping() // map[string]string{"red": "red", "blue": "blue", "yellow": "yellow"}
+```
+
+### Example using simple values:
+
+Second argument is used as default value when `beeorm:"required"` tag is used.
+
+```go{14}
+package main
+
+import "github.com/latolukasz/beeorm"
+
+type UserEntity struct {
+    beeorm.ORM
+    ID              uint
+    FavoriteColor   string `beeorm:"enum=colors;required"`
+    HatedColors     []string `beeorm:"set=colors"`
+}
+
+func main() {
+   registry := beeorm.NewRegistry()
+   registry.RegisterEnum("colors", "red", "blue", "yellow")
+   registry.RegisterEntity(&UserEntity{})
+}
 ```
 
 ## Subfields
