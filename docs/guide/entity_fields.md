@@ -177,3 +177,36 @@ type UserEntity struct {
 | []uint8      | blob |
 | []uint8 with tag `beeorm:"mediumblob"` | mediumblob      |
 | []uint8 with tag `beeorm:"longblob"` | longblob      |
+
+## Enums
+
+TODO
+
+## Sets
+
+TODO
+
+## Subfields
+
+TODO
+
+## Single reference
+
+TODO
+
+## Multi reference
+
+TODO
+
+## Ignored field
+
+TODO
+
+## Fake delete
+
+TODO
+
+## Other struct
+
+TODO
+
