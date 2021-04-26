@@ -37,10 +37,12 @@ module.exports = {
           children: [
             '',
             'registry',
-            'datapools',
+            'data_pools',
             'entities',
             'entity_fields',
             'mysql_indexes',
+            'validated_registry',
+            'schema_update',
           ]
         }
       ],
