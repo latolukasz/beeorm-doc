@@ -248,9 +248,6 @@ func main() {
 }
 ```
 
-## Subfields
-
-TODO
 
 ## Single reference
 
@@ -260,9 +257,52 @@ TODO
 
 TODO
 
+## Subfields
+
+Very often entity fields can be divided into logical groups that help you
+read the code and use field definition in the same or other entities.
+In BeeORM simply create struct for them and use it as a type of field:
+
+```go{1-7,12-13,19}
+struct Address {
+   Country    strig
+   City       string
+   Street     string
+   Building   uint
+   PostalCode string
+}
+
+type UserEntity struct {
+    beeorm.ORM
+    ID             uint
+    HomeAdddress   Address
+    WorkAddress    Address
+}
+
+type CompanyEntity struct {
+    beeorm.ORM
+    ID         uint
+    Adddress   Address
+}
+```
+
+You can also create struct inside struct, as many levels as you want.
+
+BeORM creates MySQL column for each field in struct by adding field name
+as a suffix for column name. For example `HomeAdddressCountry varchar(255)`.
+
 ## Ignored field
 
-TODO
+If you have public fields in entity that should not be stored in database use
+`beeorm:"ignore"` tag:
+
+```go{4}
+type UserEntity struct {
+    beeorm.ORM
+    ID        uint
+    MyField   string `beeorm:"ignore"`
+}
+```
 
 ## Fake delete
 
