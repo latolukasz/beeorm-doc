@@ -387,10 +387,6 @@ You can also create struct inside struct, as many levels as you want.
 BeORM creates MySQL column for each field in struct by adding field name
 as a suffix for column name. For example `HomeAdddressCountry varchar(255)`.
 
-## JSON field
-
-TODO
-
 ## Ignored field
 
 If you have public fields in entity that should not be stored in database use
@@ -403,6 +399,25 @@ type UserEntity struct {
     MyField   string `beeorm:"ignore"`
 }
 ```
+
+## JSON field
+
+Any public field with type not mentioned above is mapped to `JSON` MySQL column type
+and value of this field is automatically converted to/from JSON:
+
+```go{4-5}
+type ProductEntity struct {
+    beeorm.ORM
+    ID            uint
+    Attributes    map[string]string  `beeorm:"required"`
+    Specification interface{}
+}
+```
+
+::: tip
+Always try to avoid JSON fields if possible. It takes extra time
+to marshal/unmarshal JSON value when entity is saved or loaded from database.
+:::
 
 ## Fake delete
 
