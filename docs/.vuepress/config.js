@@ -40,6 +40,7 @@ module.exports = {
             'datapools',
             'entities',
             'entity_fields',
+            'mysql_indexes',
           ]
         }
       ],

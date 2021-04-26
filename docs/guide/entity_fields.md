@@ -421,5 +421,48 @@ to marshal/unmarshal JSON value when entity is saved or loaded from database.
 
 ## Fake delete
 
-TODO
+There is a special field `FakeDelete bool` in BeeORM that helps you to deal with scenarios
+where entity needs to be deleted, but it's used as reference in other entities 
+and of course delete operation it will cause foreign key exception.
 
+Let's imagine this scenario:
+
+```go{5}
+type ColorEntity struct {
+    beeorm.ORM
+    ID         uint16
+    Name       string `beeorm:"required"`
+    FakeDelete bool
+}
+
+type ProductEntity struct {
+    beeorm.ORM
+    ID      uint
+    Name    string `beeorm:"required"`
+    Color   *ColorEntity `beeorm:"required"` 
+}
+```
+As you can see we created field with name `FakeDelete` (it's case-sensitive) type of bool.
+BeORM thread it as a special case and creates MySQL column `FakeDelete smallint` in `ColorEntity` table.
+Notice that type if this column is the same as type of ID column for this entity (uint16).
+
+Now every time you delete this entity using BeeORM (will be described on next pages) what actually
+happens row is updated with query:
+
+```sql
+UPDATE ColorEntity SET `FakeDelete` = `ID` WHERE `ID` = X
+```
+
+If you need to show actual available colors in your app you should search for colors
+with query similar to this:
+
+```sql
+SELECT ... FROM ColorEntity WHERE `FakeDelete` = 0
+```
+
+No worries. You don't need to remember to add `WHERE FakeDelete = 0` in all in your searches.
+BeeORM will do it for you automatically in all ORM search methods described on next pages. 
+
+Probably you are asking yourself why BeeORM uses `smallint` instead of `tinyint(1)` (bool) MySQL
+column type? This topic is related to [unique index](https://dev.mysql.com/doc/refman/8.0/en/create-index.html#create-index-unique)
+usage described on [next page](/guide/mysql_indexes.html).

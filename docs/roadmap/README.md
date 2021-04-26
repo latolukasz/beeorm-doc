@@ -1,15 +1,3 @@
----
-sidebar: auto
----
+# Roadmap
 
-# Config
-
-## foo
-
-- Type: `string`
-- Default: `/`
-
-## bar
-
-- Type: `string`
-- Default: `/`
+TODO
