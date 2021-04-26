@@ -249,13 +249,109 @@ func main() {
 ```
 
 
-## Single reference
+## One-one reference
 
-TODO
+In BeORM you can easily define one-one reference between two entities.
+All you need to do is define public field with type of referenced entity:
 
-## Multi reference
+```go{11}
+type CategoryEntity struct {
+    beeorm.ORM
+    ID     uint16
+    Name   string  `beeorm:"required"`
+}
 
-TODO
+type ProductEntity struct {
+    beeorm.ORM
+    ID       uint
+    Name     string  `beeorm:"required"`
+    Category *CategoryEntity `beeorm:"required"`
+}
+```
+
+In above example BeORM creates column `Category smallint NOT NULL`.
+If field can store `NULL` values simply don't use `beeorm:"required"` tag.
+
+BeORM creates index and [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) 
+for every defined one-one reference. 
+Foreign key has no [reference actions](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html#foreign-key-referential-actions) 
+defined. In some cases it's preferable to define foreign key with `ON DELETE CASCADE` referential action.
+BeORM provides special `beeorm:"cascade"` tag which forces ORM to use this action in foreign key:  
+
+```go{9}
+type HouseEntity struct {
+    beeorm.ORM
+    ID     uint16
+}
+
+type RoomEntity struct {
+    beeorm.ORM
+    ID    uint
+    House *HouseEntity `beeorm:"cascade"`
+}
+```
+
+Now when you delete HouseEntity also all rooms referenced to this house are deleted.
+
+## One-many reference
+
+Try to imagine we are developing e-commerce app used to sell shoes. In our app wec can define
+a shoe and list of available sizes:
+
+```go
+type ShoeEntity struct {
+    beeorm.ORM
+    ID     uint16
+    Name string `beeorm:"required"`
+}
+
+type ShoeSizeEntity struct {
+    beeorm.ORM
+    ID    uint
+    Size  uint8
+}
+```
+
+How we can connect sizes with a shoe? Well, one option is to use many-many table:
+
+```go
+type ShoeSizeEntity struct {
+    beeorm.ORM
+    ID     uint
+    Shoe   *ShoeEntity `beeorm:"required"`
+    Size   *ShoeSizeEntity `beeorm:"required"`
+}
+```
+
+Well, it works, but it's far from optimal solutions. Reasons:
+ * we need to define another table that takes disk space
+ * this extra table uses contains also three indexes (ID, Shoe, Size) that use MySQL memory
+
+So is there better way to define database model for scenario? With BeeORM yes. Simply create
+public field with type of slice of referenced entities:
+
+```go{5}
+type ShoeEntity struct {
+    beeorm.ORM
+    ID    uint16
+    Name  string `beeorm:"required"`
+    Sizes []*ShoeSizeEntity `beeorm:"required"`
+}
+```
+
+What does it do? BeORM simply creates a column `SIZES JSON NOT NULL` tha holds array with ID of
+referenced sizes, for example `[1,23,43]`. 
+
+::: tip
+Use this model only in scenarios where number of referenced object is quite small and static.
+We recommend to use one-many field if number of values (shoe sizes in our case) is not higher than
+100 elements. Otherwise, use many-many (`ShoeSizeEntity`) data model.
+  :::
+
+::: tip
+BeeORM can't create foreign keys for values stored in this array. If you are deleting
+shoe size you should also remove its ID from all related shoe entities.
+:::
 
 ## Subfields
 
@@ -291,6 +387,10 @@ You can also create struct inside struct, as many levels as you want.
 BeORM creates MySQL column for each field in struct by adding field name
 as a suffix for column name. For example `HomeAdddressCountry varchar(255)`.
 
+## JSON field
+
+TODO
+
 ## Ignored field
 
 If you have public fields in entity that should not be stored in database use
@@ -305,10 +405,6 @@ type UserEntity struct {
 ```
 
 ## Fake delete
-
-TODO
-
-## Other struct
 
 TODO
 
