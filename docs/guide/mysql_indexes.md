@@ -72,9 +72,44 @@ type PersonEntity struct {
   UNIQUE KEY `lastname` (`LastName`),
 ```
 
-## Complex index in subfields 
+## Defining index in subfields 
 
-TODO
+There is one scenario where it's not possible to define
+indexes using field tags. See below example:
+
+```go
+struct Address {
+   Country    strig
+   City       string
+   Street     string
+   Building   uint
+   PostalCode string
+}
+
+type UserEntity struct {
+    beeorm.ORM
+    ID             uint
+    HomeAdddress   Address
+    WorkAddress    Address
+}
+```
+
+What if we need these indexes:
+```sql
+KEY `homeStreet` (`HomeAdddressStreet`),
+KEY `workAddress` (`WorkAddressCity`, `WorkAddressStreet`),
+```
+
+BeeORM supports defining indexes as tag attributes for `beeorm.ORM` field:
+
+```go{2}
+type UserEntity struct {
+    beeorm.ORM     `orm:"index=homeStreet:HomeAdddressStreet|workAddress:WorkAddressCity,WorkAddressStreet"`
+    ID             uint
+    HomeAdddress   Address
+    WorkAddress    Address
+}
+```
 
 ## Removing foreign key
 
