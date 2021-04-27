@@ -42,6 +42,7 @@ module.exports = {
             'entity_fields',
             'mysql_indexes',
             'validated_registry',
+            'engine',
             'schema_update',
           ]
         }
