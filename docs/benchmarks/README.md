@@ -16,8 +16,8 @@ Cached in local in-memory cache.
 <code-block title="Results">
 ```
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
-BenchmarkLoadByIDdLocalCache-12     4088002	       294.7 ns/op	       8 B/op	       1 allocs/op
-BenchmarkLoadByIDLocalCacheLazy-12  5783040	       204.4 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLoadByIDdLocalCache-12    	 5869000	       203.3 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLoadByIDLocalCacheLazy-12   9291440	       132.9 ns/op	       8 B/op	       1 allocs/op
 ```
 </code-block>
 
