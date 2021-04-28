@@ -66,3 +66,6 @@ So you can create it in every http request (as showed above). If you
 want to avoid this extra memory and time in requests where engine is not needed
 you may change above code to create engine only when requested.
 :::
+
+Now when you know how to create engine it's time to use it and
+execute [MySQL schema update](/guide/schema_update.html).
