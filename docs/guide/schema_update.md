@@ -5,7 +5,7 @@ update database schema based on data structure in your code.
 In BeeORM this data structure are of course registered entities.
 Our ORM provides two ways to generate or update MySQL schema:
 
-## Generate all MySQL alters
+##  Updating database schema
 
 This approach is recommended one. BeeORM is comparing current MySQL
 schema in all MySQL databases used by all registered entities 
