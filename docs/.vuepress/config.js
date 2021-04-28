@@ -1,5 +1,5 @@
 module.exports = {
-  title: 'BeeORM',
+  title: 'BeeORM - golang MySQL & Redis ORM',
   description: 'Golang ORM for high traffic applications',
   head: [
     ['meta', { name: 'theme-color', content: '#D7A318' }],

@@ -1,7 +1,7 @@
 {
   "name": "beeorm",
   "version": "0.0.1",
-  "description": "Golang ORM for high traffic applications",
+  "description": "Golang ORM for high traffic applications, designed for MySQL and Redis, including Redis Search module",
   "main": "index.js",
   "authors": {
     "name": "Łukasz Lato",
