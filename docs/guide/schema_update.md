@@ -70,4 +70,32 @@ check all generated alters before executing them.
 
 ## Updating entity schema
 
-TODO
+You can also use entity `beeorm.TableSchema` object to update it's database schema:
+
+```go{2}
+tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
+alters, has := tableSchema.GetSchemaChanges(engine)
+if has {
+    for _, alter := range  {
+      alter.SQL // "CREATE TABLE `CategoryEntity` ..."
+      alter.Pool // "products"
+      alter.Safe // true
+      alter.Exec()
+    }
+}
+```
+
+If you need to execute all alters you can use short version:
+```go{2-3}
+tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
+tableSchema.UpdateSchema(engine) // executes all alters
+tableSchema.UpdateSchemaAndTruncateTable(engine) // truncates table and executes all alters
+```
+
+`beeorm.TableSchema` provides many useful methods used to manage entity table:
+
+```go
+tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
+tableSchema.DropTable(engine) // drops whole table
+tableSchema.TruncateTable(engine) // truncates table
+```
