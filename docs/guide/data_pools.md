@@ -98,10 +98,9 @@ last_searches:
 </code-block>
 </code-group>
 
-
 ::: tip
 Be sure that cache size is not too small (data is evicted very often, low hit rate) 
-or too big (cache is using lots of memory, most of data is not used anymore).
+or too big (cache is using lots of memory, most of the data is not used anymore).
 Remember you can also define many pools with different cache size to optimise evictions.
 Keep popular data in big pools and other values in small pools.
 :::
