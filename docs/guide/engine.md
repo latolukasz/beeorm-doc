@@ -34,7 +34,7 @@ and go service application.
 For instance if you are using [Gin Web Framework](https://gin-gonic.com/) you
 should use middleware to create engine for every http request:
 
-```go{20-21}
+```go{19-22}
 package main
 
 import (
