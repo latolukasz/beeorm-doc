@@ -1,6 +1,6 @@
 module.exports = {
-  title: 'BeeORM - golang MySQL & Redis ORM',
-  description: 'Golang ORM for high traffic applications',
+  title: 'BeeORM - golang ORM for MySQL,Redis and Redis Search',
+  description: 'Golang ORM for high traffic applications. Designed for MySQL, Redis and Redis Search module.',
   head: [
     ['meta', { name: 'theme-color', content: '#D7A318' }],
     ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
