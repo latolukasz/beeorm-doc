@@ -44,6 +44,7 @@ module.exports = {
             'validated_registry',
             'engine',
             'schema_update',
+            'crud',
           ]
         }
       ],
