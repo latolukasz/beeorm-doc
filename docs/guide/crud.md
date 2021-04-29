@@ -134,7 +134,7 @@ entity is flushed. In this case you can use `engine.FlushWithCheck()` method:
 <code-group>
 <code-block title="code">
 ```go{3}
-categoryCars := &CategoryEntity{ Code: "cars", Name: "Cars"}
+categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
 categoryCarsDuplicated := &CategoryEntity{ Code: "cars", Name: "Cars"}
 err := engine.FlushWithCheck(categoryCars, categoryCarsDuplicated)
 if err != nil {
@@ -164,6 +164,99 @@ INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?, ?)
 
 Any other error (for instance unavailable MySQL server) will cause panic.
 
+### On duplicate key update
+
+MySQL has amazing feature [INSERT ON DUPLICATE KEY](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)
+that is fully supported in BeeORM. In above example we got `*beeorm.DuplicatedKeyError` 
+because we are trying to store two `CategoryEntity` with the same code. Use `SetOnDuplicateKeyUpdate()` method
+to define correct duplicate key statement:
+
+<code-group>
+<code-block title="code">
+```go{3}
+ // let's assume we have category in database with `Code` = cars and `ID` = 10:
+category := &CategoryEntity{Code: "cars", Name: "Cars V2"}
+category.SetOnDuplicateKeyUpdate(beeorm.Bind{"Name": "Cars V3"})
+engine.Flush(categoryCars) // no panic
+category.ID // 10
+category.Name // "Cars V3"
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `Name` = ?
+```
+</code-block>
+</code-group>
+
+As you can see `Flush()` run correct query and set `ID` to 10. Is some cases you don't need to
+update any field if inserted entity has duplicated key. In this case simply provide nil as bind:
+
+<code-group>
+<code-block title="code">
+```go{3}
+ // let's assume we have category in database with `Code` = cars and `ID` = 10:
+category := &CategoryEntity{Code: "cars", Name: "Cars"}
+category.SetOnDuplicateKeyUpdate(nil)
+engine.Flush(categoryCars) // no panic
+category.ID // 10
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `ID` = `ID`
+```
+</code-block>
+</code-group>
+
 ## Entity state
+
+Entity provides getters methods that helps you understand what is the current
+state of entity. We will describe them one by one.
+
+### Dirty state
+
+Entity is called dirty if has changes that needs to applied in MySQL table:
+ * new entity that needs to be inserted to MySQL table
+ * entity that needs to be deleted
+ * entity that needs to be edited in MySQL table because at least one column value is
+different
+   
+You can check dirty state using `IsDirty()` method. Another method `GetDirtyBind()` 
+returns additional map with fields that needs to inserted/updated:
+
+```go{2-3}
+category := &CategoryEntity{Code: "cars", Name: "Cars"}
+category.IsDirty() // true, entity needs to be inserted in MySQL table
+bind, isDirty := category.GetDirtyBind() // isDirty = true
+fmt.Printf("%v", bind) // {"Code: "cars", "Name": "Cars"}
+
+engine.Flush(category)
+
+category.IsDirty() // false
+category.Code = "vehicles"
+category.IsDirty() // true
+bind, isDirty := category.GetDirtyBind() // isDirty = true
+fmt.Printf("%v", bind) // {"Code: "vehicles"}
+category.Code = "cars" // setting back to oryginal value
+bind, isDirty := category.GetDirtyBind() // isDirty = false
+```
+
+You can flush entities that are not dirty, but BeeORM is simply skip these
+entities and no queries are sent to MySQL. Knowing that you can run `Flush()` 
+methods as many times you want and BeeORM will update database and cache only
+when it's needed:
+
+```go
+// we don't know what is changed in category inside `DoSmthWithCactegory` method: 
+some_package.DoSmthWithCactegory(category)
+// but we ask BeeORM to save changes if any:
+engine.Flush(category)
+```
+
+
+### Loaded state
 
 TODO
