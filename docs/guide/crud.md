@@ -296,15 +296,15 @@ found := engine.Load(product) // true
 
 <code-block title="queries hit">
 ```sql
-[HIT] REDIS GET cacheKeyForCategory1
+[HIT] REDIS GET cacheKeyForProduct1
 ```
 </code-block>
 
 <code-block title="queries miss">
 ```sql
-[MISS] REDIS GET cacheKeyForCategory1
-SELECT `ID`, `Name`, `Category` FROM `Category` WHERE `ID` = 1 
-REDIS SET cacheKeyForCategory1 "entity data"
+[MISS] REDIS GET cacheKeyForProduct1
+SELECT `ID`, `Name`, `Category` FROM `Products` WHERE `ID` = 1 
+REDIS SET cacheKeyForProduct1 "entity data"
 ```
 </code-block>
 </code-group>
@@ -321,22 +321,59 @@ found := engine.LoadByID(1, product) // true
 
 <code-block title="queries hit">
 ```sql
-[HIT] REDIS GET cacheKeyForCategory1
+[HIT] REDIS GET cacheKeyForProduct1
 ```
 </code-block>
 
 <code-block title="queries miss">
 ```sql
-[MISS] REDIS GET cacheKeyForCategory1
-SELECT `ID`, `Name`, `Category` FROM `Category` WHERE `ID` = 1 
-REDIS SET cacheKeyForCategory1 "entity data"
+[MISS] REDIS GET cacheKeyForProduct1
+SELECT `ID`, `Name`, `Category` FROM `Products` WHERE `ID` = 1 
+REDIS SET cacheKeyForProduct1 "entity data"
 ```
 </code-block>
 </code-group>
 
 In case you need to load more than one entity use `engine.LoadByIDs()`:
 
-TODO
+<code-group>
+<code-block title="code">
+```go{2}
+var products []*ProductEntity{}
+missing := engine.LoadByIDs([]uint64{1, 2}, &products)
+len(products) == 2
+products[0].ID // 1
+products[1].ID // 2
+```
+</code-block>
+
+<code-block title="queries hit">
+```sql
+[HIT,HIT] REDIS MGET cacheKeyForProducts1 cacheKeyForProducts2
+```
+</code-block>
+
+<code-block title="queries miss">
+```sql
+[MISS,MISS] REDIS MGET cacheKeyForProducts1 cacheKeyForProducts2
+SELECT `ID`, `Name`, `Category` FROM `Products` WHERE `ID` IN (1, 2) 
+REDIS MSET cacheKeyForProducts1 "entity1 data" cacheKeyForProducts2 "entity2 data"
+```
+</code-block>
+</code-group>
+
+This method returns false if at least one entity is not found in database and 
+value in slice for this entity is `nil`:
+
+```go
+// we have only product in table with ID 1 and 2
+var products []*ProductEntity{}
+missing := engine.LoadByIDs([]uint64{1, 2, 3}, &products) // missing = true
+len(products) == 3
+products[0].ID // 1
+products[1].ID // 2
+products[2] == nil // true
+```
 
 ### Loaded state
 
