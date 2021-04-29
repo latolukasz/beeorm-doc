@@ -283,6 +283,59 @@ engine.Flush(category)
 
 ## Loading entities
 
+There are many ways to load entities from database when we know primary key.
+You can use `engine.Load()` method:
+
+<code-group>
+<code-block title="code">
+```go{2}
+product := &ProductEntity{ID: 1} // provide ID
+found := engine.Load(product) // true
+```
+</code-block>
+
+<code-block title="queries hit">
+```sql
+[HIT] REDIS GET cacheKeyForCategory1
+```
+</code-block>
+
+<code-block title="queries miss">
+```sql
+[MISS] REDIS GET cacheKeyForCategory1
+SELECT `ID`, `Name`, `Category` FROM `Category` WHERE `ID` = 1 
+REDIS SET cacheKeyForCategory1 "entity data"
+```
+</code-block>
+</code-group>
+
+Another way is to use `engine.LoadByID()`:
+
+<code-group>
+<code-block title="code">
+```go{2}
+product := &ProductEntity{}
+found := engine.LoadByID(1, product) // true
+```
+</code-block>
+
+<code-block title="queries hit">
+```sql
+[HIT] REDIS GET cacheKeyForCategory1
+```
+</code-block>
+
+<code-block title="queries miss">
+```sql
+[MISS] REDIS GET cacheKeyForCategory1
+SELECT `ID`, `Name`, `Category` FROM `Category` WHERE `ID` = 1 
+REDIS SET cacheKeyForCategory1 "entity data"
+```
+</code-block>
+</code-group>
+
+In case you need to load more than one entity use `engine.LoadByIDs()`:
+
 TODO
 
 ### Loaded state

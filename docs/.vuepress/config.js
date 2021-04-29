@@ -56,6 +56,12 @@ module.exports = {
     [
       'vuepress-plugin-sitemap',
       {hostname: 'https://beeorm.io'}
+    ],
+    [
+      '@vuepress/google-analytics',
+      {
+        'ga': 'G-V5FRTRF6GC'
+      }
     ]
   ]
 }
