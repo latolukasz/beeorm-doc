@@ -38,7 +38,7 @@ func main() {
 }  
 ```
 
-## Saving new entity
+## Saving new entities
 
 There are many ways to store entity new database.
 The Simplest way is to use `engine.Flush()` method:
@@ -211,12 +211,37 @@ INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDAT
 </code-block>
 </code-group>
 
-## Entity state
+### Flushing references
 
-Entity provides getters methods that helps you understand what is the current
-state of entity. We will describe them one by one.
+BeeORM automatically flush all new entities (entity with ID equal to 0) assigned in flushed
+entity as reference. Look at this example:
 
-### Dirty state
+<code-group>
+<code-block title="code">
+```go
+categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
+categoryDogs := &CategoryEntity{Code: "dogs", Name: "Dogs"}
+bwm1 := &ProductEntity{Name: "BMW 1", Category: categoryCars}
+fordFocus := &ProductEntity{Name: "Ford focus", Category: categoryCars}
+cockeSpaniel := &ProductEntity{Name: "Cocker spaniel", Category: categoryDogs}
+engine.Flush(bwm1, fordFocus) // we are flushing only products
+bwm1.Category.ID // 1
+fordFocus.Category.ID // 1
+cockeSpaniel.Category.ID // 2
+categoryCars.ID // 1
+categoryDogs.ID // 2
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?,?)
+INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, ?)(?,?)
+```
+</code-block>
+</code-group>
+
+## Dirty state
 
 Entity is called dirty if has changes that needs to applied in MySQL table:
  * new entity that needs to be inserted to MySQL table
@@ -256,7 +281,22 @@ some_package.DoSmthWithCactegory(category)
 engine.Flush(category)
 ```
 
+## Loading entities
+
+TODO
 
 ### Loaded state
+
+TODO
+
+## Updating entities
+
+TODO
+
+## Deleting entities
+
+TODO
+
+## Flusher
 
 TODO
