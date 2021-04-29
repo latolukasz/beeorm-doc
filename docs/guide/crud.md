@@ -341,7 +341,7 @@ In case you need to load more than one entity use `engine.LoadByIDs()`:
 ```go{2}
 var products []*ProductEntity{}
 missing := engine.LoadByIDs([]uint64{1, 2}, &products)
-len(products) == 2
+len(products) == 2 // true
 products[0].ID // 1
 products[1].ID // 2
 ```
@@ -369,7 +369,7 @@ value in slice for this entity is `nil`:
 // we have only product in table with ID 1 and 2
 var products []*ProductEntity{}
 missing := engine.LoadByIDs([]uint64{1, 2, 3}, &products) // missing = true
-len(products) == 3
+len(products) == 3 // true
 products[0].ID // 1
 products[1].ID // 2
 products[2] == nil // true
