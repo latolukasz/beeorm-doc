@@ -241,6 +241,24 @@ INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, ?)(?,?)
 </code-block>
 </code-group>
 
+Sometimes you need to define referenced entity, and you know only it's `ID` value.
+You can assign it as a new entity that has field `ID` set to correct value:
+
+<code-group>
+<code-block title="code">
+```go{1}
+product := &ProductEntity{Name: "Ford focus", Category: &CategoryEntity{ID: 7}}
+engine.Flush()
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, 7)
+```
+</code-block>
+</code-group>
+
 ## Dirty state
 
 Entity is called dirty if has changes that needs to applied in MySQL table:
@@ -383,7 +401,7 @@ every time new entity is flushed (saved) or loaded from database. You can use
 `entity.IsLoaded()` method to determinate if entity has this data and ca track 
 changes or not:
 
-```go{2}
+```go{2,4,7,9,12,14}
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
 category.IsLoaded() // false, entity needs to be inserted in MySQL table
 engine.FLush(category)
@@ -400,9 +418,20 @@ produt.Load(produt2)
 produt2.IsLoaded() // true
 ```
 
-TODO references 
+`entity.IsLoaded()` and `entity.Load()` are very useful when you
+need to work with references:
 
+```go{3-5}
+produt := &ProductEntity{}
+engine.LoadByID(1, produt)
+produt.Category.Loaded() // false
+engine.Load(produt.Category)
+produt.Category.Loaded() // true
+```
 
+## Loading references
+
+TODO
 
 ## Updating entities
 
