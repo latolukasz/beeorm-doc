@@ -18,18 +18,32 @@ type CategoryEntity struct {
 	Name string `beeorm:"required;length=100"`
 }
 
-type ProductEntity struct {
+type ImageEntity struct {
+	beeorm.ORM `beeorm:"redisCache"`
+	ID   uint
+	Url string `beeorm:"required"`
+}
+
+type BrandEntity struct {
 	beeorm.ORM `beeorm:"redisCache"`
 	ID   uint
 	Name string `beeorm:"required;length=100"`
+	Logo *ImageEntity
+}
+
+type ProductEntity struct {
+	beeorm.ORM `beeorm:"redisCache"`
+	ID       uint
+	Name     string `beeorm:"required;length=100"`
 	Category *CategoryEntity `beeorm:"required"`
+	Brand    *BrandEntity
 }
 
 func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db") 
     registry.RegisterRedis("localhost:6379", 0)
-    registry.RegisterEntity(&CategoryEntity{}, &ProductEntity{}) 
+    registry.RegisterEntity(&CategoryEntity{}, &BrandEntity{}, &ImageEntity{}, &ProductEntity{}) 
     validatedRegistry, err := registry.Validate()
     if err != nil {
         panic(err)
