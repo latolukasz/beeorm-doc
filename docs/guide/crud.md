@@ -445,7 +445,59 @@ produt.Category.Loaded() // true
 
 ## Loading references
 
-TODO
+Very often when you are loading entity you need also data from
+connected referenced entities. For example on product page you need
+to display product title, it's category, brand and brand logo.
+You can do it this way:
+
+<code-group>
+<code-block title="code">
+```go
+product := &ProductEntity{}
+engine.LoadByID(1, product)
+product.Name // "Ford focus"
+product.Category.ID // 1
+product.Brand.ID // 1
+product.Category.Name // "" because entity data is not Loaded
+product.Brand.Name // "" because entity data is not Loaded
+product.Brand.Logo // nil because entity data is not Loaded
+engine.Load(product.Category)
+engine.Load(product.Brand)
+product.Category.Name // "Cars"
+product.Brand.Name // "Ford"
+product.Brand.Logo.ID // 1
+product.Brand.Logo.Name // "" because entity data is not Loaded
+engine.Load(product.Brand.Logo)
+product.Brand.Logo.Url // "/images/ford.png"
+```
+</code-block>
+
+<code-block title="queries hit">
+```sql
+[HIT] REDIS GET cacheKeyForProduct1
+[HIT] REDIS GET cacheKeyForCategory1
+[HIT] REDIS GET cacheKeyForBrand1
+[HIT] REDIS GET cacheKeyForImage1
+```
+</code-block>
+
+<code-block title="queries miss">
+```sql
+[MISS] REDIS GET cacheKeyForProduct1
+SELECT `ID`, `Name`, `Category`, `Brand` FROM `ProductEntity` WHERE `ID`= 1 
+REDIS SET cacheKeyForProduct1 "entity data"
+[MISS] REDIS GET cacheKeyForCategory1
+SELECT `ID`, `Name` FROM `CategoryEntity` WHERE `ID`= 1 
+REDIS SET cacheKeyForCategory1 "entity data"
+[MISS] REDIS GET cacheKeyForBrand1
+SELECT `ID`, `Name` FROM `BrandEntity` WHERE `ID`= 1 
+REDIS SET cacheKeyForBrand1 "entity data"
+[MISS] REDIS GET cacheKeyForImage1
+SELECT `ID`, `Url` FROM `ImageEntity` WHERE `ID`= 1 
+REDIS SET cacheKeyForImage1 "entity data"
+```
+</code-block>
+</code-group>
 
 ## Updating entities
 
