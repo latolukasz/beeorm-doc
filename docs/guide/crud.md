@@ -499,6 +499,86 @@ REDIS SET cacheKeyForImage1 "entity data"
 </code-block>
 </code-group>
 
+What if we can make this code much simpler and faster?
+Every method used to load entities like `Load()`, `LoadByID`, `LoadByIDs` accepts
+optional parameters `references` than can be used to inform BeeORM that specific 
+references should be loaded together with entity:
+
+<code-group>
+<code-block title="code">
+```go{2}
+product := &ProductEntity{}
+engine.LoadByID(1, product, "Category", "Brand/Logo")
+product.Name // "Ford focus"
+product.Category.Name // "Cars"
+product.Brand.Name // "Ford"
+product.Brand.Logo.Url // "/images/ford.png"
+```
+</code-block>
+
+<code-block title="queries hit">
+```sql
+[HIT] REDIS GET cacheKeyForProduct1
+[HIT] REDIS MGET cacheKeyForCategory1 cacheKeyForBrand1
+[HIT] REDIS GET cacheKeyForImage1
+```
+</code-block>
+
+<code-block title="queries miss">
+```sql
+[MISS] REDIS GET cacheKeyForProduct1
+SELECT `ID`, `Name`, `Category`, `Brand` FROM `ProductEntity` WHERE `ID`= 1 
+REDIS SET cacheKeyForProduct1 "entity data"
+[MISS] REDIS MGET cacheKeyForCategory1 cacheKeyForBrand1
+SELECT `ID`, `Name` FROM `CategoryEntity` WHERE `ID`= 1 
+SELECT `ID`, `Name` FROM `BrandEntity` WHERE `ID`= 1 
+REDIS MSET cacheKeyForCategory1 "entity data" cacheKeyForBrand1 "entity data"
+[MISS] REDIS GET cacheKeyForImage1
+SELECT `ID`, `Url` FROM `ImageEntity` WHERE `ID`= 1 
+REDIS SET cacheKeyForImage1 "entity data"
+```
+</code-block>
+</code-group>
+
+As you can see above code is not even mush simpler but also produces fewer
+requests to MySQL and Redis. Look how queries are generated when you use this feature
+to load many entities at once:
+
+<code-group>
+<code-block title="code">
+```go{2}
+var products []*ProductEntity{}
+engine.LoadByIDs(uint64{1, 2, 3}, &products, "Category", "Brand/Logo")
+```
+</code-block>
+
+<code-block title="queries hit">
+```sql
+[HIT] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct2 cacheKeyForProduct3
+[HIT] REDIS MGET cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory3 cacheKeyForBrand1 cacheKeyForBrand2 cacheKeyForBrand3
+[HIT] REDIS MGET cacheKeyForImage1 cacheKeyForImage2 cacheKeyForImage3
+```
+</code-block>
+
+
+<code-block title="queries miss">
+```sql
+[MISS] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct2 cacheKeyForProduct3
+SELECT `ID`, `Name`, `Category`, `Brand` FROM `ProductEntity` WHERE `ID` IN (1, 2, 3) 
+REDIS MSET cacheKeyForProduct1 "entity data" cacheKeyForProduct2 "entity data" cacheKeyForProduct3 "entity data"
+[MISS] REDIS MGET cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory4 cacheKeyForBrand1 cacheKeyForBrand2 cacheKeyForBrand3
+SELECT `ID`, `Name` FROM `CategoryEntity` WHERE `ID` IN (1, 2, 3) 
+SELECT `ID`, `Name` FROM `BrandEntity` WHERE `ID` IN (1, 2, 3) 
+REDIS MSET cacheKeyForCategory1 "entity data" cacheKeyForCategory2 "entity data" cacheKeyForCategory3 "entity data" cacheKeyForBrand1 "entity data" cacheKeyForBrand2 "entity data" cacheKeyForBrand3 "entity data"
+[MISS] REDIS MGET cacheKeyForImage1 cacheKeyForImage2 cacheKeyForImage3
+SELECT `ID`, `Url` FROM `ImageEntity` WHERE `ID` IN (1, 2, 3) 
+REDIS MSET cacheKeyForImage1 "entity data" cacheKeyForImage2 "entity data" cacheKeyForImage3 "entity data"
+```
+</code-block>
+</code-group>
+
+This code produces only three queries to redis. Pretty cool right?
+
 ## Updating entities
 
 TODO
