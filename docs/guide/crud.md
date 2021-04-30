@@ -377,7 +377,32 @@ products[2] == nil // true
 
 ### Loaded state
 
-TODO
+Every entity store internally data that is stored MySQL table. Thanks to that
+BeeORM knows when entity is dirty and needs to be flushed. This data is stored 
+every time new entity is flushed (saved) or loaded from database. You can use
+`entity.IsLoaded()` method to determinate if entity has this data and ca track 
+changes or not:
+
+```go{2}
+category := &CategoryEntity{Code: "cars", Name: "Cars"}
+category.IsLoaded() // false, entity needs to be inserted in MySQL table
+engine.FLush(category)
+category.IsLoaded() // true, entity data is saved in database
+
+produt := &ProductEntity{}
+produt.IsLoaded() // false
+engine.LoadByID(1, produt)
+produt.IsLoaded() // true, entity data is loaded from database
+
+produt2 := &ProductEntity{ID: 2}
+produt2.IsLoaded() // false
+produt.Load(produt2)
+produt2.IsLoaded() // true
+```
+
+TODO references 
+
+
 
 ## Updating entities
 
