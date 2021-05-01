@@ -581,7 +581,50 @@ This code produces only three queries to redis. Pretty cool right?
 
 ## Updating entities
 
-TODO
+Updating entity is very easy. All you need to do is to run `entity.Flush()` method 
+on loaded entity:
+
+<code-group>
+<code-block title="code">
+```go{4}
+product := &ProductEntity{}
+engine.LoadByID(1, product)
+product.Name = "New name"
+engine.Flush(product)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+[HIT] REDIS GET cacheKeyForProduct1
+UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
+REDIS DELETE cacheKeyForProduct1
+```
+</code-block>
+</code-group>
+
+If you need to update more than one entity use `entity.FlushMany()`:
+
+<code-group>
+<code-block title="code">
+```go{4}
+var products []*ProductEntity
+engine.LoadByIDs(int64{1, 2}, &products)
+products[0].Name = "New name"
+products[1].Name = "Another name"
+engine.FlushMany(products...)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+[HIT] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct2
+UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
+UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 2
+REDIS DELETE cacheKeyForProduct1 cacheKeyForProduct2
+```
+</code-block>
+</code-group>
 
 ## Deleting entities
 
