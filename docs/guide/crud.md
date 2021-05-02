@@ -12,10 +12,11 @@ package main
 import "github.com/latolukasz/beeorm"
 
 type CategoryEntity struct {
-	beeorm.ORM `beeorm:"redisCache"`
-	ID   uint
-	Code string `beeorm:"required;length=10;unique=code"`
-	Name string `beeorm:"required;length=100"`
+	beeorm.ORM  `beeorm:"redisCache"`
+	ID          uint
+	Code        string `beeorm:"required;length=10;unique=code"`
+	Name        string `beeorm:"required;length=100"`
+	FakeDelete  bool
 }
 
 type ImageEntity struct {
@@ -607,28 +608,113 @@ If you need to update more than one entity use `entity.FlushMany()`:
 
 <code-group>
 <code-block title="code">
-```go{4}
+```go{8}
 var products []*ProductEntity
 engine.LoadByIDs(int64{1, 2}, &products)
+category := &CategoryEntity{}
+engine.LoadByID(1, &category)
 products[0].Name = "New name"
 products[1].Name = "Another name"
-engine.FlushMany(products...)
+category.Name = "New name"
+engine.FlushMany(category, products[0], products[1])
 ```
 </code-block>
 
 <code-block title="queries">
 ```sql
-[HIT] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct2
+[HIT] REDIS MGET cacheKeyForCategory1 cacheKeyForProduct1 cacheKeyForProduct2
+UPDATE `CategoryEntity` SET `Name` = ? WHERE `ID` = 1
 UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
 UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 2
-REDIS DELETE cacheKeyForProduct1 cacheKeyForProduct2
+REDIS DELETE cacheKeyForCategory1 cacheKeyForProduct1 cacheKeyForProduct2
 ```
 </code-block>
 </code-group>
 
 ## Deleting entities
 
-TODO
+Entity is deleted from MySQL table with `engine.Delete()` method:
+
+<code-group>
+<code-block title="code">
+```go{3}
+product := &ProductEntity{}
+engine.LoadByID(1, product)
+engine.Delete(product)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+[HIT] REDIS GET cacheKeyForProduct1
+DELETE FROM `ProductEntity` WHERE `ID` = 1
+REDIS SET cacheKeyForProduct1 "nil"
+```
+</code-block>
+</code-group>
+
+Use `engine.DeleteMany()` to delete many entities at once:
+
+<code-group>
+<code-block title="code">
+```go{3}
+var products []*ProductEntity
+engine.LoadByIDs(int64{1, 2}, &products)
+engine.DeleteMany(products...)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+[HIT] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct1
+DELETE FROM `ProductEntity` WHERE `ID` IN (1, 2)
+REDIS MSET cacheKeyForProduct1 "nil" cacheKeyForProduct2 "nil"
+```
+</code-block>
+</code-group>
+
+If entity has  [FakeDelete field](/guide/entity_fields.html#fake-delete)
+then above methods works differently. Instead of deleting rows from table special update 
+query is executed:
+
+<code-group>
+<code-block title="code">
+```go{3}
+category := &CategoryEntity{}
+engine.LoadByID(3, category)
+engine.Delete(category)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+[HIT] REDIS GET cacheKeyForCategory3
+UPDATE `CategoryEntity` SET `FakeDelete` = 3 WHERE `ID` = 3
+REDIS DELETE cacheKeyForCategory3
+```
+</code-block>
+</code-group>
+
+To force entity that has `FakeDelete` field to be deleted from MySQL table
+use `engine.ForceDelete` or `engine.ForceDeleteMany`:
+
+<code-group>
+<code-block title="code">
+```go{3}
+category := &CategoryEntity{}
+engine.LoadByID(3, category)
+engine.ForceDelete(category)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+[HIT] REDIS GET cacheKeyForCategory3
+DELETE FROM `CategoryEntity` WHERE `ID` = 3
+REDIS SET cacheKeyForCategory3 "nil"
+```
+</code-block>
+</code-group>
 
 ## Flusher
 
