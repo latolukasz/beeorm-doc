@@ -45,6 +45,7 @@ module.exports = {
             'engine',
             'schema_update',
             'crud',
+            'async_consumer',
           ]
         }
       ],

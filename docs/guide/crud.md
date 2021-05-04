@@ -843,3 +843,17 @@ REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cac
 </code-block>
 </code-group>
 
+Flushing entities in `beeorm.Flusher` doesn't remove entities and all of them are
+still tracked for new changes. To un-track all entities use `flusher.Clear()` method:
+
+```go{7}
+category := &CategoryEntity{Name: "New category"}
+flusher := engine.NewFlusher()
+flusher.Track(category)
+flusher.Flush() // insert category into MySQL table
+category.Name = "New name"
+flusher.Flush() // updates category in MySQL table
+flusher.Clear()
+category.Name = "Another name"
+flusher.Flush() // does nothing, category is not tracked
+```
