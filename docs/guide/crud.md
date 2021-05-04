@@ -67,8 +67,9 @@ engine.Flush(category)
 </code-block>
 
 <code-block title="sql">
-```sql
+```queries
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
+REDIS DELETE CacheForCategory1
 ```
 </code-block>
 </code-group>
@@ -86,9 +87,10 @@ engine.FlushMany(categoryCars, categoryBikes, product)
 </code-block>
 
 <code-block title="sql">
-```sql
+```queries
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?, ?)
 INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, ?)
+REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1
 ```
 </code-block>
 </code-group>
@@ -129,8 +131,9 @@ categoryCars.ID // 10
 </code-block>
 
 <code-block title="sql">
-```sql
+```queries
 INSERT INTO `CategoryEntity`(`ID`, `Code`, `Name`) VALUES(10, ?, ?)
+REDIS DELETE CacheForCategory10
 ```
 </code-block>
 </code-group>
@@ -167,8 +170,9 @@ if err != nil {
 </code-block>
 
 <code-block title="sql">
-```sql
+```queries
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?, ?)
+REDIS DELETE CacheForCategory1, CacheForCategory2
 ```
 </code-block>
 </code-group>
@@ -198,9 +202,10 @@ category.Name // "Cars V3"
 ```
 </code-block>
 
-<code-block title="sql">
+<code-block title="queries">
 ```sql
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `Name` = ?
+REDIS DELETE CacheForCategory10
 ```
 </code-block>
 </code-group>
@@ -220,8 +225,9 @@ category.ID // 10
 </code-block>
 
 <code-block title="sql">
-```sql
+```queries
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `ID` = `ID`
+REDIS DELETE CacheForCategory10
 ```
 </code-block>
 </code-group>
@@ -249,9 +255,10 @@ categoryDogs.ID // 2
 </code-block>
 
 <code-block title="sql">
-```sql
+```queries
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?,?)
 INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, ?)(?,?)
+REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1, CacheForProduct2
 ```
 </code-block>
 </code-group>
@@ -268,8 +275,9 @@ engine.Flush()
 </code-block>
 
 <code-block title="sql">
-```sql
+```queries
 INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, 7)
+REDIS DELETE CacheForProduct1
 ```
 </code-block>
 </code-group>
@@ -718,4 +726,120 @@ REDIS SET cacheKeyForCategory3 "nil"
 
 ## Flusher
 
-TODO
+BeeORM provides special object `beeorm.Flusher` that is very useful when
+you need to add, update and delete many entities at the same time. This object
+allows you to "track" entities and provides flush methods that update all tracked 
+dirty entities at once:
+
+<code-group>
+<code-block title="code">
+```go{1,5,9,12,15}
+flusher := engine.NewFlusher()
+
+category := &CategoryEntity{Name: "New category"}
+brand := &BrandEntity{Name: "New brand"}
+flusher.Track(category, brand)
+product := &ProductEntity{}
+engine.LoadByID(1, product)
+product.Name = "New Name"
+flusher.Track(product)
+categoryToDelete := &CategoryEntity{}
+engine.LoadByID(10, categoryToDelete)
+flusher.Delete(categoryToDelete)
+categoryToDeleteFromTable := &CategoryEntity{}
+engine.LoadByID(11, categoryToDelete)
+flusher.ForceDelete(categoryToDeleteFromTable)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+[HIT] REDIS GET cacheKeyForProduct1
+[HIT] REDIS GET cacheKeyForCategory10
+[HIT] REDIS GET cacheKeyForCategory11
+```
+</code-block>
+</code-group>
+
+Great, we are tracing all entities, now it's time to execute
+updates in database:
+
+<code-group>
+<code-block title="code">
+```go
+flusher.Flush()
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
+INSERT INTO `BrandEntity`(`Code`, `Name`) VALUES(?, ?)
+UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
+UPDATE `CategoryEntity` SET `FakeDelete` = 10 WHERE `ID` = 10
+DELETE FROM `CategoryEntity` WHERE `ID` = 11
+REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cacheKeyForCategory12 cacheKeyForProduct1
+```
+</code-block>
+</code-group>
+
+Flusher also provides methods that flush that return error: 
+
+```go
+// returns *beeorm.DuplicatedKeyError or *beeorm.ForeignKeyError
+err := flusher.FlushWithCheck()
+```
+
+```go
+// returns error instead of panicing 
+err := flusher.FlushWithFullCheck()
+```
+
+You can use `beeorm.Flusher` to execute all MySQL queries in one transaction.
+BeeORM automatically run MySQL `ROLLBACK` query before panic():
+
+<code-group>
+<code-block title="code">
+```go
+flusher.FlushInTransaction()
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+START TRANSACTION
+INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
+INSERT INTO `BrandEntity`(`Code`, `Name`) VALUES(?, ?)
+UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
+UPDATE `CategoryEntity` SET `FakeDelete` = 10 WHERE `ID` = 10
+DELETE FROM `CategoryEntity` WHERE `ID` = 11
+COMMIT
+REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cacheKeyForCategory12 cacheKeyForProduct1
+```
+</code-block>
+</code-group>
+
+In case you expect `*beeorm.DuplicatedKeyError` or `*beeorm.ForeignKeyError` error use
+`flusher.FlushInTransactionWithCheck()` method:
+
+<code-group>
+<code-block title="code">
+```go
+flusher.FlushInTransactionWithCheck()
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+START TRANSACTION
+INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
+INSERT INTO `BrandEntity`(`Code`, `Name`) VALUES(?, ?)
+UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
+UPDATE `CategoryEntity` SET `FakeDelete` = 10 WHERE `ID` = 10
+DELETE FROM `CategoryEntity` WHERE `ID` = 11
+COMMIT
+REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cacheKeyForCategory12 cacheKeyForProduct1
+```
+</code-block>
+</code-group>
+
