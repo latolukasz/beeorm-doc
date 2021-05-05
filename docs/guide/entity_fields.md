@@ -195,7 +195,7 @@ package main
 
 import "github.com/latolukasz/beeorm"
 
-var Colors = &struct{
+var Colors = struct{
 	Red    string
 	Blue   string
 	Yellow string
