@@ -11,7 +11,7 @@ import "github.com/latolukasz/beeorm"
 
 func main() {
    registry := beeorm.NewRegistry()
-   registry.RegisterEnum("colors", "red", "blue", "yellow")
+   // ... register services in registry
    validatedRegistry, err := registry.Validate()
     if err != nil {
         panic(err)
@@ -23,12 +23,11 @@ func main() {
 
 ```
 
-::: tip
-In above example `context.Background()` is used. In production 
-environment you should consider using 
-`context.WithCancel(context.Background())` together with `os.Signal` to be sure
-that `beeorm.BackgroundConsumer` is closed gracefully.
-:::
+This script uses another BeeORM feature called `Event Consumer`. 
+You will learn more about on [next pages](/TODO). `Event Consumer` intefrace
+provides you many useful methods that you can use to configure `Background Consumer`:
 
-Background consumer
-TODO describe methods from consumers
+ * [DisableLoop()](/TODO)
+ * [SetLimit()](/TODO)
+ * [SetHeartBeat()](/TODO)
+ * [SetErrorHandler()](/TODO)

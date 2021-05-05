@@ -46,6 +46,7 @@ module.exports = {
             'schema_update',
             'crud',
             'background_consumer',
+            'lazy_crud',
           ]
         }
       ],
