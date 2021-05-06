@@ -133,11 +133,31 @@ implement your application data model.
 
 ## Redis client
 
-TODO
+BeeORM provides its own redis client. You don't need to use any other client library like
+[go-redis](https://github.com/go-redis/redis). Our client supports all redis commands plus extend
+it with some additional features like shared lock and rate limiter.
 
-## Message broker
+```go
+value, has := beeORMEngine.GetRedis().Get("key")
+```
 
-TODO
+## Events streaming
+
+Building modern high-traffic application very often requires 
+implementation of event streaming systems. It helps developer to distribute (as events) 
+data between services in asynchronous and scalable way. There are many 
+solutions available such us [Apache Kafka](https://kafka.apache.org/) or 
+[RabbitMQ](https://www.rabbitmq.com/). Do you remember our golden rule 
+"don't be average in many technologies, be expert in few"? There is no need to add
+additional complexity to your infrastructure. We are using Redis as a key-value database.
+Redis provides also amazing feature [streams](https://redis.io/topics/streams-intro) that
+can be used to build blast fast event streaming system. Thanks to BeeORM it's very easy:
+
+```go
+broker := beeORMEngine.GetEventBroker()
+broker.Publish("stream-name", event)
+broker.Consumer("my-consumer", "my-group").Consume(...)
+```
 
 ## Full text search
 
