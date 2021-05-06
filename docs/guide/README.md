@@ -148,7 +148,7 @@ implementation of event streaming systems. It helps developer to distribute (as 
 data between services in asynchronous and scalable way. There are many 
 solutions available such us [Apache Kafka](https://kafka.apache.org/) or 
 [RabbitMQ](https://www.rabbitmq.com/). Do you remember our golden rule 
-"don't be average in many technologies, be expert in few"? There is no need to add
+*"don't be average in many technologies, be expert in few"*? There is no need to add
 additional complexity to your infrastructure. We are using Redis as a key-value database.
 Redis provides also amazing feature [streams](https://redis.io/topics/streams-intro) that
 can be used to build blast fast event streaming system. Thanks to BeeORM it's very easy:
@@ -159,6 +159,47 @@ broker.Publish("stream-name", event)
 broker.Consumer("my-consumer", "my-group").Consume(...)
 ```
 
-## Full text search
+## Full text and advanced search
 
-TODO
+In many applications you also need to implement full text search.
+Natural choice is probably [Elastic search](https://www.elastic.co/). 
+It's adding of course extra complexity to your code and infrastructure.
+You need to set up and monitor Elastic Search cluster, define indexes 
+and create a code that with every data change updates data in ES index. 
+Also there is a short delay between data is changed in database and ES index 
+that you should handle in your code. 
+
+Probably you need to search for data using simple and complex conditions without
+full-text support. For example, you want to find 100 users with status "active" 
+added in last one hour sorted by registration date. You don't need full-text search here
+but a query to database `WHERE status = ? AND created_at >= ? ORDER BY LIMIT 100`.
+Using MySQL queries to get data is a bad idea. It's fast if you use MySQL indexes, 
+but you may have many WHERE conditions, so you will need to create many 
+indexes n MySQL table that takes memory and slow down inserts and updates. In high-traffic
+applications such queries are very often first bottleneck. Of course yon still
+use Elastic Search to query for this data. You can also cache queries in Redis.
+Both solutions are very difficult to implement. You need to build special ES indexes and keep
+them up to date. You also need to update cache in Redis when data changed and believe us, it's
+extremely difficult to calculate which keys in Redis should be removed.
+
+Lucky you, BeeORM hides this complexity from you. Thanks to amazing 
+[Redis Search module](https://github.com/RediSearch/RediSearch) you can implement 
+full-text and advanced search very easy. It provides top-edge performance, protects MySQL
+from queries and simplify your code:
+
+```go
+user := &User{CreatedAt: time.Now(), Status: "active}
+beeORMEngine.Flush()
+
+query := beeORMEngine.NewRedisSearchQuery()
+query.FilterTag("Status", "active")
+query.FilterDateGreaterEqual("CreatedAt", time.Now().Sub(time.Hour))
+query.Sort("CreatedAt", false)
+var users []*User
+total := beeORMEngine.RedisSearch(&users, query, NewPager(1, 100))
+```
+
+## And much much more...
+
+BeeORM has many great features. Please spend some time and read rest of this
+[guide](/guide/registry.html) to discover all of them.
