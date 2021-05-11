@@ -214,7 +214,8 @@ type UserEntity struct {
 
 func main() {
    registry := beeorm.NewRegistry()
-   registry.RegisterEnumStruct("colors", Colors)
+   registry.RegisterEnumStruct("colors", Colors) // default firts field "red"
+   registry.RegisterEnumStruct("colors_default_blue", Colors, Colors.Blue) // "blue" is used as default
    registry.RegisterEntity(&UserEntity{})
 }
 ```
@@ -243,11 +244,11 @@ type UserEntity struct {
 
 func main() {
    registry := beeorm.NewRegistry()
-   registry.RegisterEnum("colors", "red", "blue", "yellow")
+   registry.RegisterEnum("colors", []string{"red", "blue", "yellow"}) // default is "red"
+   registry.RegisterEnum("colors_default_yellow", []string{"red", "blue", "yellow"}, "yellow") // default is "yellow"
    registry.RegisterEntity(&UserEntity{})
 }
 ```
-
 
 ## One-one reference
 
