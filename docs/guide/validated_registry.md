@@ -116,6 +116,8 @@ colors.GetFields() // []string{"red", "blue", "yellow"}
 colors.GetDefault() // "red"
 colors.Has("blue") // true
 colors.Has("orange") // false
+colors.Index("blue") // 2 (start with 1)
+colors.Index("orange") // 0
 ```
 
 ## Entity schema
