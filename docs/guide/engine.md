@@ -6,7 +6,7 @@ how to create and use a heart of BeeORM - object called `beeorm.Engine`.
 
 ## Creating engine
 
-Engine is created using `CreateEngine()` method in `beeorm.ValidatedRegistry`:
+Engine is created using `CreateEngine(context.Background())` method in `beeorm.ValidatedRegistry`:
 
 ```go{12}
 package main
@@ -16,11 +16,11 @@ import "github.com/latolukasz/beeorm"
 func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
-    validatedRegistry, err := registry.Validate()
+    validatedRegistry, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
-    engine := validatedRegistry.CreateEngine()
+    engine := validatedRegistry.CreateEngine(context.Background())
 }  
 ```
 
@@ -47,14 +47,14 @@ const ServiceBeeOrmEngine = "beeorm.engine"
 func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
-    validatedRegistry, err := registry.Validate()
+    validatedRegistry, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
     
     router := gin.New()
     router.Use(func(c *gin.Context) {
-		engine := validatedRegistry.CreateEngine()
+		engine := validatedRegistry.CreateEngine(context.Background())
 		c.Set(ServiceBeeOrmEngine, engine)
 	})
 }  

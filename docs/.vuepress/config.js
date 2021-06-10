@@ -45,6 +45,7 @@ module.exports = {
             'engine',
             'schema_update',
             'crud',
+            'search',
             'background_consumer',
             'lazy_crud',
           ]

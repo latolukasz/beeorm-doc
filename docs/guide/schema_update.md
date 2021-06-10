@@ -26,11 +26,11 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/products", "products")
     registry.RegisterEntity(&CategoryEntity{})
-    validatedRegistry, err := registry.Validate()
+    validatedRegistry, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
-    engine := validatedRegistry.CreateEngine()
+    engine := validatedRegistry.CreateEngine(context.Background())
     
     alters := engine.GetAlters()
     for _, alter := range alters {

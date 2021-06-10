@@ -40,8 +40,8 @@ func benchmarkLoadByIDLocalCache(b *testing.B, lazy bool) {
 	registry.RegisterMySQLPool("root:root@tcp(localhost:3306)/test")
 	registry.RegisterLocalCache(10)
 	registry.RegisterEntity(entity)
-	validatedRegistry, _ := registry.Validate()
-	engine := validatedRegistry.CreateEngine()
+	validatedRegistry, _ := registry.Validate(context.Background())
+	engine := validatedRegistry.CreateEngine(context.Background())
 	
 	entity.Name = "Name"
 	entity.Int = 1
