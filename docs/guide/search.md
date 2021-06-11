@@ -54,5 +54,11 @@ where := beeorm.NewWhere("1 ORDER BY Age")
 // WHERE 1 ORDER BY Age > 10
 where := beeorm.NewWhere("Age > ? ORDER BY Age", 10)
 ```
+When you pass slice as an argument ``beeorm.Where`` converts it into
+sql ``IN (?,?...)`` syntax making your life a bit simper:
 
-TODO in
+```go
+where := beeorm.NewWhere("Age in ?", []int{18, 20, 30})
+where.String() // WHERE Age IN (?,?,?)
+where.GetParameters() // []interface{}{18, 20, 30}
+```
