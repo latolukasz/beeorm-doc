@@ -62,3 +62,69 @@ where := beeorm.NewWhere("Age in ?", []int{18, 20, 30})
 where.String() // WHERE Age IN (?,?,?)
 where.GetParameters() // []interface{}{18, 20, 30}
 ```
+
+## Searching for entities
+
+Method ``engine.Search()`` is used to search entities using SQL query condition.
+It requires ``beeorm.Where``, ``beeorm.Pager`` and reference to slice of entities.
+
+<code-group>
+<code-block title="code">
+```go{25}
+package main
+
+import "github.com/latolukasz/beeorm"
+
+type  struct {
+    beeorm.ORM
+    ID         uint
+    FirstName  string `beeorm:"required"`
+    LastName   string `beeorm:"required"`
+    Email      string `beeorm:"required"`
+    Supervisor *UserEntity
+}
+
+func main() {
+    registry := beeorm.NewRegistry()
+    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
+    registry.RegisterEntity(&UserEntity{})
+    validatedRegistry, err := registry.Validate(context.Background())
+    if err != nil {
+        panic(err)
+    }
+    engine := validatedRegistry.CreateEngine(context.Background())
+
+    var users []*UserEntity
+    engine.Search(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100), &users)
+    len(users) // 1000
+    users[0].Email // "bee@beeorm.io"
+}
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE Age >= 18 LIMIT 0,100
+```
+</code-block>
+</code-group>
+
+
+Pager is optional, you can provide nil but BeeORM will still limit results to **50000** rows.
+
+<code-group>
+<code-block title="code">
+```go
+engine.Search(beeorm.NewWhere("1 ORDER BY ID DESC"), nil, &users)
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 1 ORDER BY ID DESC LIMIT 0,50000
+```
+</code-block>
+</code-group>
+
+TODO references
+
