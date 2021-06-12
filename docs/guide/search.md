@@ -75,7 +75,7 @@ package main
 
 import "github.com/latolukasz/beeorm"
 
-type  struct {
+type UserEntity struct {
     beeorm.ORM
     ID         uint
     FirstName  string `beeorm:"required"`
@@ -126,5 +126,41 @@ SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 
 </code-block>
 </code-group>
 
-TODO references
+You can also provide optional parameters to define which references should me loaded. 
+You can read more about this feature on [CRUD/loading references](/guide/crud.html#loading-references) page.
+
+<code-group>
+<code-block title="code">
+```go
+engine.Search(beeorm.NewWhere("1"), beeorm.NewPager(1, 10), &users, "Supervisor")
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor`,`Deputy` FROM `UserEntity` WHERE 1 LIMIT 0,10
+// loading supervisors
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor`,`Deputy` FROM `UserEntity` WHERE ID IN (7,10)
+```
+</code-block>
+</code-group>
+
+If you need total found rows you can use ``engine.SearchWithCount()`` method that works exactly
+the same as ``engine.Search()`` with only one difference - it returns total found rows as `int`.
+This method is slower that's why you should use it only if your application requires it:
+
+<code-group>
+<code-block title="code">
+```go
+total := engine.Search(beeorm.NewWhere("FirstName = ?", "Adam"), beeorm.NewPager(1, 10), &users)
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor`,`Deputy` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
+SELECT COUNT(1) FROM `UserEntity` WHERE FirstName = "Adam"
+```
+</code-block>
+</code-group>
 
