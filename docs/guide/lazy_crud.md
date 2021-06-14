@@ -72,7 +72,8 @@ for _, user := range users {
     user.FirstName // ""
     user.LastName // ""
     user.Supervisor // nil
-    fmt.Printf("User with ID %d: %s\n", user.ID, user.GetFieldLazy(engine, "Email").(string))
+    email := user.GetFieldLazy(engine, "Email").(string)
+    fmt.Printf("User with ID %d: %s\n", user.ID, email)
 } 
 ```
 
@@ -80,11 +81,12 @@ You can check if entity is lazy with ``IsLazy()`` method. It returns true if ent
 using lazy search methods. Such entity is in ``lazy`` mode. All fields are empty and you should 
 never use them in your code. Use ``GetFieldLazy()`` method instead. This method returns raw data.
 
-See table below to understand how entity fields are returned with this method:
+Below table demonstrates how entity field value is returned by this ``GetFieldLazy()`` method:
 
 | field type        | returned data         | comment         |
 | ------------- |:-------------:|:-------------:|
 | one-one reference      | uint64  | returns ID of referenced entity or `0` if nil  |
+| one-many reference      | []uint64  | returns IDs of referenced entities  |
 | uint8,uint16,uin32,uin64,uint      | uint64  |  |
 | int8,int16,in32,in64,int      | int64  |  |
 | bool      | bool  |  |
@@ -95,4 +97,14 @@ See table below to understand how entity fields are returned with this method:
 | *int8,*int16,*in32,*in64,*int      | int64,nil  |  |
 | string  `beeorm:"enum=XXX"`     | int  | [index](/guide/validated_registry.html#getting-enum-settings) of value in Enum or 0 if empty |
 | []byte      | []byte,nil  |  |
+| []string  `beeorm:"set=XXX"`     | []int  | slice of [indexes](/guide/validated_registry.html#getting-enum-settings) of values in Set  |
+| *bool      | bool,nil  |  |
+| *float32,*float64      | float64,nil  |  |
+| *time.Time      | int64,nil  | returns unix timestamp in seconds or nil |
+| other      | string  | value serialized with json.Marshal() |
 
+
+ * TODO search with count lazy
+ * TODO references
+ * TODO can't be flushed
+ * TODO Fill()
