@@ -53,3 +53,37 @@ func main() {
 }  
 ```
 
+Above code is correct and quite fast, but as said before we need to traverse 
+big amount of data and every nanosecond matters. ``engine.Search()`` creates for every found
+row new instance of UserEntity and fills its fields with 
+data using [reflection](https://golang.org/pkg/reflect/). It takes some time of course and 
+sometimes also requires memory allocations.
+In our scenario we need only `ID` and `Email`, other fields like `FisrtName` and `LastName` are not
+used in our code. BeeORM provides special search methods with suffix ``Lazy``. The difference is
+that entity fields remind unfilled. Thanks to that this method is faster that ``engine.Search()`` 
+because there is no need to use reflection:
+
+
+```go
+engine.SearchLazy(where, pager, &users)
+for _, user := range users {
+    user.IsLazy() // true
+    user.Email // ""
+    user.FirstName // ""
+    user.LastName // ""
+    user.Supervisor // nil
+    fmt.Printf("User with ID %d: %s\n", user.ID, user.GetFieldLazy(engine, "Email").(string))
+} 
+```
+
+You can check if entity is lazy with ``IsLazy()`` method. It returns true if entity was loaded
+using lazy search methods. Such entity is in ``lazy`` mode. All fields are empty and you should 
+never use them in your code. Use ``GetFieldLazy()`` method instead. THis method returns raw data.
+
+See table below to understand how entity fields are returned with this method:
+
+| field type        | returned data         |
+| ------------- |:-------------:|
+| bool      | bool  |
+
+
