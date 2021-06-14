@@ -196,3 +196,23 @@ than one row from database first row will be returned.
 :::
 
 ## Searching for primary keys
+
+You can also search for entity primary keys only with ``engine.SearchIDs()``:
+
+<code-group>
+<code-block title="code">
+```go{2}
+var user *UserEntity
+ids := engine.SearchIDs(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10), user)
+for _, id := range ids {
+    fmt.Printf("ID: %d\n", id)
+}
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
+```
+</code-block>
+</code-group>
