@@ -60,11 +60,11 @@ data using [reflection](https://golang.org/pkg/reflect/). It takes some time of 
 sometimes also requires memory allocations.
 In our scenario we need only `ID` and `Email`, other fields like `FisrtName` and `LastName` are not
 used in our code. BeeORM provides special search methods with suffix ``Lazy``. The difference is
-that entity fields remind unfilled. Thanks to that this method is faster that ``engine.Search()`` 
+that entity fields remind unfilled (except ID field). Thanks to that this method is faster that ``engine.Search()`` 
 because there is no need to use reflection:
 
 
-```go
+```go{1,8}
 engine.SearchLazy(where, pager, &users)
 for _, user := range users {
     user.IsLazy() // true
@@ -78,12 +78,21 @@ for _, user := range users {
 
 You can check if entity is lazy with ``IsLazy()`` method. It returns true if entity was loaded
 using lazy search methods. Such entity is in ``lazy`` mode. All fields are empty and you should 
-never use them in your code. Use ``GetFieldLazy()`` method instead. THis method returns raw data.
+never use them in your code. Use ``GetFieldLazy()`` method instead. This method returns raw data.
 
 See table below to understand how entity fields are returned with this method:
 
-| field type        | returned data         |
-| ------------- |:-------------:|
-| bool      | bool  |
-
+| field type        | returned data         | comment         |
+| ------------- |:-------------:|:-------------:|
+| one-one reference      | uint64  | returns ID of referenced entity or `0` if nil  |
+| uint8,uint16,uin32,uin64,uint      | uint64  |  |
+| int8,int16,in32,in64,int      | int64  |  |
+| bool      | bool  |  |
+| float32,float64      | float64  |  |
+| time.Time      | int64  | returns unix timestamp in seconds  |
+| string      | string  |  |
+| *uint8,*uint16,*uin32,*uin64,*uint      | uint64,nil  |  |
+| *int8,*int16,*in32,*in64,*int      | int64,nil  |  |
+| string  `beeorm:"enum=XXX"`     | int  | [index](/guide/validated_registry.html#getting-enum-settings) of value in Enum or 0 if empty |
+| []byte      | []byte,nil  |  |
 

@@ -108,6 +108,8 @@ main.PersonEntity = PersonEntity
 </code-block>
 </code-group>
 
+## Getting enum settings
+
 To get details about registered enum use `GetEnum()` method:
 
 ```go
