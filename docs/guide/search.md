@@ -138,29 +138,61 @@ engine.Search(beeorm.NewWhere("1"), beeorm.NewPager(1, 10), &users, "Supervisor"
 
 <code-block title="sql">
 ```sql
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor`,`Deputy` FROM `UserEntity` WHERE 1 LIMIT 0,10
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 1 LIMIT 0,10
 // loading supervisors
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor`,`Deputy` FROM `UserEntity` WHERE ID IN (7,10)
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE ID IN (7,10)
 ```
 </code-block>
 </code-group>
 
 If you need total found rows you can use ``engine.SearchWithCount()`` method that works exactly
 the same as ``engine.Search()`` with only one difference - it returns total found rows as `int`.
-This method is slower that's why you should use it only if your application requires it:
 
 <code-group>
 <code-block title="code">
 ```go
-total := engine.Search(beeorm.NewWhere("FirstName = ?", "Adam"), beeorm.NewPager(1, 10), &users)
+total := engine.SearchWithCount(beeorm.NewWhere("FirstName = ?", "Adam"), beeorm.NewPager(1, 10), &users)
 ```
 </code-block>
 
 <code-block title="sql">
 ```sql
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor`,`Deputy` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
 SELECT COUNT(1) FROM `UserEntity` WHERE FirstName = "Adam"
 ```
 </code-block>
 </code-group>
 
+## Searching for entity
+
+If you need to search one entity use ``engine.SearchOne()``:
+
+<code-group>
+<code-block title="code">
+```go{2}
+var user *UserEntity
+found := engine.SearchOne(beeorm.NewWhere("Email = ?", "bee@beeorm.io"), user)
+if found {
+  fmt.Printf("Found user with ID %d and Email\n", user.ID, user.Email)
+}
+
+//with references
+found = engine.SearchOne(beeorm.NewWhere("ID > ? ORDER BY Age DESC", 12), user, "Supervisor")
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE Email = "bee@beeorm.io" LIMIT 1
+SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE ID > 12 ORDER BY Age DESC LIMIT 1
+
+```
+</code-block>
+</code-group>
+
+::: tip
+This method is always adding `LIMIT 1` in SQL queries so in case your query selects more
+than one row from database first row will be returned.
+:::
+
+## Searching for primary keys
