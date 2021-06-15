@@ -19,10 +19,12 @@ import "github.com/latolukasz/beeorm"
 
 type UserEntity struct {
 	beeorm.ORM
-	ID   uint
-    FisrtName string `beeorm:"required"`
-    LastName string `beeorm:"required"`
-    Email string `beeorm:"required"`
+	ID         uint
+    FisrtName  string `beeorm:"required"`
+    LastName   string `beeorm:"required"`
+    Email      string `beeorm:"required"`
+    Age         uint8
+    Supervisor *UserEntity
 }
 
 func main() {
@@ -103,8 +105,74 @@ Below table demonstrates how entity field value is returned by this ``GetFieldLa
 | *time.Time      | int64,nil  | returns unix timestamp in seconds or nil |
 | other      | string  | value serialized with json.Marshal() |
 
+You can use ``entity.Fill()`` method if you need to fill entity fields with data:
 
- * TODO search with count lazy
- * TODO references
- * TODO can't be flushed
- * TODO Fill()
+```go{1,5}
+engine.SearchLazy(where, pager, &users)
+for _, user := range users {
+    if user.GetFieldLazy(engine, "Age").(uint64) > 18 {
+        user.IsLazy() // true
+        user.Fill(engine)
+        user.IsLazy() // false
+        fmt.Printf("Adult user with ID %d: %s\n", user.ID, user.Email)
+    }
+} 
+```
+
+Lazy entity is only read-only. You can't update or delete entities it.
+You must first load entity with ``entity.Fill()``:
+
+```go{4}
+user.IsLazy() // true
+engine.Flush(user) // panics
+
+user.Fill(engine)
+user.Email = "new@beeorm.io"
+engine.Flush(user) // works
+```
+
+You can force references to be loaded when ``SearchLazy()`` is executed.
+These references are also lazy. See above example:
+
+```go{3}
+engine.SearchLazy(where, pager, &users)
+users[0].Supervisor // nil
+user.GetFieldLazy(engine, "Supervisor") // ID of reference, for example uint64(9832)
+
+engine.SearchLazy(where, pager, &users, "Supervisor")
+users[0].Supervisor == nil // false
+users[0].Supervisor.ID // 9832
+users[0].Supervisor.IsLazy() // true
+users[0].Supervisor.Email // ""
+
+users[0].Supervisor.Fill(engine)
+users[0].Supervisor.IsLazy() // false
+users[0].Supervisor.Email // "supervisor@beeorm.io"
+```
+
+You can use ``engine.SearchWithCountLazy()`` to get number of found rows:
+
+```go{1}
+total:= engine.SearchWithCountLazy(where, pager, &users)
+fmt.Printf("Found: %d\n", total)
+for _, user := range users {
+    fmt.Printf("user with Supervisor ID %d\n", user.GetFieldLazy(engine, "Supervisor"))
+}
+```
+
+Use  ``engine.SearchOneLazy()`` to search for one entity:
+
+```go{2,4}
+var user *UserEntity
+found := engine.SearchOneLazy(beeorm.NewWhere("Email = ?", "bee@beeorm.io"), user)
+// with references
+found = engine.SearchOneLazy(beeorm.NewWhere("FirstName = ?", "Tom"), user, "Supervisor")
+```
+
+## Lazy load
+
+TODO
+
+## Lazy flush
+
+TODO
