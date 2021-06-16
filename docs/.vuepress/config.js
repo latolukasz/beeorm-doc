@@ -48,6 +48,7 @@ module.exports = {
             'search',
             'background_consumer',
             'lazy_crud',
+            'cached_queries',
           ]
         }
       ],
