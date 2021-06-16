@@ -125,6 +125,70 @@ found = engine.CachedSearchOne(user, "cachedQueryEmail", "fish@beeorm.io")
 found == true // false
 ```
 
-TODO many, order by
+## Many entities
 
-TODO fake delete
+Now it's time to search for many entities using cached query.
+First we need to define another cached query in our entity:
+
+```go{5-7,9}
+type UserEntity struct {
+	beeorm.ORM        `orm:"redisCache"`
+	ID                uint
+    Email             string `beeorm:"unique=email;required"` 
+    Admin             bool
+    Age               uint8
+    CreatedAt         time.Time
+    cachedQueryEmail  *beeorm.CachedQuery `queryOne:":Email = ?"`
+    cachedQueryAdmins *beeorm.CachedQuery `query:":Admin = ? AND :Age >= ? ORDER BY :CreatedAt DESC"`
+}
+```
+
+As you can see we simply added another field type of `*beeorm.CachedQuery` but this
+time with tag `query` instead of `queryOne`. 
+
+:::tip
+Notice that you can use also `ORDER BY` syntax
+in your query cache SQL condition. Never forget to prefix all fields
+with `:` otherwise cache data will be not updated when entity field was changed.
+:::
+
+Now we are ready to run our search:
+
+<code-group>
+<code-block title="code">
+```go{2}
+var users []*UserEntity
+totalRows := engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(1, 100), true, 18)
+```
+</code-block>
+
+<code-block title="queries hit">
+```sql
+REDIS GET query_cache_key
+```
+</code-block>
+
+<code-block title="queries miss">
+```sql
+REDIS GET query_cache_key
+SELECT `ID`,`FirstName`,`LastName`,`Email` FROM `UserEntity` WHERE Admin = 1 AND Age >= 18 ORDER BY CreatedAt DESC LIMIT 1,100
+REDIS SET cache_key ID_OF_ENTITY
+```
+</code-block>
+</code-group>
+
+Of course, you can also ask for another page but with one condition - BeeORM allows caching max *50 000* rows.
+If you skip pager all rows will be returned but no more than 50 000:
+
+```go
+// LIMIT 100,100
+engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(2, 100), true, 18)
+// LIMIT 50000
+engine.CachedSearch(&users, "cachedQueryAdmins", nil, true, 18)
+// LIMIT 60000, will panic
+engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(1, 60000), true, 18)
+// LIMIT 60000,20000, will panic
+engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(3, 20000), true, 18)
+```
+
+TODO   fake delete, references, lazy
