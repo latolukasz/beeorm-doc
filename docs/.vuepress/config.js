@@ -49,6 +49,7 @@ module.exports = {
             'background_consumer',
             'lazy_crud',
             'cached_queries',
+            'mysql_queries',
           ]
         }
       ],
