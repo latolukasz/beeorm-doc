@@ -20,6 +20,7 @@ type UserEntity struct {
 	beeorm.ORM
 	ID         uint
     Email      string `beeorm:"unique=email;required"` 
+    Supervisor *UserEntity
 }
 ```
 
@@ -48,16 +49,18 @@ type UserEntity struct {
 	beeorm.ORM `orm:"redisCache"`
 	ID         uint
     Email      string `beeorm:"unique=email;required"` 
+    Supervisor *UserEntity
 }
 ```
 
 Next we need to add extra field type of ``*beeorm.CachedQuery`` with tag `queryOne`: 
 
-```go{5}
+```go{6}
 type UserEntity struct {
 	beeorm.ORM       `orm:"redisCache"`
 	ID               uint
     Email            string `beeorm:"unique=email;required"` 
+    Supervisor       *UserEntity
     cachedQueryEmail *beeorm.CachedQuery `queryOne:":Email = ?"`
 }
 ```
@@ -130,11 +133,12 @@ found == true // false
 Now it's time to search for many entities using cached query.
 First we need to define another cached query in our entity:
 
-```go{5-7,9}
+```go{6-8,10}
 type UserEntity struct {
 	beeorm.ORM        `orm:"redisCache"`
 	ID                uint
     Email             string `beeorm:"unique=email;required"` 
+    Supervisor        *UserEntity
     Admin             bool
     Age               uint8
     CreatedAt         time.Time
@@ -191,4 +195,40 @@ engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(1, 60000), true, 1
 engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(3, 20000), true, 18)
 ```
 
-TODO   fake delete, references, lazy
+All cached searches supports [references loading](/guide/crud.html#loading-references) and 
+[lazy search](/guide/lazy_crud.html#lazy-search):
+
+```go{2-4,7-9}
+var user *UserEntity
+engine.CachedSearchOneWithReferences(user, "cachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
+engine.CachedSearchOnesLazy(user, "cachedQueryEmail", "bee@beeorm.io")
+engine.CachedSearchOneWithReferencesLazy(user, "cachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
+var users []*UserEntity
+pager := orm.NewPager(1, 100)
+engine.CachedSearchWithReferences(&users, "cachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
+engine.CachedSearchLazy(&users, "cachedQueryAdmins", pager, true, 18)
+engine.CachedSearchWithReferencesLazy(&users, "cachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
+```
+
+If you need only search for total found rows:
+```go{2}
+var user *UserEntity
+total := engine.CachedSearchCount(user, "cachedQueryAdmins", true, 18)
+fmt.Printf("Total rows: %d\n", total) 
+```
+To search for primary keys:
+
+```go{2}
+var user *UserEntity
+total, ids := engine.CachedSearchIDs(user, "cachedQueryAdmins", orm.NewPager(1, 100), true, 18)
+fmt.Printf("Total rows: %d\n", total) 
+for _, id := range ids {
+    fmt.Printf("ID: %d\n", id) 
+}
+```
+
+:::tip
+If Entity has [FakeDelete](guide/entity_fields.html#fake-delete) you don't need to
+add `WHERE FakeDelete = 0` in your cached query condition. BeeORM is search for rows
+with `FakeDelete = 0` automatically.
+:::

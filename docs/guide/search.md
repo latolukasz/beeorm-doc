@@ -216,3 +216,8 @@ SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
 ```
 </code-block>
 </code-group>
+
+:::tip
+If Entity has [FakeDelete](guide/entity_fields.html#fake-delete) field do not forget
+to add `WHERE FakeDelete = 0` in your query.
+:::
