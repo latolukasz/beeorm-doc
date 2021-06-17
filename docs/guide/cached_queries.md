@@ -61,7 +61,7 @@ type UserEntity struct {
 	ID               uint
     Email            string `beeorm:"unique=email;required"` 
     Supervisor       *UserEntity
-    cachedQueryEmail *beeorm.CachedQuery `queryOne:":Email = ?"`
+    CachedQueryEmail *beeorm.CachedQuery `queryOne:":Email = ?"`
 }
 ```
 
@@ -70,18 +70,13 @@ In `queryOne` that we simply define SQL query conditions where every entity
 field must be prefixed with `:`. Thanks to that BeeORM knows which entity fields 
 must be tracked for changes so cache in updated when needed.
 
-:::tip
-You should always use private fields (starts with lover case letter) to define
-cached queries and keep public one for data that is stored in database.
-:::
-
 Now it's time to run our cached search query:
 
 <code-group>
 <code-block title="code">
 ```go{2}
 var user *UserEntity
-found := engine.CachedSearchOne(user, "cachedQueryEmail", "bee@beeorm.io")
+found := engine.CachedSearchOne(user, "CachedQueryEmail", "bee@beeorm.io")
 ```
 </code-block>
 
@@ -109,22 +104,22 @@ for you. Look at this example:
 
 ```go
 var user *UserEntity
-found := engine.CachedSearchOne(user, "cachedQueryEmail", "bee@beeorm.io")
+found := engine.CachedSearchOne(user, "CachedQueryEmail", "bee@beeorm.io")
 found == true // false, we have no rows in table
 
 user = &UserEntity{Email: "bee@beeorm.io"}
-found = engine.CachedSearchOne(user, "cachedQueryEmail", "bee@beeorm.io")
+found = engine.CachedSearchOne(user, "CachedQueryEmail", "bee@beeorm.io")
 found == true // true
 
 user.Email = "fish@beeorm.io"
 engine.Flush(user)
-found = engine.CachedSearchOne(user, "cachedQueryEmail", "bee@beeorm.io")
+found = engine.CachedSearchOne(user, "CachedQueryEmail", "bee@beeorm.io")
 found == true // false
-found = engine.CachedSearchOne(user, "cachedQueryEmail", "fish@beeorm.io")
+found = engine.CachedSearchOne(user, "CachedQueryEmail", "fish@beeorm.io")
 found == true // true
 
 engine.Delete(user)
-found = engine.CachedSearchOne(user, "cachedQueryEmail", "fish@beeorm.io")
+found = engine.CachedSearchOne(user, "CachedQueryEmail", "fish@beeorm.io")
 found == true // false
 ```
 
@@ -142,8 +137,8 @@ type UserEntity struct {
     Admin             bool
     Age               uint8
     CreatedAt         time.Time
-    cachedQueryEmail  *beeorm.CachedQuery `queryOne:":Email = ?"`
-    cachedQueryAdmins *beeorm.CachedQuery `query:":Admin = ? AND :Age >= ? ORDER BY :CreatedAt DESC"`
+    CachedQueryEmail  *beeorm.CachedQuery `queryOne:":Email = ?"`
+    CachedQueryAdmins *beeorm.CachedQuery `query:":Admin = ? AND :Age >= ? ORDER BY :CreatedAt DESC"`
 }
 ```
 
@@ -162,7 +157,7 @@ Now we are ready to run our search:
 <code-block title="code">
 ```go{2}
 var users []*UserEntity
-totalRows := engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(1, 100), true, 18)
+totalRows := engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(1, 100), true, 18)
 ```
 </code-block>
 
@@ -186,13 +181,13 @@ If you skip pager all rows will be returned but no more than 50 000:
 
 ```go
 // LIMIT 100,100
-engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(2, 100), true, 18)
+engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(2, 100), true, 18)
 // LIMIT 50000
-engine.CachedSearch(&users, "cachedQueryAdmins", nil, true, 18)
+engine.CachedSearch(&users, "CachedQueryAdmins", nil, true, 18)
 // LIMIT 60000, will panic
-engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(1, 60000), true, 18)
+engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(1, 60000), true, 18)
 // LIMIT 60000,20000, will panic
-engine.CachedSearch(&users, "cachedQueryAdmins", orm.NewPager(3, 20000), true, 18)
+engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(3, 20000), true, 18)
 ```
 
 All cached searches supports [references loading](/guide/crud.html#loading-references) and 
@@ -200,27 +195,27 @@ All cached searches supports [references loading](/guide/crud.html#loading-refer
 
 ```go{2-4,7-9}
 var user *UserEntity
-engine.CachedSearchOneWithReferences(user, "cachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
-engine.CachedSearchOnesLazy(user, "cachedQueryEmail", "bee@beeorm.io")
-engine.CachedSearchOneWithReferencesLazy(user, "cachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
+engine.CachedSearchOneWithReferences(user, "CachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
+engine.CachedSearchOnesLazy(user, "CachedQueryEmail", "bee@beeorm.io")
+engine.CachedSearchOneWithReferencesLazy(user, "CachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
 var users []*UserEntity
 pager := orm.NewPager(1, 100)
-engine.CachedSearchWithReferences(&users, "cachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
-engine.CachedSearchLazy(&users, "cachedQueryAdmins", pager, true, 18)
-engine.CachedSearchWithReferencesLazy(&users, "cachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
+engine.CachedSearchWithReferences(&users, "CachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
+engine.CachedSearchLazy(&users, "CachedQueryAdmins", pager, true, 18)
+engine.CachedSearchWithReferencesLazy(&users, "CachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
 ```
 
 If you need only search for total found rows:
 ```go{2}
 var user *UserEntity
-total := engine.CachedSearchCount(user, "cachedQueryAdmins", true, 18)
+total := engine.CachedSearchCount(user, "CachedQueryAdmins", true, 18)
 fmt.Printf("Total rows: %d\n", total) 
 ```
 To search for primary keys:
 
 ```go{2}
 var user *UserEntity
-total, ids := engine.CachedSearchIDs(user, "cachedQueryAdmins", orm.NewPager(1, 100), true, 18)
+total, ids := engine.CachedSearchIDs(user, "CachedQueryAdmins", orm.NewPager(1, 100), true, 18)
 fmt.Printf("Total rows: %d\n", total) 
 for _, id := range ids {
     fmt.Printf("ID: %d\n", id) 

@@ -96,15 +96,70 @@ engine.GetMysql().Exec(query)
 
 ## Query one row
 
-TODO
+Use ``QueryRow()`` method to run query which returns only one row:
+
+```go{5}
+db := engine.GetMysql()
+where := beeorm.NewWhere("SELECT ID, Name FROM Cities WHERE ID = ?", 12)
+var id uint64
+var name string
+found := db.QueryRow(where, &id, &name)
+```
 
 ## Query many rows
 
-TODO
+Use ``Query()`` method to run query which return many rows:
+
+```go{4}
+db := engine.GetMysql()
+var id uint64
+var name string
+results, close := db.Query("SELECT ID, Name FROM Cities WHERE ID > ? LIMIT 100", 20)
+results.Columns() // []string{"ID", "Name"}
+for results.Next() {
+    results.Scan(&id, &name)
+}
+close() // never forget to close query when finished
+```
 
 ## Transactions
 
-TODO
+Working with transaction is very easy:
 
+```go
+db := engine.GetMysql()
 
-TODO do not use because of cache
+func() {
+    db.Begin() 
+    defer db.Rollback()
+    db.IsInTransaction() // true
+    // execute some queries
+    db.Commit()
+    db.IsInTransaction() // false
+}()
+```
+
+:::tip
+Always put `defer db.Rollback()` after `db.Begin()`.
+:::
+
+Never run modification queries from MySQL data pool (`Exec()`) that
+change entities which are using caching layer:
+
+<code-group>
+<code-block title="code">
+```go{2}
+var user *UserEntity
+ids := engine.SearchIDs(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10), user)
+for _, id := range ids {
+    fmt.Printf("ID: %d\n", id)
+}
+```
+</code-block>
+
+<code-block title="sql">
+```sql
+SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
+```
+</code-block>
+</code-group>
