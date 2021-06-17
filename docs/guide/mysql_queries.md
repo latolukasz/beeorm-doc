@@ -79,7 +79,16 @@ UPDATE Cities SET Name = ? WHERE ID = ?;
 db.Exec(queries, "London", 13) // panics
 ```
 
-TODO escape params
+:::warning
+While BeeORM allows batch queries, it also greatly increases the risk of SQL injections.
+Be sure you are always validating and escaping values used in batch query. Especially
+`string` values provided by application users (from web form for instance). You can use
+``EscapeSQLParam()`` method to escape string values:
+
+```go
+TODO
+```
+:::
 
 ## Query one row
 
