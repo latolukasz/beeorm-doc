@@ -83,10 +83,14 @@ db.Exec(queries, "London", 13) // panics
 While BeeORM allows batch queries, it also greatly increases the risk of SQL injections.
 Be sure you are always validating and escaping values used in batch query. Especially
 `string` values provided by application users (from web form for instance). You can use
-``EscapeSQLParam()`` method to escape string values:
+``tools.EscapeSQLParam()`` method to escape string values:
 
 ```go
-TODO
+import "github.com/latolukasz/beeorm/tools"
+
+query := "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name1) + ";"
+query (= "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name2) + ";"
+engine.GetMysql().Exec(query)
 ```
 :::
 
