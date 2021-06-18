@@ -188,7 +188,7 @@ full-text and advanced search very easy. It provides top-edge performance, prote
 from queries and simplify your code:
 
 ```go
-user := &User{CreatedAt: time.Now(), Status: "active}
+user := &User{CreatedAt: time.Now(), Status: "active"}
 beeORMEngine.Flush()
 
 query := beeORMEngine.NewRedisSearchQuery()
