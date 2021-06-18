@@ -78,3 +78,69 @@ Use ``MSet()`` method to add one value to local cache:
 cache := engine.GetLocalCache()
 cache.MSet("key-1", "ValueForKey1", "key-2", "ValueForKey2")
 ```
+
+## Getter with setter
+
+Local cache has very useful method `GetSet()` that
+simplify your code. 
+
+Instead of:
+
+```go
+val, found := cache.Get("key")
+if !found {
+    val = ... // calculate value
+    cache.Set("key")
+}
+return val
+```
+
+you can do it like this:
+
+```go
+// cache value for 30 seconds
+val := cache.GetSet("key", time.Second * 30, func() {
+    return ... // calculate value
+})
+```
+
+As you can see in above example you can also define Time to Live (TTL). 
+Our value will be cached for 30 second and after this period it's evicted.
+
+
+## Hashes
+
+Local cache provides methods used to get and set hashes, similar
+to [redis hashes](https://redis.io/topics/data-types#hashes) concept:
+
+```go{2,4,9,10}
+cache := engine.GetLocalCache("test")
+cache.HMSet("some-key", map[string]interface{}{"firstName": "Tom", "lastName": "Malcovic"})
+
+values := cache.HMGet("some-key", "firstName", "lastName", "age")
+values["firstName"] // "Tom"
+values["lastName"] // "Malcovic"
+values["age"] // nil
+
+cache.HMSet("some-key", map[string]interface{}{"age": 18})
+values = cache.HMGet("some-key", "firstName", "age", "age")
+values["firstName"] // "Tom"
+values["age"] // 18
+```
+
+## Removing values
+
+Use ``Remove()`` method to remove values from local cache:
+
+```go
+cache.Remove("key1", "key2")
+```
+
+
+## Removing all values
+
+Use ``Clear()`` method to remove all values from local cache:
+
+```go
+cache.Clear()
+```
