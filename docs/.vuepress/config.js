@@ -50,6 +50,7 @@ module.exports = {
             'lazy_crud',
             'cached_queries',
             'mysql_queries',
+            'local_cache',
           ]
         }
       ],
