@@ -24,47 +24,87 @@ func main() {
 }  
 ```
 
-Engine is used in actions that are executing real connections to databases.
-All these actions are thread safe so probably you are asking yourself why
-not to create engine once in your application and share it across all goroutines?
-Answer is simple - you can enable logging for all queries executed in engine. 
-That's why you should create separate engine in every http request goroutine
-and go service application.
+## Cloning engine
 
-For instance if you are using [Gin Web Framework](https://gin-gonic.com/) you
-should use middleware to create engine for every http request:
+Engine is designed to deliver the highest possible performance. 
+It's not thread safe, you should use once unique instance in every goroutine.
+Engine provides special method ``engine.Clone()`` that creates new `Engine` instance
+that copies configuration (e.g. logging) from parent `Engine`. This new cloned instance
+can be used then in goroutines:
 
-```go{19-22}
-package main
+```go{4,8}
+engine := validatedRegistry.CreateEngine(context.Background())
 
-import (
-    "github.com/gin-gonic/gin"
-    "github.com/latolukasz/beeorm"
-)
-
-const ServiceBeeOrmEngine = "beeorm.engine"
-
-func main() {
-    registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
-    validatedRegistry, err := registry.Validate(context.Background())
-    if err != nil {
-        panic(err)
-    }
-    
-    router := gin.New()
-    router.Use(func(c *gin.Context) {
-		engine := validatedRegistry.CreateEngine(context.Background())
-		c.Set(ServiceBeeOrmEngine, engine)
-	})
-}  
+go func() {
+    subEngine := engine.Clone()
+    subEngine.GetRedis().Get("my_key")
+}()
+go func() {
+    subEngine := engine.Clone()
+    subEngine.GetRedis().Get("my_key2")
+}()
 ```
 
-::: tip
-Creating `beeorm.Engine` is very fast, it uses only one memory allocation.
-So you can create it in every http request (as showed above). If you
-want to avoid this extra memory and time in requests where engine is not needed
-you may change above code to create engine only when requested.
+If parent goroutine does not require `Engine` you can create new engine
+from `ValidatedRegistry` in new goroutines:
+
+```go{4,8}
+go func() {
+    engine := validatedRegistry.CreateEngine(context.Background())
+    engine.GetRedis().Get("my_key")
+}()
+go func() {
+    engine := validatedRegistry.CreateEngine(context.Background())
+    engine.GetRedis().Get("my_key2")
+}()
+```
+
+Above code is also correct but try to imagine you want to enable debug in
+all goroutines. With this code you need to do it in two places:
+
+```go{3,8}
+go func() {
+    engine := validatedRegistry.CreateEngine(context.Background())
+    engine.EnableQueryDebug()
+    engine.GetRedis().Get("my_key")
+}()
+go func() {
+    engine := validatedRegistry.CreateEngine(context.Background())
+    engine.EnableQueryDebug()
+    engine.GetRedis().Get("my_key2")
+}()
+```
+
+We should always avoid code duplication that's why using engine.Clone() 
+is a good practice:
+
+```go{2}
+engine := validatedRegistry.CreateEngine(context.Background())
+engine.EnableQueryDebug()
+
+go func() {
+    subEngine := engine.Clone() // query debug is enabled in subEngine also
+    subEngine.GetRedis().Get("my_key")
+}()
+go func() {
+    subEngine := engine.Clone() // query debug is enabled in subEngine also
+    subEngine.GetRedis().Get("my_key2")
+}()
+```
+
+:::warning
+Never forget to use different `Engine` instance in every goroutine.
+Below code is invalid and may cause many issues:
+```go
+engine := validatedRegistry.CreateEngine(context.Background())
+
+go func() {
+    engine.GetRedis().Get("my_key")
+}()
+go func() {
+    engine.GetRedis().Get("my_key2")
+}()
+```
 :::
 
 Now when you know how to create engine it's time to use it and
