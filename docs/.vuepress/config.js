@@ -51,6 +51,7 @@ module.exports = {
             'cached_queries',
             'mysql_queries',
             'local_cache',
+            'redis_operations',
           ]
         }
       ],
