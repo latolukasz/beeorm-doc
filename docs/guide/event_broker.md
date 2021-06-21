@@ -13,7 +13,16 @@ stream.
 
 ## Registering streams and consumer groups
 
-TODO 
+Good example is better than a thousand words. Let's define three streams:
+ * `stream-a` located in `default` redis pool
+ * `stream-b` located in `default` redis pool
+ * `stream-c` located in `second` redis pool
+
+and three consumer groups:
+
+ * `read-group-a` that reads events from `stream-a` stream   
+ * `read-group-ab` that reads events from `stream-a` and `stream-b` streams
+ * `read-group-c` that reads events from `stream-c` stream
 
 <code-group>
 <code-block title="code">
@@ -22,7 +31,7 @@ registry := beeorm.NewRegistry()
 
 registry.RegisterRedis("localhost:6379", 0)
 registry.RegisterRedisStream("stream-a", "default", []string{"read-group-a", "read-group-ab"})
-registry.RegisterRedisStream("stream-b", "default", []string{"read-group-b"})
+registry.RegisterRedisStream("stream-b", "default", []string{"read-group-ab"})
 
 registry.RegisterRedis("192.168.1.20:6379", 3, "second")
 registry.RegisterRedisStream("stream-c", "default", []string{"read-group-c"})
@@ -38,7 +47,7 @@ default:
           - read-group-a
           - read-group-ab
         stream-b:
-          - read-group-b
+          - read-group-ab
 second:
     redis: 192.168.1.20:6379:3
     streams:
@@ -47,5 +56,19 @@ second:
 ```
 </code-block>
 </code-group>
+
+:::warning
+Stream names must be unique even if streams are defined 
+in separate redis pools. Below code returns error:
+```go{3,5}
+registry := beeorm.NewRegistry()
+registry.RegisterRedis("localhost:6379", 0)
+registry.RegisterRedisStream("stream-a", "default", []string{"read-group-a", "read-group-ab"})
+registry.RegisterRedis("192.168.1.20:6379", 3, "second")
+registry.RegisterRedisStream("stream-a", "default", []string{"read-group-c"})
+validatedRegistry, err := registry.Validate(context.Background())
+fmt.Print(err) // "stream with name stream-a aleady exists"
+```
+:::
    
    
