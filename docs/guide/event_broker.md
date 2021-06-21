@@ -1,7 +1,7 @@
 # Event broker
 
-Redis introduced amazing feature called [Redis Streams](https://redis.io/topics/streams-intro)
-that is following concept of **consumer groups**. Idea is simple yet very powerful:
+Redis introduced an amazing feature called [Redis Streams](https://redis.io/topics/streams-intro)
+that is following the concept of **consumer groups**. The idea is simple yet very powerful:
 
  * basic functional block is a **stream** which can be described as an event holder,
  place where you send (publish) and store events. Each stream has a name.
