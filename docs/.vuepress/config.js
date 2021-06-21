@@ -52,6 +52,7 @@ module.exports = {
             'mysql_queries',
             'local_cache',
             'redis_operations',
+            'event_broker',
           ]
         }
       ],
