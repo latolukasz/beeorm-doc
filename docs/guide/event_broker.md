@@ -11,7 +11,7 @@ one or more **streams**.
 stream.
    
 
-## Registering streams and consumer groups
+## Registering streams
 
 Good example is better than a thousand words. Let's define three streams:
  * `stream-a` located in `default` redis pool
