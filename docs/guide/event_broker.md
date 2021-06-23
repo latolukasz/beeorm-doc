@@ -181,6 +181,7 @@ eventConsumer.Consume(1, func(events []Event) {
         fmt.Printf("EVENT %s WITH ID %d FROM STREAM %s\n", val, event.ID(), event.Stream())
     }
 })
+fmt.Println("FINISHED")
 ```
 </code-block>
 
@@ -194,13 +195,33 @@ EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 </code-block>
 </code-group>
 
-TODO skip loop
 TODO limits
 TODO ack and skip
 TODO no error in unserialize
 TODO error log
 TODO SetHeartBeat
 
-
 Did you notice that above examples never prints `FINISHED` to console?
-It's because 
+It's because by default `eventConsumer.Consume()` works in blocking mode - it waits
+for new events to come. You can disable this mode with `eventConsumer.DisableLoop()` 
+method. In non-blocking mode consumer reads all events from streams and finish: 
+
+
+<code-group>
+<code-block title="code">
+```go{1}
+eventConsumer.DisableLoop()
+eventConsumer.Consume(10, func(events []Event) {
+    fmt.Printf("GOT %d EVENTS\n", len(events))
+})
+fmt.Println("FINISHED")
+```
+</code-block>
+
+<code-block title="bash">
+```
+GOT 2 EVENTS
+FINISHED
+```
+</code-block>
+</code-group>
