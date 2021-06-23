@@ -195,12 +195,6 @@ EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 </code-block>
 </code-group>
 
-TODO limits
-TODO ack and skip
-TODO no error in unserialize
-TODO error log
-TODO SetHeartBeat
-
 Did you notice that above examples never prints `FINISHED` to console?
 It's because by default `eventConsumer.Consume()` works in blocking mode - it waits
 for new events to come. You can disable this mode with `eventConsumer.DisableLoop()` 
@@ -225,3 +219,33 @@ FINISHED
 ```
 </code-block>
 </code-group>
+
+
+## Consumer limits
+
+By default, you can run only one `EventsConsumer.Consume()` at the same time.
+With this approach all events are consumed in the same order events
+are published (first in - first out):
+
+```go{5}
+eventConsumer := eventBroker.Consumer("read-group-ab")
+go eventConsumer.Consume(5, func(events []Event) {})
+
+// will panic with "consumer for group read-group-ab limit 1 reached" error
+go eventConsumer.Consume(5, func(events []Event) {})
+```
+
+If you need to run more consumers simply use `SetLimit()` method:
+
+```go{2}
+eventConsumer := eventBroker.Consumer("read-group-ab")
+eventConsumer.SetLimit(2) // allows to run up to 2 consumers
+go eventConsumer.Consume(5, func(events []Event) {})
+go eventConsumer.Consume(5, func(events []Event) {}) // works
+go eventConsumer.Consume(5, func(events []Event) {}) // panics
+```
+
+* TODO ack and skip
+* TODO no error in unserialize
+* TODO error log
+* TODO SetHeartBeat
