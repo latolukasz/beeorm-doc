@@ -125,7 +125,7 @@ locker := redisPool.GetLocker()
 
 func testLock(name string) {
     fmt.Printf("GETTING LOCK %s\n", name)
-    lock, obtained := locker.Obtain("test_lock", time.Minute, time.Seconds * 5)
+    lock, obtained := locker.Obtain("test_lock", time.Minute, time.Second * 5)
     if obtained {
         defer lock.Release()
         fmt.Printf("GOT LOCK %s\n", name)
@@ -161,9 +161,9 @@ lock, obtained := redisPool.GetLocker().ObtainLock("test", time.Second * 5, 0)
 if obtained {
     defer lock.Release()
     fmt.Printf("GOT LOCK FOR %d SECONDS\n", lock.TTL().Seconds())
-    sleep(time.Seconds)
+    sleep(time.Second)
     fmt.Printf("WILL EXPIRE IN %d SECONDS\n", lock.TTL().Seconds())
-    sleep(time.Seconds)
+    sleep(time.Second)
     fmt.Printf("WILL EXPIRE IN %d SECONDS\n", lock.TTL().Seconds())
     if !lock.Refresh(time.Second * 2) {
         fmt.Println("LOST LOCK")
