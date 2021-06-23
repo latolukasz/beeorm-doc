@@ -115,6 +115,92 @@ BeeORM uses redis pipeline behind the scene that's why `EventFlusher.Flush()`
 is much faster than publishing event one by one.
 :::
 
-## Consuming  events
+## Consuming events
 
-TODO
+Now, when we have few events pushed to our streams it's time
+to consume them. First you need to create `EventsConsumer` object
+that later we will use to read events:
+
+```go
+eventConsumer := engine.GetEventBroker().Consumer("read-group-ab")
+```
+
+Our event consumer is connected to redis consumer group `read-group-ab`. 
+According to our [streams configuration](/guide/event_broker.html#registering-streams)
+`read-group-ab` reads events from two streams: `stream-a` and `stream-b`.
+
+Now we can start consuming our events:
+
+<code-group>
+<code-block title="code">
+```go{10}
+eventBroker := engine.GetEventBroker()
+
+// publishing two events
+flusher := eventBroker.NewFlusher()
+flusher.Publish("stream-a", "a")
+flusher.Publish("stream-b", "b")
+flusher.Flush()
+
+eventConsumer := eventBroker.Consumer("read-group-ab")
+eventConsumer.Consume(5, func(events []Event) {
+    fmt.Printf("GOT %d EVENTS\n", len(events))
+    var val string
+    for _, event := range events {
+        event.Unserialize(&val)
+        fmt.Printf("EVENT %s WITH ID %d FROM STREAM %s\n", val, event.ID(), event.Stream())
+    }
+})
+fmt.Println("FINISHED")
+```
+</code-block>
+
+<code-block title="bash">
+```
+GOT 2 EVENTS
+EVENT a WITH ID 1518951480106-0 FROM STREAM stream-a
+EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
+FINISHED
+```
+</code-block>
+</code-group>
+
+`eventConsumer.Consume()` requires as a firts argument
+limit of events that should be read from streams in every iteration. In above example
+we allow max `5` events, that's why we received `2`. Now let' see how it works 
+when this limit is set to `1` (see difference in bash tab): 
+
+<code-group>
+<code-block title="code">
+```go{1}
+eventConsumer.Consume(1, func(events []Event) {
+    fmt.Printf("GOT %d EVENTS\n", len(events))
+    var val string
+    for _, event := range events {
+        event.Unserialize(&val)
+        fmt.Printf("EVENT %s WITH ID %d FROM STREAM %s\n", val, event.ID(), event.Stream())
+    }
+})
+```
+</code-block>
+
+<code-block title="bash">
+```
+GOT 1 EVENTS
+EVENT a WITH ID 1518951480106-0 FROM STREAM stream-a
+GOT 1 EVENTS
+EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
+```
+</code-block>
+</code-group>
+
+TODO skip loop
+TODO limits
+TODO ack and skip
+TODO no error in unserialize
+TODO error log
+TODO SetHeartBeat
+
+
+Did you notice that above examples never prints `FINISHED` to console?
+It's because 
