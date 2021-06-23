@@ -71,4 +71,50 @@ fmt.Print(err) // "stream with name stream-a aleady exists"
 ```
 :::
    
-   
+## Publishing  events
+
+Now we are ready to publish our first event:
+
+```go{3-4}
+engine := validatedRegistry.CreateEngine(context.Background())
+
+eventBroker := engine.GetEventBroker()
+eventBroker.Publish("stream-a", "hello")
+```
+
+That's it. Our first event is published to `stream-a` stream.
+
+In next example we will send event as a struct into `stream-b` stream:
+
+```go{9}
+engine := validatedRegistry.CreateEngine(context.Background())
+
+type testStructEvent struct {
+    Color string
+    Price  float32
+}
+
+eventBroker := engine.GetEventBroker()
+eventBroker.Publish("stream-b", testStructEvent{Color: "red", Price: 12.34})
+```
+
+If you need to publish more than one event use `EventFlusher`:
+
+```go{3-6}
+engine := validatedRegistry.CreateEngine(context.Background())
+
+eventFlusher := engine.GetEventBroker().NewFlusher()
+eventFlusher.Publish("stream-a", "hello")
+eventFlusher.Publish("stream-b", testStructEvent{Color: "red", Price: 12.34})
+eventFlusher.Flush() // now both events are published to redis streams
+```
+
+:::tip
+Always use `EventFlusher` when more than one event must be flushed.
+BeeORM uses redis pipeline behind the scene that's why `EventFlusher.Flush()` 
+is much faster than publishing event one by one.
+:::
+
+## Consuming  events
+
+TODO
