@@ -245,7 +245,11 @@ go eventConsumer.Consume(5, func(events []Event) {}) // works
 go eventConsumer.Consume(5, func(events []Event) {}) // panics
 ```
 
+## Handling consumer errors
+
 * TODO ack and skip
-* TODO no error in unserialize
 * TODO error log
-* TODO SetHeartBeat
+
+## Stream garbage collector
+
+TODO
