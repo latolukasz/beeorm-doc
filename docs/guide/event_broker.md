@@ -247,9 +247,205 @@ go eventConsumer.Consume(5, func(events []Event) {}) // panics
 
 ## Handling consumer errors
 
-* TODO ack and skip
-* TODO error log
+By default, all events consumed in `Consume()` are automatically
+[acknowledged](https://redis.io/commands/XACK) when function `Consume()` 
+is executed. It works fine and provides top performance (all events are acknowledged 
+at one with one request to redis) but problems starts when one event is broken and your
+code `Consume()` panics. See below example:
 
-## Stream garbage collector
+
+<code-group>
+<code-block title="code">
+```go{15-17}
+eventBroker := engine.GetEventBroker()
+flusher := eventBroker.NewFlusher()
+flusher.Publish("stream-a", "a")
+flusher.Publish("stream-a", "b")
+flusher.Publish("stream-a", "c")
+flusher.Publish("stream-a", "4")
+flusher.Flush()
+
+eventConsumer := eventBroker.Consumer("read-group-a")
+eventConsumer.DisableLoop()
+eventConsumer.Consume(5, func(events []Event) {
+    var val string
+    for _, event := range events {
+        event.Unserialize(&val)
+        if val == "c" {
+            panic("broken event c")
+        }
+        fmt.Printf("EVENT %s\n", val)
+    }
+})
+fmt.Println("FINISHED")
+```
+</code-block>
+
+<code-block title="bash">
+```
+EVENT a
+EVENT b
+panic: runtime error: broken event c
+```
+</code-block>
+</code-group>
+
+As you can see in above example (check `bash` tab) 
+event `a` and `b` was consumed and then whole code panics.
+Because `Consume()` function is not finished non of the vents was
+actually acknowledged (removed) in stream that's why whne you consumer 
+code again you wull get the same events:
+
+<code-group>
+<code-block title="code">
+```go
+eventConsumer.Consume(5, func(events []Event) {
+    var val string
+    for _, event := range events {
+        event.Unserialize(&val)
+        if val == "c" {
+            panic("broken event c")
+        }
+        fmt.Printf("EVENT %s\n", val)
+    }
+})
+fmt.Println("FINISHED")
+```
+</code-block>
+
+<code-block title="bash">
+```
+EVENT a
+EVENT b
+panic: runtime error: broken event c
+```
+</code-block>
+</code-group>
+
+Check `bash` tab above. Again we got event `a` and `b`. 
+If our application restarts automatically then we ended in loop
+and our stream will grow when new events are pushed because our code
+always panics when event `c` is consumed. 
+
+We have few options to deal with this problem. Event has special method `Ack()` 
+that is acknowledging event in stream immediately. Let's see what happened when we 
+used it:
+
+<code-group>
+<code-block title="code">
+```go{5}
+eventConsumer.Consume(5, func(events []Event) {
+    var val string
+    for _, event := range events {
+        event.Unserialize(&val)
+        event.Ack()
+        if val == "c" {
+            panic("broken event c")
+        }
+        fmt.Printf("EVENT %s\n", val)
+    }
+})
+fmt.Println("FINISHED")
+```
+</code-block>
+
+<code-block title="bash">
+```
+EVENT a
+EVENT b
+panic: runtime error: broken event c
+```
+</code-block>
+</code-group>
+
+When we run our code again:
+```
+panic: runtime error: broken event c
+```
+
+Well, it's a bit better - event `a` and `b` were acknowledged before
+that's why when we run our code again first event we got is `c`.
+Problem is not solved yet - our consumer is still blocked, 
+stream is growing and consumer is a bit
+slower because running `event.Ack()` for every event generates request to redis.
+
+Now it's time to deal with our broken event:
+
+<code-group>
+<code-block title="code">
+```go{5-9}
+eventConsumer.Consume(5, func(events []Event) {
+    var val string
+    for _, event := range events {
+        func() {
+            defer func() {
+                if rec := recover(); rec != nil {
+                     fmt.Printf("GOT ERROR %v\n", rec)
+                }
+            }()
+            event.Unserialize(&val)
+            if val == "c" {
+                panic("broken event c")
+            }
+            fmt.Printf("EVENT %s\n", val)
+        }()
+    }
+})
+fmt.Println("FINISHED")
+```
+</code-block>
+
+<code-block title="bash">
+```
+EVENT a
+EVENT b
+GOT ERROR broken event c
+EVENT d
+FINISHED
+```
+</code-block>
+</code-group>
+
+Now all events are consumed, stream is empty. Of course in real life
+you should not remove broken event but send them to special log where 
+you should investigate what is wrong. Above code works but is quite complicated
+and hard to read. Lucky you BeeORM provides a better way to handle broken events
+in consumers - you can register special function with `SetErrorHandler()`.
+Above code can be then converted into:
+
+<code-group>
+<code-block title="code">
+```go{1-5}
+consumer.SetErrorHandler(func(err error, event Event) {
+    var val interface{}
+    event.Unserialize(&val)
+    fmt.Printf("GOT ERROR %s IN EVENT %d: %v\n", err.Error(), event.ID(), val)
+})
+eventConsumer.Consume(5, func(events []Event) {
+    var val string
+    for _, event := range events {
+        event.Unserialize(&val)
+        if val == "c" {
+            panic("broken event c")
+        }
+        fmt.Printf("EVENT %s\n", val)
+    }
+})
+fmt.Println("FINISHED")
+```
+</code-block>
+
+<code-block title="bash">
+```
+EVENT a
+EVENT b
+GOT ERROR broken event c IN EVENT 1518951480106-0: c
+EVENT d
+FINISHED
+```
+</code-block>
+</code-group>
+
+## Event metadata
 
 TODO
