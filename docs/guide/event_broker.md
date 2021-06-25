@@ -485,7 +485,7 @@ eventConsumer.Consume(5, func(events []Event) {
 ```
 
 You can also publish and consume events that have only `meta` values and 
-body is omitted (set to `nil). No data serialisation is needed, that's why 
+body is omitted (set to `nil`). No data serialisation is needed, that's why 
 publishing and consuming such events is a bit faster, but you can
 use only simple key-value string values:
 
