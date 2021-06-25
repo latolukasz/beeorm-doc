@@ -245,7 +245,7 @@ go eventConsumer.Consume(5, func(events []Event) {}) // works
 go eventConsumer.Consume(5, func(events []Event) {}) // panics
 ```
 
-## Handling consumer errors
+## Handling errors
 
 By default, all events consumed in `Consume()` are automatically
 [acknowledged](https://redis.io/commands/XACK) when function `Consume()` 
@@ -448,4 +448,56 @@ FINISHED
 
 ## Event metadata
 
-TODO
+`Publish()` method accepts optional parameters `meta` which can be used
+to assign metadata to event. Simply provide meta string key followed by meta string value.
+Below example demonstrates one scenario when it's useful to use meta:
+
+```go{14,15,20}
+eventBroker := engine.GetEventBroker()
+
+type Event_V1 struct {
+    Color  string
+    Price  float32
+}
+
+type Event_V2 struct {
+    Color    string
+    Price    float32
+    Discount int
+}
+
+eventBroker.Publish("stream-a", Event_V1{Color: "red", Price: 12.23}, "version", "1")
+eventBroker.Publish("stream-a", Event_V2{Color: "blue", Price: 120.50}, "version", "2")
+
+eventConsumer := eventBroker.Consumer("read-group-a")
+eventConsumer.Consume(5, func(events []Event) {
+    for _, event := range events {
+        switch event.Tag("version") {
+            case "1":
+                val := &Event_V1{}
+                event.Unserialize(val)
+            case "2":
+                val := &Event_V2{}
+                event.Unserialize(val)
+        } 
+    }
+})
+```
+
+You can also publish and consume events that have only `meta` values and 
+body is omitted (set to `nil). No data serialisation is needed, that's why 
+publishing and consuming such events is a bit faster, but you can
+use only simple key-value string values:
+
+```go{2}
+eventBroker := engine.GetEventBroker()
+eventBroker.Publish("stream-page-views", nil, "url", "/about-us/", "ip", "232.12.24.11")
+
+eventConsumer.Consume(100, func(events []Event) {
+    for _, event := range events {
+        event.Tag("url") // "/about-us/"
+        event.Tag("ip") // "232.12.24.11"
+        event.Tag("missing-key") // ""
+    }
+})
+```
