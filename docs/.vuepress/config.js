@@ -53,6 +53,7 @@ module.exports = {
             'local_cache',
             'redis_operations',
             'event_broker',
+            'dirty_channel',
           ]
         }
       ],

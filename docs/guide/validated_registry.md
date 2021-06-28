@@ -168,6 +168,13 @@ for type, fields := range tableSchema.GetUsage(validatedRegistry) {
 }
 ```
 
+With `NewEntity()` method you can create new instance of entity:
+
+```go{2}
+tableSchema := validatedRegistry.GetTableSchema("main.PersonEntity")
+carEntity := tableSchema.NewEntity().(*CarEntity)
+```
+
 ## Getting MySQL pools
 
 To get list of registered MySQL pools use `GetMySQLPools()` method:
