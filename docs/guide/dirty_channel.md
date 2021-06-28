@@ -16,7 +16,7 @@ type UserEntity struct {
 }
 ```
 
-## All changes dirty stream
+## Entity dirty stream
 
 Let's assume we need to implement full text search in our 
 application using elastic search. Every time user is added, updated 
@@ -68,12 +68,12 @@ consumer.Consume(10, func(events []Event) {
     for _, event := range events {
         dityEvent := beeorm.EventDirtyEntity(event)
         if dityEvent.Deleted() { 
-            yourESService().DeleteDocument("users_index", dityEvent.ID())
+            yourESService.DeleteDocument("users_index", dityEvent.ID())
         } else {
             user := &UserEntity{}
             if engine.LoadByID(dityEvent.ID(), user) {
                 esUserDocument := esDocument{Name: user.Name, Email: user.Email....}
-                yourESService().AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
+                yourESService.AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
             }
         }
     }
@@ -90,7 +90,7 @@ dityEvent.Added()
 // true if entity was updated in DB
 dityEvent.Updated()
 // true if entity was deleted from DB
-dityEvent.Updated()
+dityEvent.Deteled()
 // entity 
 tableSchema := dityEvent.TableSchema()
 ```
@@ -103,8 +103,33 @@ entity := tableSchema.NewInstance()
 found := engine.LoadByID(dityEvent.ID(), entity)
 ```
 
+Now let's assume we need another feature - time user is added or updated 
+we should send email. We can add extra code in already created consumer:
+
+```go{12}
+consumer := engine.GetEventBroker().Consumer("update-es-document")
+consumer.Consume(10, func(events []Event) {
+    for _, event := range events {
+        dityEvent := beeorm.EventDirtyEntity(event)
+        if dityEvent.Deleted() { 
+            yourESService.DeleteDocument("users_index", dityEvent.ID())
+        } else {
+            user := &UserEntity{}
+            if engine.LoadByID(dityEvent.ID(), user) {
+                esUserDocument := esDocument{Name: user.Name, Email: user.Email....}
+                yourESService.AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
+                yourEmailService.SendEmail(user.Email, "Your account was changed")
+            }
+        }
+    }
+})
+```
+
+TODO problem with this code we should use second consumer
+
+
+## Field dirty stream
 
 TODO:
- * fake delete
+ * only inserted dirty (close to ID)
  * divide streams
- * blocking connections
