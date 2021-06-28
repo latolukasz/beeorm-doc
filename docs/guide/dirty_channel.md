@@ -106,7 +106,43 @@ found := engine.LoadByID(dityEvent.ID(), entity)
 Now let's assume we need another feature - time user is added or updated 
 we should send email. We can add extra code in already created consumer:
 
-```go{12}
+```go{11}
+consumer := engine.GetEventBroker().Consumer("update-es-document")
+consumer.Consume(10, func(events []Event) {
+    for _, event := range events {
+        dityEvent := beeorm.EventDirtyEntity(event)
+        if dityEvent.Deleted() { 
+            yourESService.DeleteDocument("users_index", dityEvent.ID())
+        } else {
+            user := &UserEntity{}
+            if engine.LoadByID(dityEvent.ID(), user) {
+                esUserDocument := esDocument{Name: user.Name, Email: user.Email....}
+                yourEmailService.SendEmail(user.Email, "Your account was changed")
+                yourESService.AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
+            }
+        }
+    }
+})
+```
+
+Well, this code works perfectly but there is one problem with this implementation -
+try to imagine elastic search sever is down. Then after sending email code will
+panic in next line, so next time you run consumer email will be send again.
+Adding different functionalities in one consumer is a bad idea. 
+BeeORM helps you solve this problem very ease - simply define two different consumer groups
+for one dirty stream:
+
+<code-group>
+<code-block title="registry">
+```go{3}
+registry := beeorm.NewRegistry()
+registry.RegisterRedis("localhost:6379", 0)
+registry.RegisterRedisStream("user-changed", "default", []string{"update-es-document", "send-user-updated-mail"})
+```
+</code-block>
+
+<code-block title="consumer #1">
+```go{1}
 consumer := engine.GetEventBroker().Consumer("update-es-document")
 consumer.Consume(10, func(events []Event) {
     for _, event := range events {
@@ -118,18 +154,33 @@ consumer.Consume(10, func(events []Event) {
             if engine.LoadByID(dityEvent.ID(), user) {
                 esUserDocument := esDocument{Name: user.Name, Email: user.Email....}
                 yourESService.AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
-                yourEmailService.SendEmail(user.Email, "Your account was changed")
             }
         }
     }
 })
 ```
+</code-block>
 
-TODO problem with this code we should use second consumer
-
+<code-block title="consumer #2">
+```go{1}
+consumer := engine.GetEventBroker().Consumer("send-user-updated-mail")
+consumer.Consume(10, func(events []Event) {
+    for _, event := range events {
+        dityEvent := beeorm.EventDirtyEntity(event)
+        if !dityEvent.Deleted() { 
+            user := &UserEntity{}
+            if engine.LoadByID(dityEvent.ID(), user) {
+                yourEmailService.SendEmail(user.Email, "Your account was changed")
+            }    
+        }
+    }
+})
+```
+</code-block>
+</code-group>
 
 ## Field dirty stream
 
 TODO:
+ * sending emails for two different entities
  * only inserted dirty (close to ID)
- * divide streams
