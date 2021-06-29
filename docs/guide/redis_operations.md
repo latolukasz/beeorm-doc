@@ -49,6 +49,37 @@ testPool := engine.GetRedis("test")
 testPool.FlushDB() // flush redis DB 3
 ```
 
+## Redis pipeline
+
+To send redis commands in [pipeline](https://redis.io/topics/pipelining)
+create `beeomr.RedisPipeLine` object with `PipeLine()` method, register commands
+and run `Execute()` method to send all commands to redis:
+
+```go{1,5,12}
+pipeLine :=  engine.GetRedis().PipeLine()
+pipeLine.Set("key-1", "value-1", time.Hour)
+pipeLine.Set("key-2", "value-2", time.Hour)
+pipeLine.Set("key-3", "value-3", time.Hour)
+pipeLine.Exec() // sends 3 set commands in one request
+
+pipeLine = engine.GetRedis().PipeLine()
+c1 := pipeLine.Get("key-1")
+c2 := pipeLine.Get("key-2")
+c3 := pipeLine.Get("key-3")
+c4 := pipeLine.Get("key-4")
+pipeLine.Exec()
+val, has := c1.Result() // "value-1", true
+val, has = c2.Result() // "value-2", true
+val, has = c3.Result() // "value-3", true
+val, has = c4.Result() // "", false
+```
+
+:::tip
+If you need to execute more than one redis command at once in
+one redis always use `PipeLine()` to improve your application
+performance.
+:::
+
 ## Rate limiter
 
 BeeORM redis client provides method `RateLimit` used for rate limiting based on Redis.
@@ -171,7 +202,6 @@ if obtained {
     }
     fmt.Printf("WILL EXPIRE IN %d SECONDS\n", lock.TTL().Seconds())  
 }
-
 ```
 </code-block>
 
