@@ -205,8 +205,132 @@ entity_id: 2
   changes: {"Name": "John", "Age": 30}  
 ```
 
-## Define redis
+## Skipping fields in log
 
-TODO
+If you don't need to track changes for specific entity
+field you can use `skip-log` tag:
+
+```go{5}
+type UserEntity struct {
+    beeorm.ORM `beeorm:"log"`
+    ID          uint
+    Name       string
+    LastLogin  time.Time `orm:"skip-log"`
+}
+```
+
+Now when you are updating `UserEntity` and only `LastLogin`
+is changed no log entry will be added into log table:
+
+```go
+user.LastLogin = time.Now()
+engine.Flush()
+```
+
+```sql
+SELECT * FROM _log_default_UserEntity WHERE\G;
+
+*************************** 0. row ***************************
+```
+
+```go
+user.Name = "Lucas"
+engine.Flush()
+```
+
+```sql
+SELECT * FROM _log_default_UserEntity WHERE\G;
+
+*************************** 1. row ***************************
+       id: 2
+entity_id: 1
+ added_at: "2021-06-30 12:49:00"
+     meta: NULL
+   before: {"Name": "Tom"}
+  changes: {"Name": "Lucas"}
+```
+
+## Log channel
+
+By default all log events are published into
+`orm-log-channel` [redis channel](/guide/event_broker.html#registering-streams) 
+in `default` redis [server pool](/guide/data_pools.html#redis-server-pool) and are
+consumed by `orm-async-consumer` consumer group. 
+You can define this channel in another redis server pool if needed. You must use
+`orm-log-channel` as channel name and `orm-async-consumer` as consumer group name:
+
+<code-group>
+<code-block title="code">
+```go{3}
+registry := beeorm.NewRegistry()
+registry.RegisterRedis("192.123.11.12:6379", 0, "log")
+registry.RegisterRedisStream("orm-log-channel", "log", []string{"orm-async-consumer"})
+```
+</code-block>
+
+<code-block title="yaml">
+```yml{4,5}
+log:
+    redis: 192.123.11.12:6379
+    streams:
+        orm-log-channel:
+          - orm-async-consumer
+```
+</code-block>
+</code-group>
+
 
 ## extra consumer
+
+You can also register extra consumer group that can be used to track changes in entity. In
+belov example we are adding `my-consumer` consumer group: 
+
+<code-group>
+<code-block title="code">
+```go{3}
+registry := beeorm.NewRegistry()
+registry.RegisterRedis("192.123.11.12:6379", 0)
+registry.RegisterRedisStream("orm-log-channel", "default", []string{"orm-async-consumer", "my-consumer"})
+```
+</code-block>
+
+<code-block title="yaml">
+```yml{6}
+default:
+    redis: 192.123.11.12:6379
+    streams:
+        orm-log-channel:
+          - orm-async-consumer
+          - my-consumer
+```
+</code-block>
+</code-group>
+
+Consumer group example:
+
+```go
+var logEvent beeorm.LogQueueValue
+consumer := engine.GetEventBroker().Consumer("my-consumer")
+consumer.Consume(10, func(events []Event) {
+    for _, event := range events {
+	    event.Unserialize(&logEvent)
+	    logEvent.PoolName // log table MySQL pool name
+	    logEvent.TableName // log table name
+	    logEvent.ID // primary key of entity
+	    logEvent.LogID // primary key of log entry
+	    logEvent.Meta // log meta data
+	    logEvent.Before // old entity values
+	    logEvent.Changes // new entity values
+	    logEvent.Updated // datetime of the change
+	    
+	    if logEvent.TableName == "_log_default_UserEntity" { // UserEntity
+	        if logEvent.Before != nil && logEvent.Changes != nil { // update
+	            if has { // Name was changesd
+	                new := logEvent.Changes["Name"]
+	                fmt.Printf("USER %d CHANGED NAME FROM %s TO %s\n", logEvent.ID, old, new)
+	            }
+	        }
+	    }
+	}
+})
+```
