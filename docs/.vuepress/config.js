@@ -54,7 +54,8 @@ module.exports = {
             'redis_operations',
             'event_broker',
             'dirty_channel',
-            'log_tables'
+            'log_tables',
+            'queries_log'
           ]
         }
       ],

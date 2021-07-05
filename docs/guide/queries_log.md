@@ -1,0 +1,50 @@
+# Queries log
+
+You can log all MySQL, Redis and local cache queries.
+Simply register logger with `engine.RegisterQueryLogger()`:
+
+```go{7}
+type MyLogger struct{}
+
+func (l *MyLogger) Handle(log map[string]interface{}) {
+	fmt.Printf("QUERY %s in %s", log["query"], log["source"])
+}
+
+engine.RegisterQueryLogger(&MyLogger{}, true, true, true)
+```
+
+This method requires instance of `beeorm.LogHandler` interface:
+
+```go
+type LogHandler interface {
+	Handle(log map[string]interface{})
+}
+```
+
+`log` map attribute provides these fields:
+
+| key        | value type         | description  |
+| :------------- |:-------------| :-----|
+| source      | string  | `mysql` or `redis` or `local_cache`  |
+| pool      | string  | [data pool](/guide/data_pools.html#mysql-pool) name  |
+| query      | string  | full query  |
+| operation      | string  | short label of query  |
+| microseconds      | int64  | query time  |
+| started      | int64  | unix timestamp (nanoseconds) when query started  |
+| finished      | int64  | unix timestamp (nanoseconds) when query finished  |
+| error      | string  | query error if query returned error  |
+
+Queries to [local cache](/guide/local_cache.html) are very fast, that's why
+query log for this cache layer doesn't provide `microseconds`, `started` and `finished`
+keys.
+
+You can decide which queries should be logged:
+
+```go
+// only queries to MySQL
+engine.RegisterQueryLogger(&MyLogger{}, true, false, false)
+// only queries to redis
+engine.RegisterQueryLogger(&MyLogger{}, false, true, false)
+// only queries to local cache
+engine.RegisterQueryLogger(&MyLogger{}, false, false, true)
+```
