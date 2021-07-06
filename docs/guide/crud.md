@@ -857,3 +857,13 @@ flusher.Clear()
 category.Name = "Another name"
 flusher.Flush() // does nothing, category is not tracked
 ```
+
+## Clearing entity cache
+
+Sometimes you may need to manually clear entity data in cache.
+Simply use `beeorm.ClearCacheByIDs()` method:
+
+```go{2}
+var categoryEntity CategoryEntity
+engine.ClearCacheByIDs(categoryEntity, 7, 13, 33)
+```
