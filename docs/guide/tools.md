@@ -23,7 +23,36 @@ engine.GetMysql().Exec(query)
 
 ## Redis server statistics
 
-TODO
+`GetRedisStatistics` function provides details statistics for every
+registered redis server:
+
+```go{17}
+package main
+
+import (
+    "github.com/latolukasz/beeorm"
+    "github.com/latolukasz/beeorm/tools"
+)
+
+func main() {
+   registry := beeorm.NewRegistry()
+   registry.RegisterRedis("localhost:6379", 0)
+   validatedRegistry, err := registry.Validate(context.Background())
+    if err != nil {
+        panic(err)
+    }
+    engine := validatedRegistry.CreateEngine(context.Background())
+    
+    for _, statistics := range tools.GetRedisStatistics(engine) {
+        statistics.RedisPool // "default"
+        statistics.Info["used_memory_startup"] // 7637663
+        statistics.Info["redis_version"] // "6.2.4"
+    }
+}
+
+```
+Field `Info` holds values responded from redis
+[INFO](https://redis.io/commands/info) command.
 
 ## Redis streams statistics
 
