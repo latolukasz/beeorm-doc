@@ -55,7 +55,9 @@ module.exports = {
             'event_broker',
             'dirty_channel',
             'log_tables',
-            'queries_log'
+            'queries_log',
+            'redis_search',
+            'tools'
           ]
         }
       ],
