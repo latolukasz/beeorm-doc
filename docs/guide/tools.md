@@ -79,7 +79,7 @@ func main() {
         statistics.Stream // "test-stream"
         statistics.RedisPool // "default"
         statistics.Len // 0
-        for _, groupStatistics := range {
+        for _, groupStatistics := range statistics.Groups {
             groupStatistics.Group // "test-group"
             groupStatistics.Pending // 0
         }
@@ -122,6 +122,44 @@ is waiting to be consumed by all connected consumer groups
 
 ## Redis search statistics
 
-TODO
+`GetRedisSearchStatistics` function provides detailed statistics for every
+registered redis search index:
 
+```go{18}
+package main
 
+import (
+    "github.com/latolukasz/beeorm"
+    "github.com/latolukasz/beeorm/tools"
+)
+
+func main() {
+   registry := beeorm.NewRegistry()
+   registry.RegisterRedis("localhost:6379", 0)
+   registry.RegisterRedisSearchIndex(&orm.RedisSearchIndex{Name: "my-index", RedisPool: "default"})
+   validatedRegistry, err := registry.Validate(context.Background())
+    if err != nil {
+        panic(err)
+    }
+    engine := validatedRegistry.CreateEngine(context.Background())
+    
+    for _, statistics := range tools.GetRedisSearchStatistics(engine) {
+        statistics.Index.Name // "my-index"
+        statistics.RedisPool // "default"
+        for _, indexVersion := range statistics.Versions {
+            indexVersion.Curret // true
+            indexVersion.Info.NumRecords // 0
+        }
+    }
+}
+```
+
+`GetRedisSearchStatistics` returns slice of `RedisSearchStatistics` that provides
+these fields:
+
+ * `Index` - redis search index definition (`bee.RedisSearchIndex`)
+ * `Versions` - slice of `RedisSearchStatisticsIndexVersion` that provides 
+statistics for each redis index version. Provides these fields:
+   * `Current` - true, if this version is in use
+   * `Info` - index version statistics returned from [FT.INFO](https://oss.redislabs.com/redisearch/Commands/#ftinfo)
+    command

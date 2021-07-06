@@ -52,11 +52,11 @@ module.exports = {
             'mysql_queries',
             'local_cache',
             'redis_operations',
+            'redis_search',
             'event_broker',
             'dirty_channel',
             'log_tables',
             'queries_log',
-            'redis_search',
             'tools'
           ]
         }
