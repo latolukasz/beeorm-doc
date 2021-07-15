@@ -164,46 +164,6 @@ data from local cache, and request on another machine loads data from redis, not
 in local cache.
 :::
 
-### Redis search pool
-
-BeORM allows you to search Entities using [Redis search](https://oss.redislabs.com/redisearch/) module.
-This topic is described in dedicated section. Redis search index used to search entity is by default
-created in redis defined by `redisCache` setting.
-
-In this example redis search index is created in redis from `search` pool:
-```go{4}
-registry.RegisterRedis("localhost:6379", 0) 
-
-type CategoryEntity struct {
-	beeorm.ORM `beeorm:"redisCache=search"`
-	ID   uint
-}
-```
-
-What if redis cache is not enabled, but still you want to use Redis search to search entities?
-In this case use **redisSearch=pool_name** to define redis pool for redis search indices:
-```go{4}
-registry.RegisterRedis("localhost:6379", 0, "search") 
-
-type CategoryEntity struct {
-	beeorm.ORM `beeorm:"redisSearch=search"`
-	ID   uint
-}
-```
-::: warning
-Redis search works only with redis database nr **0**. So be sure you are using pool with this value.
-:::
-
-::: tip
-We strongly recommend using one redis pool for cache data 
-(without [Redis search](https://oss.redislabs.com/redisearch/) module) and another one
-for redis search indices. 
-Reasons are two:
- * Redis search module slow down redis queries a bit
- * In real life you may want to clear Entity cache data and keep redis search index untouched
-
-Simply use `beeorm:"redisCache=first_pool;redisSearch=another_pool"` tag.
-:::
 
 ### Defining entity table name
 

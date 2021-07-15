@@ -109,3 +109,7 @@ go func() {
 
 Now when you know how to create engine it's time to use it and
 execute [MySQL schema update](/guide/schema_update.html).
+
+## Request cache
+
+TODO

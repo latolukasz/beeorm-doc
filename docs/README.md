@@ -12,6 +12,6 @@ features:
 - title: For Redis enthusiastic
   details: If you believe Redis is one of the best open sourced project providing top edge performance then this ORM is for you. 
 - title: For performance geeks
-  details: Now try to imagine we are combining speed of golang, reliability of MySQL and performance of Redis with search module. Perfect match right? Try it out! 
+  details: Now try to imagine we are combining speed of golang, reliability of MySQL and performance of Redis. Perfect match right? Try it out! 
 footer: MIT Licensed | Copyright © 2021-present Łukasz Lato
 ---
