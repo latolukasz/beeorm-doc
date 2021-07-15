@@ -381,7 +381,7 @@ In case you need to load more than one entity use `engine.LoadByIDs()`:
 <code-block title="code">
 ```go{2}
 var products []*ProductEntity{}
-missing := engine.LoadByIDs([]uint64{1, 2}, &products)
+engine.LoadByIDs([]uint64{1, 2}, &products)
 len(products) == 2 // true
 products[0].ID // 1
 products[1].ID // 2
@@ -403,13 +403,12 @@ REDIS MSET cacheKeyForProducts1 "entity1 data" cacheKeyForProducts2 "entity2 dat
 </code-block>
 </code-group>
 
-This method returns false if at least one entity is not found in database and 
-value in slice for this entity is `nil`:
+Missing entities are returned as nil:
 
 ```go
 // we have only product in table with ID 1 and 2
 var products []*ProductEntity{}
-missing := engine.LoadByIDs([]uint64{1, 2, 3}, &products) // missing = true
+engine.LoadByIDs([]uint64{1, 2, 3}, &products)
 len(products) == 3 // true
 products[0].ID // 1
 products[1].ID // 2
