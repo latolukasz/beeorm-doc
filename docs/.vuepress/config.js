@@ -7,7 +7,7 @@ module.exports = {
     ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }]
   ],
   themeConfig: {
-    repo: 'https://github.com/latolukasz/orm',
+    repo: 'https://github.com/latolukasz/beeorm',
     docsRepo: 'https://github.com/latolukasz/beeorm-doc',
     logo: '/logo-small.svg',
     editLinks: true,
