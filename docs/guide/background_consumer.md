@@ -24,10 +24,4 @@ func main() {
 ```
 
 This script uses another BeeORM feature called `Event Consumer`. 
-You will learn more about on [next pages](/TODO). `Event Consumer` intefrace
-provides you many useful methods that you can use to configure `Background Consumer`:
-
- * [DisableLoop()](/TODO)
- * [SetLimit()](/TODO)
- * [SetHeartBeat()](/TODO)
- * [SetErrorHandler()](/TODO)
+You will learn more about on [next pages](/guide/event_broker.html#consuming-events).

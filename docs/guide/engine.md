@@ -112,4 +112,10 @@ execute [MySQL schema update](/guide/schema_update.html).
 
 ## Request cache
 
-TODO
+If you are developing http API it's a good practice to
+enable temporary cache for all entity data loaded in one
+http request. You can do it using `EnableRequestCache()` method:
+
+```go
+engine.EnableRequestCache()
+```
