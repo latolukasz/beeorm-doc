@@ -406,12 +406,18 @@ type UserEntity struct {
 Any public field with type not mentioned above is mapped to `JSON` MySQL column type
 and value of this field is automatically converted to/from JSON:
 
-```go{4-5}
+```go{9-11}
+type Options struct {
+    Option1 string
+    Option2 bool
+}
+
 type ProductEntity struct {
     beeorm.ORM
     ID            uint
     Attributes    map[string]string  `beeorm:"required"`
     Specification interface{}
+    Options       *Options
 }
 ```
 
