@@ -269,7 +269,7 @@ Below tables demonstrates how you can build redis search query using this struct
 | q.Sort("Age", false) | FT.SEARCH index * SORTBY Age ASC |
 | q.Sort("Age", true) | FT.SEARCH index * SORTBY Age DESC |
 | q.FilterInt("Age", 18) | FT.SEARCH index * @Age:[18 18] |
-| q.FilterInt("Age", 18, 20) | FT.SEARCH index * @Age:[18 18]|@ID:[20 20] |
+| q.FilterInt("Age", 18, 20) | FT.SEARCH index * @Age:[18 18]\|@ID:[20 20] |
 | q.FilterIntMinMax("Age", 18, 20) | FT.SEARCH index * @Age:[18 20] |
 | q.FilterNotInt("Age", 18) | FT.SEARCH index * -@Age:[18] |
 | q.FilterIntNull("Age") | FT.SEARCH index * @Age:-9223372036854775807 |
@@ -278,3 +278,13 @@ Below tables demonstrates how you can build redis search query using this struct
 | q.FilterIntGreater("Age", 18) | FT.SEARCH index * @Age:[(18 +inf] |
 | q.FilterIntLessEqual("Age", 18) | FT.SEARCH index * @Age:[-inf 18] |
 | q.FilterIntLess("Age", 18) | FT.SEARCH index * @Age:[-ind (18] |
+| q.FilterString("Name", "jump high") | FT.SEARCH index * @Name:"jump high" |
+| q.FilterString("Name", "sky", "yellow") | FT.SEARCH index * @Name:("sky"\|"yellow") |
+| q.QueryString("Name", "jump high") | FT.SEARCH index * @Name:jump high |
+| q.FilterFloat("Balance", 17) | FT.SEARCH index * @Balance:[16.99999 17.00001] |
+| q.FilterFloatGreaterEqual("Balance", 17) | FT.SEARCH index * @Balance:[16.99999 +inf] |
+| q.FilterFloatGreater("Balance", 17) | FT.SEARCH index * @Balance:[(16.99999 +inf] |
+| q.FilterFloatLessEqual("Balance", 17) | FT.SEARCH index * @Balance:[-in, 17.00001] |
+| q.FilterFloatLess("Balance", 17) | FT.SEARCH index * @Balance:[-inf (17.00001] |
+| q.FilterFloatMinMax("Balance", 17, 18.2) | FT.SEARCH index * @Balance:[16.99999 12.20001] |
+| q.FilterFloatNull("Balance") | FT.SEARCH index * @Balance:-9223372036854775807 |
