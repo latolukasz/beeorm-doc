@@ -435,3 +435,11 @@ testIndex2.Indexer = func(engine *beeorm.Engine, lastID uint64, pusher beeorm.Re
     return lastID, total == 100
 }
 ```
+
+Now every time you execute `engine.GetRedisSearch().ForceReindex("test")` above
+function will be executed in [background consumer](/guide/background_consumer.html).
+Notice that this function returns two variables:
+ * `newID uint64` - id of last pushed document
+ * `hasMore uint64` - you should return false if all documents are pushed
+ 
+
