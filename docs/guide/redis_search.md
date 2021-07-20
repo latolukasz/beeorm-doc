@@ -344,4 +344,94 @@ query.HighlightTags("<b>", "</b>") // ads HIGHLIGHT .. TAGS <b> </b>
 
 ## Custom redis search index
 
-TODO
+So far we used redis search to index and search entities.
+You can also use beeORM to define your own index.
+
+First you need to define redis search index:
+
+```go
+indexDogs := &beeorm.NewRedisSearchIndex{"test", "search", []string{"dogs:"}}
+indexDogs.AddTextField("name", 1, true, false, false)
+testIndex.AddTagField("breed", true, false, ",")
+```
+
+In above example we defined index with name `test` that use `search` redis
+pool and `dogs:` hash prefix. This index has 
+one `TEXT` field `Name` and one `TAG` field `bread`.
+
+
+`RedisSearchIndex` object provides methods used to define index options.
+Below some examples:
+
+```go
+indexDogs.LanguageField = "_lang"
+indexDogs.DefaultScore = 0.8
+indexDogs.StopWords =  []string{"and", "in"}
+indexDogs.NoOffsets = true
+```
+
+Now it's time to register our index:
+
+```go{3}
+registry := &beeorm.Registry{}
+registry.RegisterRedis("localhost:6382", 0, "search")
+registry.RegisterRedisSearchIndex(indexDogs)
+validatedRegistry, err := registry.Validate(ctx)
+if err != nil {
+    panic(err)
+}
+// creates missing index
+for _, alter := range engine.GetRedisSearchIndexAlters() {
+    alter.Execute()
+}
+```
+
+We are almost there. Time to fill our `dogs` index with data.
+You have three options:
+
+Using hash:
+
+```go
+engine.GetRedis("search").HSet("dogs:1", "name", "Fiffy", "breed", "bulldog")
+```
+Using `RedisSearchIndexPusher`:
+
+```go
+pusher := engine.NewRedisSearchIndexPusher("search")
+
+pusher.NewDocument("dogs:1")
+pusher.SetString("name", "Fiffy")
+pusher.SetTag("breed", "bulldog")
+pusher.PushDocument()
+
+pusher.NewDocument("dogs:2")
+pusher.SetString("name", "Fluffy")
+pusher.SetTag("breed", "poodle")
+pusher.PushDocument()
+
+pusher.Flush()
+```
+
+Using indexer (recommended):
+
+```go
+testIndex2.Indexer = func(engine *beeorm.Engine, lastID uint64, pusher beeorm.RedisSearchIndexPusher) (newID uint64, hasMore bool) {
+    query := "SELECT ID, Name, Breed FROM dogs WHERE ID > ? ORDER ID LIMIT 0, 100"
+    results, def := engine.GetMysql(mysql).Query(query, lastID)
+    defer def()
+    total := 0
+    var id uint64
+    var name string
+    var breed string
+    for results.Next() {
+        results.Scan(&id, &name, &breed)
+        lastID = *id
+        pusher.NewDocument("dogs:" + strconv.FormatUint(lastID, 10))
+        pusher.SetString("name", name)
+        pusher.SetTag("breed", breed)
+        pusher.PushDocument()
+        total++
+    }
+    return lastID, total == 100
+}
+```
