@@ -271,7 +271,7 @@ Below tables demonstrates how you can build redis search query using this struct
 | q.FilterInt("Age", 18) | FT.SEARCH index * @Age:[18 18] |
 | q.FilterInt("Age", 18, 20) | FT.SEARCH index * @Age:[18 18]\|@ID:[20 20] |
 | q.FilterIntMinMax("Age", 18, 20) | FT.SEARCH index * @Age:[18 20] |
-| q.FilterNotInt("Age", 18) | FT.SEARCH index * -@Age:[18] |
+| q.FilterNotInt("Age", 18) | FT.SEARCH index * -@Age:18 |
 | q.FilterIntNull("Age") | FT.SEARCH index * @Age:-9223372036854775807 |
 | q.FilterNotIntNull("Age") | FT.SEARCH index * -@Age:-9223372036854775807 |
 | q.FilterIntGreaterEqual("Age", 18) | FT.SEARCH index * @Age:[18 +inf] |
@@ -284,7 +284,64 @@ Below tables demonstrates how you can build redis search query using this struct
 | q.FilterFloat("Balance", 17) | FT.SEARCH index * @Balance:[16.99999 17.00001] |
 | q.FilterFloatGreaterEqual("Balance", 17) | FT.SEARCH index * @Balance:[16.99999 +inf] |
 | q.FilterFloatGreater("Balance", 17) | FT.SEARCH index * @Balance:[(16.99999 +inf] |
-| q.FilterFloatLessEqual("Balance", 17) | FT.SEARCH index * @Balance:[-in, 17.00001] |
+| q.FilterFloatLessEqual("Balance", 17) | FT.SEARCH index * @Balance:[-inf, 17.00001] |
 | q.FilterFloatLess("Balance", 17) | FT.SEARCH index * @Balance:[-inf (17.00001] |
 | q.FilterFloatMinMax("Balance", 17, 18.2) | FT.SEARCH index * @Balance:[16.99999 12.20001] |
 | q.FilterFloatNull("Balance") | FT.SEARCH index * @Balance:-9223372036854775807 |
+| q.FilterDate("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[1626645600 1626645600] |
+| q.FilterNotDate("AddedAt", time.Now()) | FT.SEARCH index * -@AddedAt:1626645600 |
+| q.FilterDateNull("AddedAt") | FT.SEARCH index * @AddedAt:-9223372036854775807 |
+| q.FilterNotDateNull("AddedAt") | FT.SEARCH index * -@AddedAt:-9223372036854775807 |
+| q.FilterDateGreaterEqual("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[1626645600, +inf] |
+| q.FilterDateGreater("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[(1626645600, +inf] |
+| q.FilterDateLessEqual("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[-inf 1626645600] |
+| q.FilterDateLess("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[-ind (1626645600] |
+| q.FilterDateTime("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[1626645600 1626645600] |
+| q.FilterNotDateTime("AddedAt", time.Now()) | FT.SEARCH index * -@AddedAt:1626645600 |
+| q.FilterDateTimeNull("AddedAt") | FT.SEARCH index * @AddedAt:-9223372036854775807 |
+| q.FilterNotDateTimeNull("AddedAt") | FT.SEARCH index * -@AddedAt:-9223372036854775807 |
+| q.FilterDateTimeGreaterEqual("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[1626645600, +inf] |
+| q.FilterDateTimeGreater("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[(1626645600, +inf] |
+| q.FilterDateTimeLessEqual("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[-inf 1626645600] |
+| q.FilterDateTimeLess("AddedAt", time.Now()) | FT.SEARCH index * @AddedAt:[-ind (1626645600] |
+| q.FilterTag("Status", "active") | FT.SEARCH index * @Status:{active} |
+| q.FilterTag("Status", "active", "inactive") | FT.SEARCH index * @Status:{active\|inactive} |
+| q.FilterNotTag("Status", "active") | FT.SEARCH index * -@Status:{active} |
+| q.FilterBool("Active", true) | FT.SEARCH index * @Active:{true} |
+| q.FilterGeo("Point", 12.2342, 34.23432, 10, "km") | FT.SEARCH index * GEOFILTER 12.2342 34.23432 10 "km"  |
+
+
+You can also define query manually with `query.QueryRaw()`:
+
+```go
+query := beeorm.NewRedisSearchQuery()
+query.QueryRaw("(@Bool:{true})")
+query.AppendQueryRaw(" | (@Ref:[32 32])")
+```
+
+:::warning
+When you are building query with `QueryRaw()` all string parameters
+used in filters or query text must be escaped with `EscapeRedisSearchString()` 
+function:
+```go
+query.QueryRaw("@title: " + EscapeRedisSearchString("adam@gmail.com"))
+```
+:::
+
+You can define also additional query options:
+```go
+query := beeorm.NewRedisSearchQuery()
+query.Verbatim() // ads VERBATIM
+query.NoStopWords() // ads NOSTOPWORDS
+query.InKeys("a", "b") // ads INKEYS a b
+query.InFields("a", "b") // ads INFIELDS a b
+query.Slop(3) // ads SLOP 3
+query.InOrder() // ads INORDER
+query.Lang("de") // ads LANGUAGE de
+query.Highlight("Title") // ads HIGHLIGHT Title
+query.HighlightTags("<b>", "</b>") // ads HIGHLIGHT .. TAGS <b> </b>
+```
+
+## Custom redis search index
+
+TODO
