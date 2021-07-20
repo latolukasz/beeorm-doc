@@ -1,30 +1,28 @@
 # Introduction
 
 All ORM libraries such as [GORM](https://gorm.io/) 
-focus on converting data between relational database and object-oriented language.
-Most of them provides interface to many databases like  MySQL, PostgreSQL, SQLite, SQL Server.
+focus on converting data between a relational database and object-oriented language.
+Most of them provide an interface to many databases like  MySQL, PostgreSQL, SQLite, SQL Server.
 
 ## Designed for MySQL
 
-BeeORM has different concept. In real life developers choose one database software and stick to it.
+BeeORM has a different concept. In real life, developers choose one database software and stick to it.
 It's very unlikely you want to switch from MySQL to SQL Server and later to PostgreSQL. 
-Every database has unique features and requires different optimisation to squeeze top performance.
-Our team is following simple rule - **"don't be average in many technologies, be expert in few"**.
+Every database has unique features and requires different optimization to squeeze top performance.
+Our team is following a simple rule - **"don't be average in many technologies, be expert in few"**.
 That's why BeeORM supports only one database - [MySQL](https://www.mysql.com/). It's designed from
-the beginning to use all MySQL features in most optimal way. We are following new releases of MySQL
-implementing all required changes and improvements, so you can be sure that BeeORM support everything 
-that MySQL provides, including the newest version 8.0.
+the beginning to use all MySQL features most optimally. We are following new releases of MySQL
+implementing all required changes and improvements, so you can be sure that BeeORM supports everything that MySQL provides, including the newest version 8.0.
 
 ## Centralised data model
 
 Supporting only MySQL is not what makes BeeORM so unique. Our ORM is created by developers for developers
-to help build high traffic applications. Our team spent last 20 years
+to help build high-traffic applications. Our team spent the last 20 years
 building applications that are used by more than 400 million daily active users. What we learned
-is relational database such us MySQL is only a small piece in a big machine called 
-"application data model". MySQL should be treated as persistent data storage that can be easily 
-backup. That's it. You should always try to protect it from queries because it's not designed to
-get top performance. There is may other technologies that are needed in your application to be able
-to handle huge traffic such as NoSQL in memory databases and message brokers. BeeORM supports them out
+is relational database such as MySQL is only a small piece in a big machine called 
+"application data model". MySQL should be treated as persistent data storage that can be easily backup. That's it. You should always try to protect it from queries because it's not designed to
+get top performance. Many other technologies are needed in your application to be able
+to handle huge traffic such as NoSQL in-memory databases and message brokers. BeeORM supports them out
 of the box.
 
 ## It's all about cache
