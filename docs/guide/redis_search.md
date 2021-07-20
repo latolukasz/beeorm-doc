@@ -440,6 +440,6 @@ Now every time you execute `engine.GetRedisSearch().ForceReindex("test")` above
 function will be executed in [background consumer](/guide/background_consumer.html).
 Notice that this function returns two variables:
  * `newID uint64` - id of last pushed document
- * `hasMore uint64` - you should return false if all documents are pushed
+ * `hasMore bool` - you should return false if all documents are pushed
  
 
