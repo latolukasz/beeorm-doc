@@ -12,13 +12,13 @@ Every database has unique features and requires different optimization to squeez
 Our team is following a simple rule - **"don't be average in many technologies, be expert in few"**.
 That's why BeeORM supports only one database - [MySQL](https://www.mysql.com/). It's designed from
 the beginning to use all MySQL features most optimally. We are following new releases of MySQL
-implementing all required changes and improvements, so you can be sure that BeeORM supports everything that MySQL provides, including the newest version 8.0.
+implementing all required changes and improvements, so you can be sure that BeeORM supports everything that MySQL provides.
 
 ## Centralised data model
 
 Supporting only MySQL is not what makes BeeORM so unique. Our ORM is created by developers for developers
 to help build high-traffic applications. Our team spent the last 20 years
-building applications that are used by more than 400 million daily active users. What we learned
+building projects that are used by more than 400 million daily active users. What we learned
 is relational database such as MySQL is only a small piece in a big machine called 
 "application data model". MySQL should be treated as persistent data storage that can be easily backup. That's it. You should always try to protect it from queries because it's not designed to
 get top performance. Many other technologies are needed in your application to be able
@@ -28,18 +28,19 @@ of the box.
 ## It's all about cache
 
 Let's say you are using typical ORM in your code, and you need to implement login form.
-At some stage you need to search in users database for a user with provided login name.
+At some stage, you need to search in users database for a user with the provided login name.
 So probably your code looks like:
+
 ```go
 user := someorm.QueryByField("user_name = ?", userNameFromForm)
 ```
 
-It's not a real code but just an overview to demonstrate big picture.
-Ok, looks simple right? In real life this code can produce a dangerous bottleneck.
-Every time users try to log in MySQL query is executed. Yes, it's fats query 
-(if you add unique index on "user_name" field) but still it's a query that use MySQL resources.
+It's not a real code but just an overview to demonstrate the big picture.
+Ok, looks simple right? In real life, this code can produce a dangerous bottleneck.
+Every time users try to log in MySQL query is executed. Yes, it's fast query 
+(if you add a unique index on "user_name" field) but still, it's a query that uses MySQL resources.
 Many developers (unfortunately) may say "and what? if there is a problem we can add more RAM or better CPU".
-"Smart" developers knows that there is a better way to deal with this bottleneck - adding caching layer:
+"Smart" developers know that there is a better way to deal with this bottleneck - adding a caching layer:
 
 ```go
 var user User
@@ -56,7 +57,7 @@ if !has {
 ```
 
 Better right? But code is much more complicated. Also, you need to configure connections
-to redis server, choose redis library and best serialisation method and remove data from cache when user 
+to redis server, choose redis library and best serialization method and remove data from the cache when user 
 is deleted:
 
 ```go
@@ -64,9 +65,9 @@ someorm.Delete(user)
 someredislibrary.Delete("user:name:" + userNameFromForm)
 ```
 
-So you should always remember to clear cache when user is deleted. 
-But what if someone is trying to log in with name that doesn't exist in database?
-It will always generate query to MySQL table. Because we are caching data only when user is found.
+So you should always remember to clear the cache when user is deleted. 
+But what if someone is trying to log in with a name that doesn't exist in the database?
+It will always generate a query to MySQL table. Because we are caching data only when user is found.
 So we still have a bottleneck. You can improve your code and cache special value in redis that
 means "data does not exist":
 
@@ -84,7 +85,9 @@ if !has {
 }
 ```
 Code is getting even more complicated right? Now you should also remember to remove cache
-when new user is created because we may cache "nil" value if someone tried to log in before using new 
+when a new user is created because we may cache "nil" value if someone tried to log in before using new 
+usernameCode is getting even more complicated right? Now you should also remember to remove cache
+when a new user is created because we may cache "nil" value if someone tried to log in before using new 
 username:
 
 ```go
@@ -92,10 +95,10 @@ someorm.Add(user)
 someredislibrary.Delete("user:name:" + user.Name)
 ```
 
-Ok, so now you have two places where you should not forget to clear cache. What if user decided
-to change his username? Now situation is getting very complicated. You should remove two keys from cache,
-one for previous username because new users can register using this name, and of course you should remove
-also key with new username because maybe someone tried to log in with this name and "nil" is cached:
+Ok, so now you have two places where you should not forget to clear the cache. What if user decided
+to change his username? Now the situation is getting very complicated. You should remove two keys from the cache,
+one for the previous username because new users can register using this name, and of course, you should remove
+also the key with a new username because maybe someone tried to log in with this name and "nil" is cached:
 
 ```go
 oldName := user.Name
@@ -105,10 +108,10 @@ someredislibrary.Delete("user:name:" + oldName, "user:name:" + user.Name)
 ```
 
 Now try to imagine you should use cache for most of your data. Keeping cache updated in
-all scenarios is much more complicated than you can expect. Above examples demonstrates only small
-part of this topic. In real life you need ro load and modify many objects at the same time.
+all scenarios is much more complicated than you can expect. The above examples demonstrate only a small
+part of this topic. In real life, you need to load and modify many objects at the same time.
 You should always group queries to redis as much as possible, using [redis pipelines](https://redis.io/topics/pipelining)
-for instance. Deletes in cache should be executed only after `COMMIT` when MySQL transaction is used and so on.
+for instance. Deletes in the cache should be executed only after `COMMIT` when MySQL transaction is used and so on.
 
 What if all this complexity is managed automatically by BeeORM. Look how easy is to work with cache using our ORM:
 
