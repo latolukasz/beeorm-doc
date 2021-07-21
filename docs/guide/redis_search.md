@@ -373,7 +373,7 @@ indexDogs.NoOffsets = true
 Now it's time to register our index:
 
 ```go{3}
-registry := &beeorm.Registry{}
+registry := &beeorm.NewRegistry()
 registry.RegisterRedis("localhost:6382", 0, "search")
 registry.RegisterRedisSearchIndex(indexDogs)
 validatedRegistry, err := registry.Validate(ctx)
