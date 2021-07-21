@@ -121,14 +121,14 @@ beeORMEngine.RedisSearchOne(user, beeORMEngine.NewRedisSearchQuery().FilterStrin
 ```
 
 That's it. You don't need to worry about cache, everything is updated when need in the most optimal way.
-For example if you want to change username:
+For example, if you want to change username:
 
 ```go
 user.Name = "new"
 beeORMEngine.Flush(user)
 ```
 
-I hope above example helped you understand why BeeORM is different from other ORM libraries. BeeORM
+I hope the above example helped you understand why BeeORM is different from other ORM libraries. BeeORM
 is used to work with every data your application is storing and using. You don't need any other libraries to
 implement your application data model.
 
@@ -144,15 +144,14 @@ value, has := beeORMEngine.GetRedis().Get("key")
 
 ## Events streaming
 
-Building modern high-traffic application very often requires 
-implementation of event streaming systems. It helps developer to distribute (as events) 
-data between services in asynchronous and scalable way. There are many 
-solutions available such us [Apache Kafka](https://kafka.apache.org/) or 
+Building modern high-traffic applications very often requires the implementation of event streaming systems. 
+It helps developers to distribute (as events) data between services in an asynchronous and scalable way. 
+There are many solutions available such us [Apache Kafka](https://kafka.apache.org/) or 
 [RabbitMQ](https://www.rabbitmq.com/). Do you remember our golden rule 
 *"don't be average in many technologies, be expert in few"*? There is no need to add
 additional complexity to your infrastructure. We are using Redis as a key-value database.
 Redis provides also amazing feature [streams](https://redis.io/topics/streams-intro) that
-can be used to build blast fast event streaming system. Thanks to BeeORM it's very easy:
+can be used to build fast event streaming system. Thanks to BeeORM it's very easy:
 
 ```go
 broker := beeORMEngine.GetEventBroker()
@@ -162,31 +161,28 @@ broker.Consumer("my-consumer", "my-group").Consume(...)
 
 ## Full text and advanced search
 
-In many applications you also need to implement full text search.
-Natural choice is probably [Elastic search](https://www.elastic.co/). 
+In many applications, you also need to implement full-text search.
+The natural choice is probably [Elastic search](https://www.elastic.co/). 
 It's adding of course extra complexity to your code and infrastructure.
-You need to set up and monitor Elastic Search cluster, define indexes 
-and create a code that with every data change updates data in ES index. 
-Also there is a short delay between data is changed in database and ES index 
+You need to set up and monitor Elastic Search cluster, define indexes and create a code that with every data change updates data in ES index. 
+Also, there is a short delay between data is changed in the database and ES index 
 that you should handle in your code. 
 
 Probably you need to search for data using simple and complex conditions without
-full-text support. For example, you want to find 100 users with status "active" 
-added in last one hour sorted by registration date. You don't need full-text search here
+full-text support. For example, you want to find 100 users with the status "active" 
+added in the last one hour sorted by registration date. You don't need a full-text search here
 but a query to database `WHERE status = ? AND created_at >= ? ORDER BY LIMIT 100`.
 Using MySQL queries to get data is a bad idea. It's fast if you use MySQL indexes, 
-but you may have many WHERE conditions, so you will need to create many 
-indexes n MySQL table that takes memory and slow down inserts and updates. In high-traffic
-applications such queries are very often first bottleneck. Of course yon still
+but you may have many WHERE conditions, so you will need to create many indexes n MySQL table that takes memory and slow down inserts and updates. In high-traffic
+applications such queries are often the first bottleneck. Of course, you still
 use Elastic Search to query for this data. You can also cache queries in Redis.
 Both solutions are very difficult to implement. You need to build special ES indexes and keep
-them up to date. You also need to update cache in Redis when data changed and believe us, it's
+them up to date. You also need to update the cache in Redis when data changed and believe us, it's
 extremely difficult to calculate which keys in Redis should be removed.
 
 Lucky you, BeeORM hides this complexity from you. Thanks to amazing 
-[Redis Search module](https://github.com/RediSearch/RediSearch) you can implement 
-full-text and advanced search very easy. It provides top-edge performance, protects MySQL
-from queries and simplify your code:
+[Redis Search module](https://github.com/RediSearch/RediSearch) you can implement full-text and advanced search very easily. It provides top-edge performance, protects MySQL
+from queries, and simplify your code:
 
 ```go
 user := &User{CreatedAt: time.Now(), Status: "active"}
@@ -202,5 +198,5 @@ total := beeORMEngine.RedisSearch(&users, query, NewPager(1, 100))
 
 ## And much much more...
 
-BeeORM has many great features. Please spend some time and read rest of this
+BeeORM has many great features. Please spend some time and read the rest of this
 [guide](/guide/registry.html) to discover all of them.
