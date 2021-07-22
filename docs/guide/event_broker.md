@@ -501,3 +501,13 @@ eventConsumer.Consume(100, func(events []Event) {
     }
 })
 ```
+
+## Garbage collector
+
+All acknowledged events are not removed from stream. You should
+check that all consumer groups connected to stream acknowledged this event and then
+this even should be removed from stream with [XDEL](https://redis.io/commands/xdel). 
+Lucky you beeORM do it for you. Simply run at least one [background consumer](/guide/background_consumer.html)
+and this consumer will automatically remove all acknowledged events from every register stream.
+So if you see that your streams length is growing and all events are acknowledged it means you forgot
+to run [background consumer](/guide/background_consumer.html).
