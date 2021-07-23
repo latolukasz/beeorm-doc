@@ -221,29 +221,56 @@ FINISHED
 </code-group>
 
 
-## Consumer limits
+## Consumers scaling
 
 By default, you can run only one `EventsConsumer.Consume()` at the same time.
+BeeORM creates consumer with name `consumer-1`.
 With this approach all events are consumed in the same order events
-are published (first in - first out):
+are published (first in - first out). `Consume()` method returns false if you
+are trying to run consumer that is already running. 
 
-```go{5}
+```go
 eventConsumer := eventBroker.Consumer("read-group-ab")
-go eventConsumer.Consume(5, func(events []Event) {})
-
-// will panic with "consumer for group read-group-ab limit 1 reached" error
-go eventConsumer.Consume(5, func(events []Event) {})
+go func() {
+    running := eventConsumer.Consume(5, func(events []Event) {}) // true
+}()
+go func() {
+    running := eventConsumer.Consume(5, func(events []Event) {}) // false
+}()
 ```
 
-If you need to run more consumers simply use `SetLimit()` method:
+Behind the scene BeeORM creates [redis lock](/guide/redis_operations.html#distributed-lock)
+to prevent running two consumers at the same time. If consumer is working in blocking 
+mode (default approach) and developer flushed redis and removed redis lock then `Consume()`
+will stop and return false.
+
+In many scenarios you may need to run more than one consumer at once. 
+BeeORM provides `EventsConsumer.Consume()` method that require one additional paramater
+`nr` - unique number of consumer:
+
+```go
+eventConsumer := eventBroker.Consumer("read-group-ab")
+go func() {
+    running := eventConsumer.ConsumeMany(1, 5, func(events []Event) {}) // true
+}()
+go func() {
+    running := eventConsumer.Consume(2, 5, func(events []Event) {}) // true
+}()
+````
+
+In above example we successfully run two consumers: `consumer-1` and `consumer-2`.
+
+Unscaling is easy - simply run another `Consumer()` with higher number (`3` in our example).
+Problem starts when you want to downscale your consumers. In above example we are running two consumer.
+Now imagine we want to run only one `consumer-1`. Of course first you should stop `consumer-2`.
+But there is a chance `consumer-2` has still some `pending` events that are not [acknowledged](https://redis.io/commands/XACK).
+You must move these events to another active consumer. In our case we should move events from
+`consumer-2` to `consumer-1`. You can do it with `EventsConsumer.Claim()` method:
 
 ```go{2}
 eventConsumer := eventBroker.Consumer("read-group-ab")
-eventConsumer.SetLimit(2) // allows to run up to 2 consumers
-go eventConsumer.Consume(5, func(events []Event) {})
-go eventConsumer.Consume(5, func(events []Event) {}) // works
-go eventConsumer.Consume(5, func(events []Event) {}) // panics
-```
+ventConsumer.Claim(2, 1)
+````
 
 ## Handling errors
 
