@@ -230,11 +230,12 @@ are published (first in - first out). `Consume()` method returns false if you
 are trying to run consumer that is already running. 
 
 ```go
-eventConsumer := eventBroker.Consumer("read-group-ab")
 go func() {
+    eventConsumer := eventBroker.Consumer("read-group-ab")
     running := eventConsumer.Consume(5, func(events []Event) {}) // true
 }()
 go func() {
+    eventConsumer := eventBroker.Consumer("read-group-ab")
     running := eventConsumer.Consume(5, func(events []Event) {}) // false
 }()
 ```
@@ -249,11 +250,12 @@ BeeORM provides `EventsConsumer.Consume()` method that require one additional pa
 `nr` - unique number of consumer:
 
 ```go
-eventConsumer := eventBroker.Consumer("read-group-ab")
 go func() {
+    eventConsumer := eventBroker.Consumer("read-group-ab")
     running := eventConsumer.ConsumeMany(1, 5, func(events []Event) {}) // true
 }()
 go func() {
+    eventConsumer := eventBroker.Consumer("read-group-ab")
     running := eventConsumer.Consume(2, 5, func(events []Event) {}) // true
 }()
 ````
