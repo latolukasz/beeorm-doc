@@ -53,15 +53,15 @@ engine.RegisterQueryLogger(&MyLogger{}, false, false, true)
 
 BeeORM provides special query logger that prints human friendly output
 to console (`os.Stderr`) that is very useful when you are debugging your queries.
-You can enable it with `engine.EnableQueryDebug()` method:
+You can enable it with `engine.EnableQueryDebug()` or `engine.EnableQueryDebugCustom()` method:
 
 ```go{2,4,6}
 // all queries
-engine.EnableQueryDebug(true, true, true)
+engine.EnableQueryDebug()
 // only queries to MySQL
-engine.EnableQueryDebug(true, false, false)
+engine.EnableQueryDebugCustom(true, false, false)
 // only queries to MySQL and Redis
-engine.EnableQueryDebug(true, true, false)
+engine.EnableQueryDebugCustom(true, true, false)
 ```
 
 Below you can see example how debug will look like:
