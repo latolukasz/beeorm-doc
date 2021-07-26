@@ -362,7 +362,7 @@ In BeeORM simply create struct for them and use it as a type of field:
 
 ```go{1-7,12-13,19}
 struct Address {
-   Country    strig
+   Country    string
    City       string
    Street     string
    Building   uint
@@ -388,6 +388,29 @@ You can also create struct inside struct, as many levels as you want.
 BeORM creates MySQL column for each field in struct by adding field name
 as a suffix for column name. For example `HomeAdddressCountry varchar(255)`.
 
+## Anonymous subfields
+
+You can also define files using anonymous struct:
+
+```go{12}
+struct Address {
+   Country    string
+   City       string
+   Street     string
+   Building   uint
+   PostalCode string
+}
+
+type UserEntity struct {
+    beeorm.ORM
+    ID             uint
+    Address
+}
+```
+
+Anonymous fields are represented in MySQL table withour suffix, for example
+`Country varchar(255)`.
+
 ## Ignored field
 
 If you have public fields in entity that should not be stored in database use
@@ -406,7 +429,7 @@ type UserEntity struct {
 Any public field with type not mentioned above is mapped to `JSON` MySQL column type
 and value of this field is automatically converted to/from JSON:
 
-```go{9-11}
+```go{9-11Subfields}
 type Options struct {
     Option1 string
     Option2 bool
