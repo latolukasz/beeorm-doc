@@ -190,21 +190,6 @@ engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(1, 60000), true, 1
 engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(3, 20000), true, 18)
 ```
 
-All cached searches supports [references loading](/guide/crud.html#loading-references) and 
-[lazy search](/guide/lazy_crud.html#lazy-search):
-
-```go{2-4,7-9}
-var user *UserEntity
-engine.CachedSearchOneWithReferences(user, "CachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
-engine.CachedSearchOnesLazy(user, "CachedQueryEmail", "bee@beeorm.io")
-engine.CachedSearchOneWithReferencesLazy(user, "CachedQueryEmail", []interface{}{"bee@beeorm.io"}, []string{"Supervisor"})
-var users []*UserEntity
-pager := orm.NewPager(1, 100)
-engine.CachedSearchWithReferences(&users, "CachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
-engine.CachedSearchLazy(&users, "CachedQueryAdmins", pager, true, 18)
-engine.CachedSearchWithReferencesLazy(&users, "CachedQueryAdmins", pager, []interface{}{true, 18}, []string{"Supervisor"})
-```
-
 If you need only search for total found rows:
 ```go{2}
 var user *UserEntity
