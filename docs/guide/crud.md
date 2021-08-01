@@ -12,31 +12,31 @@ package main
 import "github.com/latolukasz/beeorm"
 
 type CategoryEntity struct {
-	beeorm.ORM  `beeorm:"redisCache"`
+	beeorm.ORM  `orm:"redisCache"`
 	ID          uint
-	Code        string `beeorm:"required;length=10;unique=code"`
-	Name        string `beeorm:"required;length=100"`
+	Code        string `orm:"required;length=10;unique=code"`
+	Name        string `orm:"required;length=100"`
 	FakeDelete  bool
 }
 
 type ImageEntity struct {
-	beeorm.ORM `beeorm:"redisCache"`
+	beeorm.ORM `orm:"redisCache"`
 	ID   uint
-	Url string `beeorm:"required"`
+	Url string `orm:"required"`
 }
 
 type BrandEntity struct {
-	beeorm.ORM `beeorm:"redisCache"`
+	beeorm.ORM `orm:"redisCache"`
 	ID   uint
-	Name string `beeorm:"required;length=100"`
+	Name string `orm:"required;length=100"`
 	Logo *ImageEntity
 }
 
 type ProductEntity struct {
-	beeorm.ORM `beeorm:"redisCache"`
+	beeorm.ORM `orm:"redisCache"`
 	ID       uint
-	Name     string `beeorm:"required;length=100"`
-	Category *CategoryEntity `beeorm:"required"`
+	Name     string `orm:"required;length=100"`
+	Category *CategoryEntity `orm:"required"`
 	Brand    *BrandEntity
 }
 

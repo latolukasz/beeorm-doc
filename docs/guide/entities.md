@@ -47,7 +47,7 @@ package main
 import "github.com/latolukasz/beeorm"
 
 type OrderEntity struct {
-	beeorm.ORM `beeorm:"mysql=sales"`
+	beeorm.ORM `orm:"mysql=sales"`
 	ID   uint
 }
 
@@ -65,7 +65,7 @@ data is needed. Use setting **redisCache=pool_name**
 in tag `beeorm` for `beeorm.ORM` field to enable redis cache for this entity and define 
 which redis server or sentinel pool should be used to store data.
 
-For pool with name `default` you can use short version without pool name ``beeorm:"redisCache"``.
+For pool with name `default` you can use short version without pool name ``orm:"redisCache"``.
 
 ```go{6,11}
 package main
@@ -73,12 +73,12 @@ package main
 import "github.com/latolukasz/beeorm"
 
 type UserEntity struct {
-	beeorm.ORM `beeorm:"redisCache"`
+	beeorm.ORM `orm:"redisCache"`
 	ID   uint
 }
 
 type OrderEntity struct {
-	beeorm.ORM `beeorm:"redisCache=sales"`
+	beeorm.ORM `orm:"redisCache=sales"`
 	ID   uint
 }
 
@@ -112,12 +112,12 @@ package main
 import "github.com/latolukasz/beeorm"
 
 type CategoryEntity struct {
-	beeorm.ORM `beeorm:"localCache"`
+	beeorm.ORM `orm:"localCache"`
 	ID   uint
 }
 
 type BrandEntity struct {
-	beeorm.ORM `beeorm:"localCache=settings"`
+	beeorm.ORM `orm:"localCache=settings"`
 	ID   uint
 }
 
@@ -144,12 +144,12 @@ What if you want to cache Entity in local cache and redis? In BeeORM it's possib
 
 ```go{2,7}
 type CategoryEntity struct {
-	beeorm.ORM `beeorm:"localCache;redisCache"`
+	beeorm.ORM `orm:"localCache;redisCache"`
 	ID   uint
 }
 
 type BrandEntity struct {
-	beeorm.ORM `beeorm:"localCache=settings;redisCache=settings"`
+	beeorm.ORM `orm:"localCache=settings;redisCache=settings"`
 	ID   uint
 }
 ```
@@ -172,7 +172,7 @@ You can define your own name using `table=table_name` tag setting:
 
 ```go{2}
 type UserEntity struct {
-	beeorm.ORM `beeorm:"table=users"`
+	beeorm.ORM `orm:"table=users"`
 	ID   uint
 }
 ```

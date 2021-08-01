@@ -13,8 +13,8 @@ type PersonEntity struct {
     beeorm.ORM
     ID      uint
     Name    string
-    Age     uint8 `beeorm:"index=age"` 
-    Email   string `beeorm:"unique=email;required"` 
+    Age     uint8 `orm:"index=age"` 
+    Email   string `orm:"unique=email;required"` 
     Mother  *PersonEntity
 }
 ```
@@ -42,9 +42,9 @@ position in this index (starting from 1). You can skip this suffix for first fie
 type ShoeEntity struct {
     beeorm.ORM
     ID       uint
-    Name     string `beeorm:"unique=model"`
-    Color    string `beeorm:"unique=model:2"`
-    Size     uint8 `beeorm:"unique=model:3"`
+    Name     string `orm:"unique=model"`
+    Color    string `orm:"unique=model:2"`
+    Size     uint8 `orm:"unique=model:3"`
 }
 ```
 
@@ -60,9 +60,9 @@ If you need to add single field in more than one index separate names with comma
 type PersonEntity struct {
     beeorm.ORM
     ID          uint
-    FistName    string `beeorm:"index=name:2"`
-    LastName    string `beeorm:"index=name,occupation:2;unique=lastname"`
-    Occupation  string `beeorm:"index=occupation"`
+    FistName    string `orm:"index=name:2"`
+    LastName    string `orm:"index=name,occupation:2;unique=lastname"`
+    Occupation  string `orm:"index=occupation"`
 }
 ```
 
@@ -100,7 +100,7 @@ KEY `homeStreet` (`HomeAdddressStreet`),
 KEY `workAddress` (`WorkAddressCity`, `WorkAddressStreet`),
 ```
 
-BeeORM supports defining indexes as tag attributes for `beeorm.ORM` field:
+BeeORM supports defining indexes as tag attributes for `orm.ORM` field:
 
 ```go{2}
 type UserEntity struct {
@@ -114,12 +114,12 @@ type UserEntity struct {
 ## Removing foreign key
 
 You can instruct BeeORM to not create index
-and foreign-key in one-one reference field with special tag `beeorm:"skip_FK"`:
+and foreign-key in one-one reference field with special tag `orm:"skip_FK"`:
 
 ```go{5}
 type PersonEntity struct {
     beeorm.ORM
     ID      uint
     Name    string
-    Mother  *PersonEntity `beeorm:"skip_FK"` 
+    Mother  *PersonEntity `orm:"skip_FK"` 
 }

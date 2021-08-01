@@ -17,9 +17,9 @@ package main
 import "github.com/latolukasz/beeorm"
 
 type CategoryEntity struct {
-	beeorm.ORM `beeorm:"mysql=products"`
+	beeorm.ORM `orm:"mysql=products"`
 	ID   uint
-    Name string `beeorm:"required"`
+    Name string `orm:"required"`
 }
 
 func main() {

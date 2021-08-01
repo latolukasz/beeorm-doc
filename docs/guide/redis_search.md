@@ -51,7 +51,7 @@ Reasons are two:
 * Redis search module slow down redis queries a bit
 * In real life you may want to clear Entity cache data and keep redis search index untouched
 
-Simply use `beeorm:"redisCache=first_pool;redisSearch=another_pool"` tag.
+Simply use `orm:"redisCache=first_pool;redisSearch=another_pool"` tag.
 :::
 
 To access RedisSearch pool use `engine.GetRedisSearch() method`:

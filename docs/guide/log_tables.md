@@ -20,7 +20,7 @@ To enable log table simply add `log` tag for `beeorm.ORM` field:
 
 ```go{2}
 type UserEntity struct {
-    beeorm.ORM `beeorm:"log"`
+    beeorm.ORM `orm:"log"`
     ID         uint
     Name       string
 }
@@ -52,7 +52,7 @@ located. You can define which MySQL database (data pool) should be used to store
 <code-block title="entity">
 ```go{2}
 type UserEntity struct {
-    beeorm.ORM `beeorm:"log=logs"`
+    beeorm.ORM `orm:"log=logs"`
     ID         uint
     Name       string
     Age        uint8
@@ -212,10 +212,10 @@ field you can use `skip-log` tag:
 
 ```go{5}
 type UserEntity struct {
-    beeorm.ORM `beeorm:"log"`
+    beeorm.ORM `orm:"log"`
     ID          uint
-    Name       string
-    LastLogin  time.Time `orm:"skip-log"`
+    Name        string
+    LastLogin   time.Time `orm:"skip-log"`
 }
 ```
 

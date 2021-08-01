@@ -19,7 +19,7 @@ Let's assume we have ``UserEntity``:
 type UserEntity struct {
 	beeorm.ORM
 	ID         uint
-    Email      string `beeorm:"unique=email;required"` 
+    Email      string `orm:"unique=email;required"` 
     Supervisor *UserEntity
 }
 ```
@@ -48,7 +48,7 @@ In our example we will use redis:
 type UserEntity struct {
 	beeorm.ORM `orm:"redisCache"`
 	ID         uint
-    Email      string `beeorm:"unique=email;required"` 
+    Email      string `orm:"unique=email;required"` 
     Supervisor *UserEntity
 }
 ```
@@ -59,7 +59,7 @@ Next we need to add extra field type of ``*beeorm.CachedQuery`` with tag `queryO
 type UserEntity struct {
 	beeorm.ORM       `orm:"redisCache"`
 	ID               uint
-    Email            string `beeorm:"unique=email;required"` 
+    Email            string `orm:"unique=email;required"` 
     Supervisor       *UserEntity
     CachedQueryEmail *beeorm.CachedQuery `queryOne:":Email = ?"`
 }
@@ -132,7 +132,7 @@ First we need to define another cached query in our entity:
 type UserEntity struct {
 	beeorm.ORM        `orm:"redisCache"`
 	ID                uint
-    Email             string `beeorm:"unique=email;required"` 
+    Email             string `orm:"unique=email;required"` 
     Supervisor        *UserEntity
     Admin             bool
     Age               uint8

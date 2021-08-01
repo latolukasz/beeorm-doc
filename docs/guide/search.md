@@ -78,9 +78,9 @@ import "github.com/latolukasz/beeorm"
 type UserEntity struct {
     beeorm.ORM
     ID         uint
-    FirstName  string `beeorm:"required"`
-    LastName   string `beeorm:"required"`
-    Email      string `beeorm:"required"`
+    FirstName  string `orm:"required"`
+    LastName   string `orm:"required"`
+    Email      string `orm:"required"`
     Supervisor *UserEntity
 }
 

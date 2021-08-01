@@ -12,7 +12,7 @@ package main
 import "github.com/latolukasz/beeorm"
 
 type UserEntity struct {
-	beeorm.ORM `beeorm:"mysql=sales"`
+	beeorm.ORM `orm:"mysql=sales"`
 	ID   uint
 }
 
@@ -68,7 +68,7 @@ import "github.com/latolukasz/beeorm"
 type CarEntity struct {
 	beeorm.ORM
 	ID    uint
-	Color string `beeorm:"enum=colors;required"` 
+	Color string `orm:"enum=colors;required"` 
 	Owner *PersonEntity
 }
 type PersonEntity struct {

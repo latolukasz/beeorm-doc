@@ -10,7 +10,7 @@ type UserEntity struct {
     beeorm.ORM
     ID        uint
     Name      string
-    Email     string `beeorm:"unique=email;required"` 
+    Email     string `orm:"unique=email;required"` 
     Latitude  float32
     Longitude float32
 }
@@ -49,10 +49,10 @@ Now we need to add special tag `dirty` in our entity:
 
 ```go{2}
 type UserEntity struct {
-    beeorm.ORM `beeorm:"dirty=user-changed"`
+    beeorm.ORM `orm:"dirty=user-changed"`
     ID        uint
     Name      string
-    Email     string `beeorm:"unique=email;required"` 
+    Email     string `orm:"unique=email;required"` 
     Latitude  float32
     Longitude float32
 }
@@ -193,12 +193,12 @@ this time are adding `dirty` tag for entity fields that should be tracked:
 <code-block title="entity">
 ```go{6,7}
 type UserEntity struct {
-    beeorm.ORM `beeorm:"dirty=user-changed"`
+    beeorm.ORM `orm:"dirty=user-changed"`
     ID         uint
     Name       string
-    Email      string `beeorm:"unique=email;required"` 
-    Latitude   float32 `beeorm:"dirty=location-changed"`
-    Longitude  float32 `beeorm:"dirty=location-changed"`
+    Email      string `orm:"unique=email;required"` 
+    Latitude   float32 `orm:"dirty=location-changed"`
+    Longitude  float32 `orm:"dirty=location-changed"`
 }
 ```
 </code-block>
@@ -234,12 +234,12 @@ you can define more than one dirty stream in `dirty` tag, simply divide them by 
 <code-block title="entity">
 ```go{4,6,7}
 type UserEntity struct {
-    beeorm.ORM `beeorm:"dirty=user-changed"`
+    beeorm.ORM `orm:"dirty=user-changed"`
     ID         uint
-    Name       string `beeorm:"dirty=data-changed"`
-    Email      string `beeorm:"unique=email;required"` 
-    Latitude   float32 `beeorm:"dirty=location-changed,data-changed"`
-    Longitude  float32 `beeorm:"dirty=location-changed,data-changed"`
+    Name       string `orm:"dirty=data-changed"`
+    Email      string `orm:"unique=email;required"` 
+    Latitude   float32 `orm:"dirty=location-changed,data-changed"`
+    Longitude  float32 `orm:"dirty=location-changed,data-changed"`
 }
 ```
 </code-block>

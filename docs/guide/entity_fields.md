@@ -27,15 +27,15 @@ This table describes how integer fields are mapped to MySQL column types:
 | ------------- |:-------------:| -----:| -----:|
 | int8      | tinyint  | -128 | 127 |
 | int16      | smallint      |   -32768 | 32767 |
-| int32 with tag `beeorm:"mediumint"` | mediumint      |    -8388608 | 8388607 |
+| int32 with tag `orm:"mediumint"` | mediumint      |    -8388608 | 8388607 |
 | int32,int,rune | int      |    	-2147483648 | 	2147483647 |
 | int64 | bigint      |    	-2<sup>63</sup> | 	2<sup>63</sup>-1 |
 | uint8      | tinyint | 0 | 255 |
 | uint16      | smallint      |   0 | 65535 |
-| uint32 with tag `beeorm:"mediumint"` | mediumint      |    0 | 16777215 |
+| uint32 with tag `orm:"mediumint"` | mediumint      |    0 | 16777215 |
 | uint32,uint | int      |    	0 | 	4294967295 |
 | uint64 | bigint      |    	0 | 	2<sup>64</sup>-1 |
-| uint16 with tag `beeorm:"year"` | year      |    [0 or 1901](https://dev.mysql.com/doc/refman/8.0/en/year.html) | 2155 |
+| uint16 with tag `orm:"year"` | year      |    [0 or 1901](https://dev.mysql.com/doc/refman/8.0/en/year.html) | 2155 |
 
 ::: tip
 Always spend extra time to analise your data and choose best `int` type for every field:
@@ -82,11 +82,11 @@ type PersonEntity struct {
 | go        | MySQL         |
 | ------------- |:-------------:|
 | float32      | float  |
-| float32 with tag `beeorm:"unsigned"` | float unsigned      |
+| float32 with tag `orm:"unsigned"` | float unsigned      |
 | float64      | double  |
-| float64 with tag `beeorm:"unsigned"` | double unsigned      |
-| float32,float64 with tag `beeorm:"decimal=X,Y"`     | decimal(X,Y)  |
-| float32,float64 with tag `beeorm:"decimal=X,Y;unsigned"`     | decimal(X,Y) unsigned  |
+| float64 with tag `orm:"unsigned"` | double unsigned      |
+| float32,float64 with tag `orm:"decimal=X,Y"`     | decimal(X,Y)  |
+| float32,float64 with tag `orm:"decimal=X,Y;unsigned"`     | decimal(X,Y) unsigned  |
 
 All above MySQL fields are defined as `NOT NULL`. If you need to store also `NULL` value use
 reference to float primitive type: `*float32`, `*float64`. Then fields in MySQL are defined as `DEFAULT NULL`.
@@ -118,8 +118,8 @@ If you need to store text use `string` type:
 type ProductEntity struct {
     beeorm.ORM
     ID           uint
-    Title        string `beeorm:"required;length=150"`
-    Description  string `beeorm:"required;length=max"`
+    Title        string `orm:"required;length=150"`
+    Description  string `orm:"required;length=max"`
     Brand        string
 }
 ```
@@ -127,12 +127,12 @@ type ProductEntity struct {
 | go        | MySQL         |
 | ------------- |:-------------:|
 | string      | varchar(255)  |
-| string with tag `beeorm:"required"` | varchar(255) NOT NULL      |
-| string with tag `beeorm:"length=X"` | varchar(X)      |
-| string with tag `beeorm:"length=max"` | mediumtext      |
+| string with tag `orm:"required"` | varchar(255) NOT NULL      |
+| string with tag `orm:"length=X"` | varchar(X)      |
+| string with tag `orm:"length=max"` | mediumtext      |
 `
 ::: tip
-Always add `beeorm:"required"`tag for `string` fields that never holds empty string.
+Always add `orm:"required"`tag for `string` fields that never holds empty string.
 Thanks to it you can save extra disc space used to store data in MySQL table.
 :::
 
@@ -154,9 +154,9 @@ type UserEntity struct {
 | go        | MySQL         |
 | ------------- |:-------------:|
 | time.Time      | date NOT NULL |
-| time.Time with tag `beeorm:"time"` | datetime NOT NULL      |
+| time.Time with tag `orm:"time"` | datetime NOT NULL      |
 | *time.Time      | date |
-| *time.Time with tag `beeorm:"time"` | datetime      |
+| *time.Time with tag `orm:"time"` | datetime      |
 `
 
 ## Binary strings
@@ -175,8 +175,8 @@ type UserEntity struct {
 | go        | MySQL         |
 | ------------- |:-------------:|
 | []uint8      | blob |
-| []uint8 with tag `beeorm:"mediumblob"` | mediumblob      |
-| []uint8 with tag `beeorm:"longblob"` | longblob      |
+| []uint8 with tag `orm:"mediumblob"` | mediumblob      |
+| []uint8 with tag `orm:"longblob"` | longblob      |
 
 ## Enums and sets
 
@@ -188,7 +188,7 @@ predefined list you should use MySQL `ENUM` or `SET` field type to store it.
 If you use struct as a set/enum definition 
 BeeORM search for all public fields with type of `string` int this struct
 and use them as values. First field is used as default one when field has 
-tag `beeorm:"required"`.
+tag `orm:"required"`.
 
 ```go{5-13,18-19,24}
 package main
@@ -208,8 +208,8 @@ var Colors = struct{
 type UserEntity struct {
     beeorm.ORM
     ID              uint
-    FavoriteColor   string `beeorm:"enum=colors;required"`
-    HatedColors     []string `beeorm:"set=colors"`
+    FavoriteColor   string `orm:"enum=colors;required"`
+    HatedColors     []string `orm:"set=colors"`
 }
 
 func main() {
@@ -221,14 +221,14 @@ func main() {
 ```
 | go        | MySQL         |
 | ------------- |:-------------:|
-| string with tag `beeorm:"enum=colors"` | enum('red', 'blue', 'yellow') DEFAULT NULL     |
-| string with tag `beeorm:"enum=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
-| []string with tag `beeorm:"set=colors"` | set('red', 'blue', 'yellow') DEFAULT NULL     |
-| []string with tag `beeorm:"set=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
+| string with tag `orm:"enum=colors"` | enum('red', 'blue', 'yellow') DEFAULT NULL     |
+| string with tag `orm:"enum=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
+| []string with tag `orm:"set=colors"` | set('red', 'blue', 'yellow') DEFAULT NULL     |
+| []string with tag `orm:"set=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
 
 ### Example using list of values:
 
-Second argument is used as default value when `beeorm:"required"` tag is used.
+Second argument is used as default value when `orm:"required"` tag is used.
 
 ```go{8-9,14}
 package main
@@ -238,8 +238,8 @@ import "github.com/latolukasz/beeorm"
 type UserEntity struct {
     beeorm.ORM
     ID              uint
-    FavoriteColor   string `beeorm:"enum=colors;required"`
-    HatedColors     []string `beeorm:"set=colors"`
+    FavoriteColor   string `orm:"enum=colors;required"`
+    HatedColors     []string `orm:"set=colors"`
 }
 
 func main() {
@@ -259,40 +259,22 @@ All you need to do is define public field with type of referenced entity:
 type CategoryEntity struct {
     beeorm.ORM
     ID     uint16
-    Name   string  `beeorm:"required"`
+    Name   string  `orm:"required"`
 }
 
 type ProductEntity struct {
     beeorm.ORM
     ID       uint
-    Name     string  `beeorm:"required"`
-    Category *CategoryEntity `beeorm:"required"`
+    Name     string  `orm:"required"`
+    Category *CategoryEntity `orm:"required"`
 }
 ```
 
 In above example BeORM creates column `Category smallint NOT NULL`.
-If field can store `NULL` values simply don't use `beeorm:"required"` tag.
+If field can store `NULL` values simply don't use `orm:"required"` tag.
 
 BeORM creates index and [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) 
-for every defined one-one reference. 
-Foreign key has no [reference actions](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html#foreign-key-referential-actions) 
-defined. In some cases it's preferable to define foreign key with `ON DELETE CASCADE` referential action.
-BeORM provides special `beeorm:"cascade"` tag which forces ORM to use this action in foreign key:  
-
-```go{9}
-type HouseEntity struct {
-    beeorm.ORM
-    ID     uint16
-}
-
-type RoomEntity struct {
-    beeorm.ORM
-    ID    uint
-    House *HouseEntity `beeorm:"cascade"`
-}
-```
-
-Now when you delete HouseEntity also all rooms referenced to this house are deleted.
+for every defined one-one reference.
 
 ## One-many reference
 
@@ -303,7 +285,7 @@ a shoe and list of available sizes:
 type ShoeEntity struct {
     beeorm.ORM
     ID     uint16
-    Name string `beeorm:"required"`
+    Name string `orm:"required"`
 }
 
 type ShoeSizeEntity struct {
@@ -319,8 +301,8 @@ How we can connect sizes with a shoe? Well, one option is to use many-many table
 type ShoeSizeEntity struct {
     beeorm.ORM
     ID     uint
-    Shoe   *ShoeEntity `beeorm:"required"`
-    Size   *ShoeSizeEntity `beeorm:"required"`
+    Shoe   *ShoeEntity `orm:"required"`
+    Size   *ShoeSizeEntity `orm:"required"`
 }
 ```
 
@@ -335,8 +317,8 @@ public field with type of slice of referenced entities:
 type ShoeEntity struct {
     beeorm.ORM
     ID    uint16
-    Name  string `beeorm:"required"`
-    Sizes []*ShoeSizeEntity `beeorm:"required"`
+    Name  string `orm:"required"`
+    Sizes []*ShoeSizeEntity `orm:"required"`
 }
 ```
 
@@ -414,13 +396,13 @@ Anonymous fields are represented in MySQL table withour suffix, for example
 ## Ignored field
 
 If you have public fields in entity that should not be stored in database use
-`beeorm:"ignore"` tag:
+`orm:"ignore"` tag:
 
 ```go{4}
 type UserEntity struct {
     beeorm.ORM
     ID        uint
-    MyField   string `beeorm:"ignore"`
+    MyField   string `orm:"ignore"`
 }
 ```
 
@@ -438,7 +420,7 @@ type Options struct {
 type ProductEntity struct {
     beeorm.ORM
     ID            uint
-    Attributes    map[string]string  `beeorm:"required"`
+    Attributes    map[string]string  `orm:"required"`
     Specification interface{}
     Options       *Options
 }
@@ -461,15 +443,15 @@ Let's imagine this scenario:
 type ColorEntity struct {
     beeorm.ORM
     ID         uint16
-    Name       string `beeorm:"required"`
+    Name       string `orm:"required"`
     FakeDelete bool
 }
 
 type ProductEntity struct {
     beeorm.ORM
     ID      uint
-    Name    string `beeorm:"required"`
-    Color   *ColorEntity `beeorm:"required"` 
+    Name    string `orm:"required"`
+    Color   *ColorEntity `orm:"required"` 
 }
 ```
 As you can see we created field with name `FakeDelete` (it's case-sensitive) type of bool.
