@@ -25,7 +25,7 @@ engine.GetMysql().Exec(query)
 `GetRedisStatistics` function provides detailed statistics for every
 registered redis server:
 
-```go{17}
+```go{18}
 package main
 
 import (
@@ -36,10 +36,11 @@ import (
 func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterRedis("localhost:6379", 0)
-   validatedRegistry, err := registry.Validate(context.Background())
+   validatedRegistry, deferF, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
+    defer deferF()
     engine := validatedRegistry.CreateEngine(context.Background())
     
     for _, statistics := range tools.GetRedisStatistics(engine) {
@@ -57,7 +58,7 @@ Field `Info` holds values responded from redis
 `GetRedisStreamsStatistics` function provides detailed statistics for every
 registered [redis stream](/guide/event_broker.html#registering-streams):
 
-```go{18}
+```go{19}
 package main
 
 import (
@@ -69,10 +70,11 @@ func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterRedis("localhost:6379", 0)
    registry.RegisterRedisStream("test-stream", "default", []string{"test-group"})
-   validatedRegistry, err := registry.Validate(context.Background())
+   validatedRegistry, deferF, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
+    defer deferF()
     engine := validatedRegistry.CreateEngine(context.Background())
     
     for _, statistics := range tools.GetRedisStreamsStatistics(engine) {
@@ -125,7 +127,7 @@ is waiting to be consumed by all connected consumer groups
 `GetRedisSearchStatistics` function provides detailed statistics for every
 registered redis search index:
 
-```go{18}
+```go{19}
 package main
 
 import (
@@ -137,10 +139,11 @@ func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterRedis("localhost:6379", 0)
    registry.RegisterRedisSearchIndex(&orm.RedisSearchIndex{Name: "my-index", RedisPool: "default"})
-   validatedRegistry, err := registry.Validate(context.Background())
+   validatedRegistry, deferF, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
+    defer deferF()
     engine := validatedRegistry.CreateEngine(context.Background())
     
     for _, statistics := range tools.GetRedisSearchStatistics(engine) {

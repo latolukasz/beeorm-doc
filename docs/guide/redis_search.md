@@ -376,10 +376,11 @@ Now it's time to register our index:
 registry := &beeorm.NewRegistry()
 registry.RegisterRedis("localhost:6382", 0, "search")
 registry.RegisterRedisSearchIndex(indexDogs)
-validatedRegistry, err := registry.Validate(ctx)
+validatedRegistry, deferF, err := registry.Validate(ctx)
 if err != nil {
     panic(err)
 }
+defer deferF()
 // creates missing index
 for _, alter := range engine.GetRedisSearchIndexAlters() {
     alter.Execute()

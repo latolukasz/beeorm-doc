@@ -10,10 +10,11 @@ and another with name `test` with max 100 elements:
 registry := beeorm.NewRegistry()
 registry.RegisterLocalCache(1000)
 registry.RegisterLocalCache(100, "test")
-validatedRegistry, err := registry.Validate(context.Background())
+validatedRegistry, deferF, err := registry.Validate(context.Background())
 if err != nil {
     panic(err)
 }
+defer deferF()
 engine := validatedRegistry.CreateEngine(context.Background())
 ```
 

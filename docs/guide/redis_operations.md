@@ -12,10 +12,11 @@ seconds pool uses database with index `3`:
 registry := beeorm.NewRegistry()
 registry.RegisterRedis("localhost:6379", 0)
 registry.RegisterRedis("localhost:6379", 3, "test")
-validatedRegistry, err := registry.Validate(context.Background())
+validatedRegistry, deferF, err := registry.Validate(context.Background())
 if err != nil {
     panic(err)
 }
+defer deferF()
 engine := validatedRegistry.CreateEngine(context.Background())
 ```
 

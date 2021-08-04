@@ -12,10 +12,11 @@ import "github.com/latolukasz/beeorm"
 func main() {
    registry := beeorm.NewRegistry()
    // ... register services in registry
-   validatedRegistry, err := registry.Validate(context.Background())
+   validatedRegistry, deferF, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
+    defer deferF()
     engine := validatedRegistry.CreateEngine(context.Background())
     consumer := beeorm.NewBackgroundConsumer(engine)
     consumer.Digest() // code is blocked here

@@ -8,10 +8,11 @@ we will create two pools - one with name `default` and another with name `users`
 registry := beeorm.NewRegistry()
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/default_db")
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users", "users")
-validatedRegistry, err := registry.Validate(context.Background())
+validatedRegistry, deferF, err := registry.Validate(context.Background())
 if err != nil {
     panic(err)
 }
+defer deferF()
 engine := validatedRegistry.CreateEngine(context.Background())
 ```
 

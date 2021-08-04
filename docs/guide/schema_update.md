@@ -11,7 +11,7 @@ This approach is recommended one. BeeORM is comparing current MySQL
 schema in all MySQL databases used by all registered entities 
 and returns detailed information that can be used to update database schema:
 
-```go{21}
+```go{22}
 package main
 
 import "github.com/latolukasz/beeorm"
@@ -26,10 +26,11 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/products", "products")
     registry.RegisterEntity(&CategoryEntity{})
-    validatedRegistry, err := registry.Validate(context.Background())
+    validatedRegistry, deferF, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
+    defer deferF()
     engine := validatedRegistry.CreateEngine(context.Background())
     
     alters := engine.GetAlters()

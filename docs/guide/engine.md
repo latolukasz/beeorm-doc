@@ -8,7 +8,7 @@ how to create and use a heart of BeeORM - object called `beeorm.Engine`.
 
 Engine is created using `CreateEngine(context.Background())` method in `beeorm.ValidatedRegistry`:
 
-```go{12}
+```go{13}
 package main
 
 import "github.com/latolukasz/beeorm"
@@ -16,10 +16,11 @@ import "github.com/latolukasz/beeorm"
 func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
-    validatedRegistry, err := registry.Validate(context.Background())
+    validatedRegistry, deferF, err := registry.Validate(context.Background())
     if err != nil {
         panic(err)
     }
+    defer deferF()
     engine := validatedRegistry.CreateEngine(context.Background())
 }  
 ```
