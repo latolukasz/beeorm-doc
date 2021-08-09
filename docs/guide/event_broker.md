@@ -205,7 +205,7 @@ method. In non-blocking mode consumer reads all events from streams and finish:
 <code-block title="code">
 ```go{1}
 eventConsumer.DisableLoop()
-eventConsumer.Consume(10, func(events []Event) {
+eventConsumer.Consume(10, func(events []beeorm.Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
 })
 fmt.Println("FINISHED")
@@ -220,6 +220,23 @@ FINISHED
 </code-block>
 </code-group>
 
+## Graceful shutdown
+
+It's a good practice to graceful close consumer using `Shutdown()` method:
+
+```go{1}
+ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+defer stop()
+
+go func() {
+    consumer.Consume(1, func(events []beeorm.Event) {
+        //...
+    })
+}()
+<-ctx.Done()
+stop()
+consumer.Shutdown(time.Second * 30) //wait max 30 seconds
+```
 
 ## Consumers scaling
 
