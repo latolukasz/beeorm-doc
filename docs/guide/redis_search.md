@@ -279,6 +279,7 @@ Below tables demonstrates how you can build redis search query using this struct
 | q.FilterIntLessEqual("Age", 18) | FT.SEARCH index * @Age:[-inf 18] |
 | q.FilterIntLess("Age", 18) | FT.SEARCH index * @Age:[-ind (18] |
 | q.FilterString("Name", "jump high") | FT.SEARCH index * @Name:"jump high" |
+| q.FilterStringStartsWith("Name", "high") | FT.SEARCH index * @Name:high* |
 | q.FilterString("Name", "sky", "yellow") | FT.SEARCH index * @Name:("sky"\|"yellow") |
 | q.QueryString("Name", "jump high") | FT.SEARCH index * @Name:jump high |
 | q.FilterFloat("Balance", 17) | FT.SEARCH index * @Balance:[16.99999 17.00001] |
