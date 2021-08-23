@@ -220,24 +220,6 @@ FINISHED
 </code-block>
 </code-group>
 
-## Graceful shutdown
-
-It's a good practice to graceful close consumer using `Shutdown()` method:
-
-```go{1}
-ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-defer stop()
-
-go func() {
-    consumer.Consume(context.Background(), 1, func(events []beeorm.Event) {
-        //...
-    })
-}()
-<-ctx.Done()
-stop()
-consumer.Shutdown(time.Second * 30) //wait max 30 seconds
-```
-
 ## Consumers scaling
 
 By default, you can run only one `EventsConsumer.Consume()` at the same time.
