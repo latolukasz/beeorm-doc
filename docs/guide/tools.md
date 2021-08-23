@@ -36,12 +36,12 @@ import (
 func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterRedis("localhost:6379", 0)
-   validatedRegistry, deferF, err := registry.Validate(context.Background())
+   validatedRegistry, deferF, err := registry.Validate()
     if err != nil {
         panic(err)
     }
     defer deferF()
-    engine := validatedRegistry.CreateEngine(context.Background())
+    engine := validatedRegistry.CreateEngine()
     
     for _, statistics := range tools.GetRedisStatistics(engine) {
         statistics.RedisPool // "default"
@@ -70,12 +70,12 @@ func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterRedis("localhost:6379", 0)
    registry.RegisterRedisStream("test-stream", "default", []string{"test-group"})
-   validatedRegistry, deferF, err := registry.Validate(context.Background())
+   validatedRegistry, deferF, err := registry.Validate()
     if err != nil {
         panic(err)
     }
     defer deferF()
-    engine := validatedRegistry.CreateEngine(context.Background())
+    engine := validatedRegistry.CreateEngine()
     
     for _, statistics := range tools.GetRedisStreamsStatistics(engine) {
         statistics.Stream // "test-stream"
@@ -139,12 +139,12 @@ func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterRedis("localhost:6379", 0)
    registry.RegisterRedisSearchIndex(&orm.RedisSearchIndex{Name: "my-index", RedisPool: "default"})
-   validatedRegistry, deferF, err := registry.Validate(context.Background())
+   validatedRegistry, deferF, err := registry.Validate()
     if err != nil {
         panic(err)
     }
     defer deferF()
-    engine := validatedRegistry.CreateEngine(context.Background())
+    engine := validatedRegistry.CreateEngine()
     
     for _, statistics := range tools.GetRedisSearchStatistics(engine) {
         statistics.Index.Name // "my-index"

@@ -66,7 +66,7 @@ registry.RegisterRedis("localhost:6379", 0)
 registry.RegisterRedisStream("stream-a", "default", []string{"read-group-a", "read-group-ab"})
 registry.RegisterRedis("192.168.1.20:6379", 3, "second")
 registry.RegisterRedisStream("stream-a", "default", []string{"read-group-c"})
-validatedRegistry, deferF, err := registry.Validate(context.Background())
+validatedRegistry, deferF, err := registry.Validate()
 fmt.Print(err) // "stream with name stream-a aleady exists"
 ```
 :::
@@ -76,7 +76,7 @@ fmt.Print(err) // "stream with name stream-a aleady exists"
 Now we are ready to publish our first event:
 
 ```go{3-4}
-engine := validatedRegistry.CreateEngine(context.Background())
+engine := validatedRegistry.CreateEngine()
 
 eventBroker := engine.GetEventBroker()
 eventBroker.Publish("stream-a", "hello")
@@ -87,7 +87,7 @@ That's it. Our first event is published to `stream-a` stream.
 In next example we will send event as a struct into `stream-b` stream:
 
 ```go{9}
-engine := validatedRegistry.CreateEngine(context.Background())
+engine := validatedRegistry.CreateEngine()
 
 type testStructEvent struct {
     Color string
@@ -101,7 +101,7 @@ eventBroker.Publish("stream-b", testStructEvent{Color: "red", Price: 12.34})
 If you need to publish more than one event use `EventFlusher`:
 
 ```go{3-6}
-engine := validatedRegistry.CreateEngine(context.Background())
+engine := validatedRegistry.CreateEngine()
 
 eventFlusher := engine.GetEventBroker().NewFlusher()
 eventFlusher.Publish("stream-a", "hello")
@@ -143,7 +143,7 @@ flusher.Publish("stream-b", "b")
 flusher.Flush()
 
 eventConsumer := eventBroker.Consumer("read-group-ab")
-eventConsumer.Consume(5, func(events []Event) {
+eventConsumer.Consume(context.Background(), 5, func(events []Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
     var val string
     for _, event := range events {
@@ -173,7 +173,7 @@ when this limit is set to `1` (see difference in bash tab):
 <code-group>
 <code-block title="code">
 ```go{1}
-eventConsumer.Consume(1, func(events []Event) {
+eventConsumer.Consume(context.Background(), 1, func(events []Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
     var val string
     for _, event := range events {
@@ -205,7 +205,7 @@ method. In non-blocking mode consumer reads all events from streams and finish:
 <code-block title="code">
 ```go{1}
 eventConsumer.DisableLoop()
-eventConsumer.Consume(10, func(events []beeorm.Event) {
+eventConsumer.Consume(context.Background(), 10, func(events []beeorm.Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
 })
 fmt.Println("FINISHED")
@@ -229,7 +229,7 @@ ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.
 defer stop()
 
 go func() {
-    consumer.Consume(1, func(events []beeorm.Event) {
+    consumer.Consume(context.Background(), 1, func(events []beeorm.Event) {
         //...
     })
 }()
@@ -249,11 +249,11 @@ are trying to run consumer that is already running.
 ```go
 go func() {
     eventConsumer := eventBroker.Consumer("read-group-ab")
-    running := eventConsumer.Consume(5, func(events []Event) {}) // true
+    running := eventConsumer.Consume(context.Background(), 5, func(events []Event) {}) // true
 }()
 go func() {
     eventConsumer := eventBroker.Consumer("read-group-ab")
-    running := eventConsumer.Consume(5, func(events []Event) {}) // false
+    running := eventConsumer.Consume(context.Background(), 5, func(events []Event) {}) // false
 }()
 ```
 
@@ -273,7 +273,7 @@ go func() {
 }()
 go func() {
     eventConsumer := eventBroker.Consumer("read-group-ab")
-    running := eventConsumer.Consume(2, 5, func(events []Event) {}) // true
+    running := eventConsumer.Consume(context.Background(), 2, 5, func(events []Event) {}) // true
 }()
 ````
 
@@ -315,7 +315,7 @@ eventBroker.Publish("stream-a", Event_V1{Color: "red", Price: 12.23}, "version",
 eventBroker.Publish("stream-a", Event_V2{Color: "blue", Price: 120.50}, "version", "2")
 
 eventConsumer := eventBroker.Consumer("read-group-a")
-eventConsumer.Consume(5, func(events []Event) {
+eventConsumer.Consume(context.Background(), 5, func(events []Event) {
     for _, event := range events {
         switch event.Tag("version") {
             case "1":
@@ -338,7 +338,7 @@ use only simple key-value string values:
 eventBroker := engine.GetEventBroker()
 eventBroker.Publish("stream-page-views", nil, "url", "/about-us/", "ip", "232.12.24.11")
 
-eventConsumer.Consume(100, func(events []Event) {
+eventConsumer.Consume(context.Background(), 100, func(events []Event) {
     for _, event := range events {
         event.Tag("url") // "/about-us/"
         event.Tag("ip") // "232.12.24.11"

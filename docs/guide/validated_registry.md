@@ -23,7 +23,7 @@ func main() {
     registry.RegisterLocalCache(100000)
     registry.RegisterEntity(&UserEntity{}) 
     
-    validatedRegistry, deferF, err := registry.Validate(context.Background())
+    validatedRegistry, deferF, err := registry.Validate()
     if err != nil {
         panic(err)
     }
@@ -53,7 +53,7 @@ registry := validatedRegistry.GetSourceRegistry()
 // change configuration:
 registry.RegisterEntity(&ProductEntity{})
 //overrite validated registry: 
-validatedRegistry, deferF, err = registry.Validate(context.Background())
+validatedRegistry, deferF, err = registry.Validate()
 ```
 
 ## Getting entities settings
@@ -85,7 +85,7 @@ func main() {
     registry.RegisterLocalCache(1000, "my_storage")
     registry.RegisterEnum("colors", "red", "blue", "yellow")
     registry.RegisterEntity(&CarEntity{}, &PersonEntity{}) 
-    validatedRegistry, deferF, err := registry.Validate(context.Background())
+    validatedRegistry, deferF, err := registry.Validate()
     if err != nil {
       panic(err)
     }

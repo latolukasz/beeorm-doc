@@ -64,7 +64,7 @@ is published to `user-changed` channel. Now it's time to consumer these events:
 
 ```go{4}
 consumer := engine.GetEventBroker().Consumer("update-es-document")
-consumer.Consume(10, func(events []Event) {
+consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
         dityEvent := beeorm.EventDirtyEntity(event)
         if dityEvent.Deleted() { 
@@ -108,7 +108,7 @@ we should send email. We can add extra code in already created consumer:
 
 ```go{11}
 consumer := engine.GetEventBroker().Consumer("update-es-document")
-consumer.Consume(10, func(events []Event) {
+consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
         dityEvent := beeorm.EventDirtyEntity(event)
         if dityEvent.Deleted() { 
@@ -144,7 +144,7 @@ registry.RegisterRedisStream("user-changed", "default", []string{"update-es-docu
 <code-block title="consumer #1">
 ```go{1}
 consumer := engine.GetEventBroker().Consumer("update-es-document")
-consumer.Consume(10, func(events []Event) {
+consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
         dityEvent := beeorm.EventDirtyEntity(event)
         if dityEvent.Deleted() { 
@@ -164,7 +164,7 @@ consumer.Consume(10, func(events []Event) {
 <code-block title="consumer #2">
 ```go{1}
 consumer := engine.GetEventBroker().Consumer("send-user-updated-mail")
-consumer.Consume(10, func(events []Event) {
+consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
         dityEvent := beeorm.EventDirtyEntity(event)
         if !dityEvent.Deleted() { 
@@ -206,7 +206,7 @@ type UserEntity struct {
 <code-block title="consumer">
 ```go
 consumer := engine.GetEventBroker().Consumer("location-changed")
-consumer.Consume(10, func(events []Event) {
+consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
         dityEvent := beeorm.EventDirtyEntity(event)
         if dityEvent.Updated()() { 
@@ -247,7 +247,7 @@ type UserEntity struct {
 <code-block title="consumer">
 ```go
 consumer := engine.GetEventBroker().Consumer("data-changed")
-consumer.Consume(10, func(events []Event) {
+consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
         dityEvent := beeorm.EventDirtyEntity(event)
         if dityEvent.Updated()() { 

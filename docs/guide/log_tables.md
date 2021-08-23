@@ -89,7 +89,7 @@ at least one [background consumer](/guide/background_consumer.html) when
 `log table` feature is used:
 
 ```go
-beeorm.NewBackgroundConsumer(engine).Digest()
+beeorm.NewBackgroundConsumer(engine).Digest(context.Background())
 ```
 
 Let's see what we can find in `_log_default_UserEntity` table:
@@ -311,7 +311,7 @@ Consumer group example:
 ```go
 var logEvent beeorm.LogQueueValue
 consumer := engine.GetEventBroker().Consumer("my-consumer")
-consumer.Consume(10, func(events []Event) {
+consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
 	    event.Unserialize(&logEvent)
 	    logEvent.PoolName // log table MySQL pool name

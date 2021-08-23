@@ -88,12 +88,12 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
     registry.RegisterEntity(&UserEntity{})
-    validatedRegistry, deferF, err := registry.Validate(context.Background())
+    validatedRegistry, deferF, err := registry.Validate()
     if err != nil {
         panic(err)
     }
     defer deferF()
-    engine := validatedRegistry.CreateEngine(context.Background())
+    engine := validatedRegistry.CreateEngine()
 
     var users []*UserEntity
     engine.Search(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100), &users)
