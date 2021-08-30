@@ -179,7 +179,7 @@ in specific data pool:
 engine.GetRedisSearch().ListIndices() // []string{"namespace.UserEntity"}
 ```
 
-## Running redis search queries
+## Running search queries
 
 Now it's time to run our first query - search for first 100
 users sorted by `ID`:
@@ -341,6 +341,33 @@ query.InOrder() // ads INORDER
 query.Lang("de") // ads LANGUAGE de
 query.Highlight("Title") // ads HIGHLIGHT Title
 query.HighlightTags("<b>", "</b>") // ads HIGHLIGHT .. TAGS <b> </b>
+```
+
+## Running search aggregations
+
+You can run [redis search aggregations](https://oss.redis.com/redisearch/Aggregations/) also:
+
+```go
+var entity *SomeEntity
+
+aggregation := &beeorm.RedisSearchAggregate{}
+
+//group and reduce
+aggregation.GroupByFields([]string{"@Age", "@Code"}, NewAggregateReduceCount("total_rows"), NewAggregateReduceSum("@Weight", "total_weight"))
+//sort ASC
+query.Sort(beeorm.RedisSearchAggregateSort{"@total_rows", false})
+//apply filter
+query.Apply("upper(@Code)", "upperCode")
+//get results
+rows, totalRows = engine.RedisSearchAggregate(entity, aggregation, NewPager(1, 100))
+
+fmt.Prinft("FOUND %d ROWS\n", totalRows)
+for _, row := range rows {
+    fmt.Prinft("AGE %s AND CODE %s: \n", row["Age"], row["Code"])
+    fmt.Prinft("total rows: %v\n", row["total_rows"])
+    fmt.Prinft("total weight: %v\n", row["total_weight"])
+    fmt.Prinft("upper case: %v\n", row["upperCode"])
+}
 ```
 
 ## Custom redis search index
