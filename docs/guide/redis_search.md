@@ -310,6 +310,8 @@ Below tables demonstrates how you can build redis search query using this struct
 | q.FilterNotTag("Status", "active") | FT.SEARCH index * -@Status:{active} |
 | q.FilterBool("Active", true) | FT.SEARCH index * @Active:{true} |
 | q.FilterGeo("Point", 12.2342, 34.23432, 10, "km") | FT.SEARCH index * GEOFILTER 12.2342 34.23432 10 "km"  |
+| q.FilterManyReferenceIn("Categories", 1, 3) | FT.SEARCH index * @Categories:( e1 | e2) |
+| q.FilterManyReferenceNotIn("Categories", 1, 3) | FT.SEARCH index * -@Categories:( e1 | e2) |
 
 
 You can also define query manually with `query.QueryRaw()`:
