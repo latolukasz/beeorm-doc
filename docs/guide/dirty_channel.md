@@ -29,7 +29,7 @@ will be used to store and consume events publish by BeORM every time user entity
 <code-block title="code">
 ```go{3}
 registry := beeorm.NewRegistry()
-registry.RegisterRedis("localhost:6379", 0)
+registry.RegisterRedis("localhost:6379", "", 0)
 registry.RegisterRedisStream("user-changed", "default", []string{"update-es-document"})
 ```
 </code-block>
@@ -136,7 +136,7 @@ for one dirty stream:
 <code-block title="registry">
 ```go{3}
 registry := beeorm.NewRegistry()
-registry.RegisterRedis("localhost:6379", 0)
+registry.RegisterRedis("localhost:6379", "", 0)
 registry.RegisterRedisStream("user-changed", "default", []string{"update-es-document", "send-user-updated-mail"})
 ```
 </code-block>

@@ -263,7 +263,7 @@ You can define this channel in another redis server pool if needed. You must use
 <code-block title="code">
 ```go{3}
 registry := beeorm.NewRegistry()
-registry.RegisterRedis("192.123.11.12:6379", 0, "log")
+registry.RegisterRedis("192.123.11.12:6379", "", 0, "log")
 registry.RegisterRedisStream("orm-log-channel", "log", []string{"orm-async-consumer"})
 ```
 </code-block>
@@ -289,7 +289,7 @@ belov example we are adding `my-consumer` consumer group:
 <code-block title="code">
 ```go{3}
 registry := beeorm.NewRegistry()
-registry.RegisterRedis("192.123.11.12:6379", 0)
+registry.RegisterRedis("192.123.11.12:6379", "", 0)
 registry.RegisterRedisStream("orm-log-channel", "default", []string{"orm-async-consumer", "my-consumer"})
 ```
 </code-block>

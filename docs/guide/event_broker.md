@@ -29,11 +29,11 @@ and three consumer groups:
 ```go{4,5,8}
 registry := beeorm.NewRegistry()
 
-registry.RegisterRedis("localhost:6379", 0)
+registry.RegisterRedis("localhost:6379", "", 0)
 registry.RegisterRedisStream("stream-a", "default", []string{"read-group-a", "read-group-ab"})
 registry.RegisterRedisStream("stream-b", "default", []string{"read-group-ab"})
 
-registry.RegisterRedis("192.168.1.20:6379", 3, "second")
+registry.RegisterRedis("192.168.1.20:6379", "", 3, "second")
 registry.RegisterRedisStream("stream-c", "default", []string{"read-group-c"})
 ```
 </code-block>

@@ -108,15 +108,18 @@ Keep popular data in big pools and other values in small pools.
 ## Redis server pool
 
 Connection to single Redis server can be defined using `RegisterRedis` method
-which requires connection URI in format `HOST:PORT` followed by redis database number (0-15).
+which requires connection URI in format `HOST:PORT` followed by redis keys namespace
+and database number (0-15).
 
 <code-group>
 <code-block title="in go">
 ```go
-//pool with name "default" pointing to redis database #0: 
-registry.RegisterRedis("localhost:6379", 0)
-//pool with name "products" pointing to redis database #1: 
-registry.RegisterRedis("198.112.22.21:6379", 1, "products")
+//pool with name "default", empty keys namespace, pointing to redis database #0: 
+registry.RegisterRedis("localhost:6379", "", 0)
+//pool with name "users", keys namespace "global", pointing to redis database #0: 
+registry.RegisterRedis("localhost:6379", "global", 0, "users")
+//pool with name "products", empty keys namespace pointing to redis database #1: 
+registry.RegisterRedis("198.112.22.21:6379", "", 1, "products")
 ```
 </code-block>
 
@@ -124,6 +127,8 @@ registry.RegisterRedis("198.112.22.21:6379", 1, "products")
 ```yml
 default:
   redis:localhost:6379:0
+users:
+  redis:localhost:6379:0:global
 products:
   198.112.22.21:6379:1
 ```
@@ -143,10 +148,10 @@ addresses to sentinel deamons and redis database number.
 ```go
 //pool with name "default" pointing to redis database #0: 
 poolDefault := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
-registry.RegisterRedisSentinel("master", 0, poolDefault)
+registry.RegisterRedisSentinel("master", "" 0, poolDefault)
 //pool with name "products" pointing to redis database #1: 
 poolProducts := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
-registry.RegisterRedisSentinel("master", 1, poolProducts, "products") 
+registry.RegisterRedisSentinel("master", "global", 1, poolProducts, "products") 
 ```
 </code-block>
 
@@ -160,7 +165,7 @@ default:
       - 192.156.23.12:26379
 products:
   sentinel:
-    my-master:1:
+    my-master:1:global:
       - :26380
       - 192.156.23.24:26379
       - 192.156.23.25:26379
@@ -172,3 +177,30 @@ products:
 We strongly recommend to use Redis Sentinel pools instead of single server pool 
 in your production environment. 
 :::
+
+## Redis keys namespace
+
+You should always try to use dedicated redis server for your application.
+There are three reasons:
+ * performance. Only your application is using redis, it's easy then to monitor and optimise redis performance
+ * duplicate key prevention. If two applications uses the same redis instance and DB number and
+both applications store for example key "user:1" then one application overrides other application data
+ * flushing database. Sometimes you need to remove all keys in redis database. Using FLushDB() will 
+remove all keys from all applications that are using the same redis DB. Having one instance of redis
+for one application you are sure keys are removed only for this application.
+
+But sometimes you have no other options than using one redis for many applications.
+Also when you are running tests in parallel you must be sure each test is using different
+redis keys. Lucky you BeeORM provides a feature called **keys namespace**.
+Simply define unique namespace name for each application in every BeeORM redis pool.
+This name will be added as prefix to all keys used in this redis pool.
+
+Application #1
+```go
+registry.RegisterRedis("localhost:6379", "application1", 0)
+```
+
+Application #2
+```go
+registry.RegisterRedis("localhost:6379", "application2", 0)
+```
