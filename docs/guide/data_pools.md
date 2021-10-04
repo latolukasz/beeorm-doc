@@ -51,14 +51,15 @@ because some goroutines need to wait for another connections to be returned
 to pool after query execution.
 :::
 
-By default all tables use character set `utf8mb4`. 
-You can change it with `SetDefaultEncoding` method:
+By default all tables use character set `utf8mb4` and `0900_ai_ci` collation. 
+You can change it with `SetDefaultEncoding` and `SetDefaultCollate` methods:
 
 <code-group>
 <code-block title="in go">
 ```go{2}
 registry := beeorm.NewRegistry()
 registry.SetDefaultEncoding("latin2")
+registry.SetDefaultCollate("0900_ai_ci")
 ```
 </code-block>
 
@@ -66,6 +67,7 @@ registry.SetDefaultEncoding("latin2")
 ```yml
 default:
   mysqlEncoding: latin2
+  mysqlCollate: 0900_ai_ci
 ```
 </code-block>
 </code-group>
