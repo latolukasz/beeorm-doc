@@ -144,6 +144,28 @@ func() {
 Always put `defer db.Rollback()` after `db.Begin()`.
 :::
 
+:::warning
+When you are using transactions remember to use one instance of engine for every transaction.
+You can use `engine.Clone()`:
+
+```go{10}
+engine := .....
+go func() {
+    db := engine.GetMysql()
+    db.Begin()
+    ...
+    db.Commit()
+}()
+go func() {
+    //in second goroutine we are cloning engine
+    db := engine.Clone().GetMysql()
+    db.Begin()
+    ...
+    db.Commit()
+}()
+```
+:::
+
 Never run modification queries from MySQL data pool (`Exec()`) that
 change entities which are using caching layer:
 
