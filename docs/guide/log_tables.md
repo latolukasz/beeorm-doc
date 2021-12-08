@@ -279,6 +279,15 @@ log:
 </code-block>
 </code-group>
 
+## Forcing log
+
+You can also force BeeORM to enable log in all registered entities:
+
+```go{3}
+registry := beeorm.NewRegistry()
+ // provide db pool name used to store log tables
+registry.ForceEntityLogInAllEntities("default")
+```
 
 ## extra consumer
 
