@@ -180,6 +180,18 @@ tableSchema := validatedRegistry.GetTableSchema("main.PersonEntity")
 carEntity := tableSchema.NewEntity().(*CarEntity)
 ```
 
+You can also get `beeorm.TableSchema` from entity cache key.
+For example if you see query in redis:
+
+```GET f3b2d:123```
+
+you can get table schema with:
+
+```go
+tableSchema := validatedRegistry.GetTableSchemaForCachePrefix("f3b2d")
+```
+
+
 ## Getting MySQL pools
 
 To get list of registered MySQL pools use `GetMySQLPools()` method:
