@@ -26,7 +26,7 @@ Every entity must be registered in `beeomr.Registry`:
 
 ```go{2}
 registry := beeorm.NewRegistry()
-registry.RegisterEntity(&beeorm.NewRegistry()) 
+registry.RegisterEntity(&entity.UserEntity()) 
 ```
 
 As you can see you must pass reference to actual variable, not a string 

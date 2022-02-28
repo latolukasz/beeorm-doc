@@ -160,7 +160,6 @@ fmt.Println("FINISHED")
 GOT 2 EVENTS
 EVENT a WITH ID 1518951480106-0 FROM STREAM stream-a
 EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
-FINISHED
 ```
 </code-block>
 </code-group>

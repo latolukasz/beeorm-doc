@@ -298,7 +298,7 @@ type ShoeSizeEntity struct {
 How we can connect sizes with a shoe? Well, one option is to use many-many table:
 
 ```go
-type ShoeSizeEntity struct {
+type ShoeShoeSizeEntity struct {
     beeorm.ORM
     ID     uint
     Shoe   *ShoeEntity `orm:"required"`
