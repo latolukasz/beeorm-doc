@@ -245,17 +245,17 @@ mode (default approach) and developer flushed redis and removed redis lock then 
 will stop and return false.
 
 In many scenarios you may need to run more than one consumer at once. 
-BeeORM provides `EventsConsumer.Consume()` method that require one additional paramater
+BeeORM provides `EventsConsumer.ConsumeMany(ctx context.Context, nr, count int, handler EventConsumerHandler) bool` method that require one additional paramater
 `nr` - unique number of consumer:
 
 ```go
 go func() {
     eventConsumer := eventBroker.Consumer("read-group-ab")
-    running := eventConsumer.ConsumeMany(1, 5, func(events []Event) {}) // true
+    running := eventConsumer.ConsumeMany(context.Background(), 1, 5, func(events []Event) {}) // true
 }()
 go func() {
     eventConsumer := eventBroker.Consumer("read-group-ab")
-    running := eventConsumer.Consume(context.Background(), 2, 5, func(events []Event) {}) // true
+    running := eventConsumer.ConsumeMany(context.Background(), 2, 5, func(events []Event) {}) // true
 }()
 ````
 
