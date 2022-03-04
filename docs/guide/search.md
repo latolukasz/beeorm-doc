@@ -171,7 +171,7 @@ If you need to search one entity use ``engine.SearchOne()``:
 <code-group>
 <code-block title="code">
 ```go{2}
-var user *UserEntity
+user := &UserEntity{}
 found := engine.SearchOne(beeorm.NewWhere("Email = ?", "bee@beeorm.io"), user)
 if found {
   fmt.Printf("Found user with ID %d and Email\n", user.ID, user.Email)

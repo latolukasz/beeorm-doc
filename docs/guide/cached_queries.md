@@ -29,7 +29,7 @@ In our application very often we are searching for a user with his email:
 <code-group>
 <code-block title="code">
 ```go{2}
-var user *UserEntity
+user := &UserEntity{}
 found := engine.SearchOne(beeorm.NewWhere("Email = ?", "bee@beeorm.io"), user)
 ```
 </code-block>
