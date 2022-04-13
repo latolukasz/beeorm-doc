@@ -289,10 +289,15 @@ registry := beeorm.NewRegistry()
 registry.ForceEntityLogInAllEntities("default")
 ```
 
+To revert above setting run:
+```go
+registry.ForceEntityLogInAllEntities("")
+```
+
 ## extra consumer
 
 You can also register extra consumer group that can be used to track changes in entity. In
-belov example we are adding `my-consumer` consumer group: 
+below example we are adding `my-consumer` consumer group: 
 
 <code-group>
 <code-block title="code">
