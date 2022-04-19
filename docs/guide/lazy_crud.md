@@ -77,7 +77,7 @@ REDIS XAdd orm-lazy-channel event event event
 </code-block>
 </code-group>
 
-You can define another redis pool for flush lazy streams:
+You can define another redis pool for flush lazy stream:
 
 <code-group>
 <code-block title="code">
