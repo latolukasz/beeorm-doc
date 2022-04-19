@@ -122,6 +122,8 @@ registry.RegisterRedis("localhost:6379", "", 0)
 registry.RegisterRedis("localhost:6379", "global", 0, "users")
 //pool with name "products", empty keys namespace pointing to redis database #1: 
 registry.RegisterRedis("198.112.22.21:6379", "", 1, "products")
+//pool with credentials
+registry.RegisterRedisWithCredentials("198.112.22.21:6379", "", "user", "password"," 1, "products")
 ```
 </code-block>
 
@@ -132,7 +134,7 @@ default:
 users:
   redis:localhost:6379:0:global
 products:
-  198.112.22.21:6379:1
+  198.112.22.21:6379:1?user=user&password=pass
 ```
 </code-block>
 </code-group>
@@ -150,7 +152,7 @@ addresses to sentinel deamons and redis database number.
 ```go
 //pool with name "default" pointing to redis database #0: 
 poolDefault := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
-registry.RegisterRedisSentinel("master", "" 0, poolDefault)
+registry.RegisterRedisSentinel("master", "", 0, poolDefault)
 //pool with name "products" pointing to redis database #1: 
 poolProducts := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
 registry.RegisterRedisSentinel("master", "global", 1, poolProducts, "products") 
@@ -179,6 +181,28 @@ products:
 We strongly recommend to use Redis Sentinel pools instead of single server pool 
 in your production environment. 
 :::
+
+You can also provide redis credentials:
+
+<code-group>
+<code-block title="in go">
+```go
+poolDefault := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
+registry.RegisterRedisSentinelWithCredentials("master", "", "user", "password", 0, poolDefault)
+```
+</code-block>
+
+<code-block title="yaml">
+```yml
+default:
+  sentinel:
+    master:0?user=user&password=pass:
+      - :26379
+      - 192.156.23.11:26379
+      - 192.156.23.12:26379
+```
+</code-block>
+</code-group>
 
 ## Redis keys namespace
 
