@@ -76,3 +76,25 @@ REDIS XAdd orm-lazy-channel event event event
 ```
 </code-block>
 </code-group>
+
+You can define another redis pool for flush lazy streams:
+
+<code-group>
+<code-block title="code">
+```go{3}
+registry := beeorm.NewRegistry()
+registry.RegisterRedis("192.123.11.12:6379", "", 0, "lazy")
+registry.RegisterRedisStream("orm-lazy-channel", "lazy", []string{"orm-async-consumer"})
+```
+</code-block>
+
+<code-block title="yaml">
+```yml{4,5}
+lazy:
+    redis: 192.123.11.12:6379
+    streams:
+        orm-lazy-channel:
+          - orm-async-consumer
+```
+</code-block>
+</code-group>
