@@ -85,7 +85,7 @@ type OrderEntity struct {
 func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data")
-    egistry.RegisterRedis("localhost:6379", 0) 
+    registry.RegisterRedis("localhost:6379", 0) 
     poolSales := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
     registry.RegisterRedisSentinel("master", 1, poolSales, "sales") 
     
