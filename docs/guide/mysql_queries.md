@@ -186,3 +186,17 @@ SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
 ```
 </code-block>
 </code-group>
+
+## Query execution time limit
+
+By default, all MySQL queries has no time limitation. If query takes 2 minutes 
+query execution of `db.Query()` takes 2 minutes. You can define time limit for all queries
+run from one `engine` instance using `SetQueryTimeLimit` method:
+
+```go
+engine := .....
+engine.SetQueryTimeLimit(5) //limit set to 5 seconds
+engine.SetQueryTimeLimit(0) //limit is removed (default value)
+```
+
+When query takes more than X seconds BeeORM will panic with message `query exceeded limit of X seconds`.
