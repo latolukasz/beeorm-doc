@@ -119,7 +119,7 @@ and database number (0-15).
 //pool with name "default", empty keys namespace, pointing to redis database #0: 
 registry.RegisterRedis("localhost:6379", "", 0)
 //pool with name "users", keys namespace "global", pointing to redis database #0: 
-registry.RegisterRedis("localhost:6379", "global", 0, "users")
+registry.RegisterRedis("/var/redis.sock", "global", 0, "users")
 //pool with name "products", empty keys namespace pointing to redis database #1: 
 registry.RegisterRedis("198.112.22.21:6379", "", 1, "products")
 //pool with credentials
@@ -132,7 +132,7 @@ registry.RegisterRedisWithCredentials("198.112.22.21:6379", "", "user", "passwor
 default:
   redis:localhost:6379:0
 users:
-  redis:localhost:6379:0:global
+  redis:/var/redis.sock:1:global
 products:
   198.112.22.21:6379:1?user=user&password=pass
 ```
