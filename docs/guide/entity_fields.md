@@ -44,11 +44,11 @@ Always spend extra time to analise your data and choose best `int` type for ever
    Use `uint8` because people are living no longer than 255 years. Maybe in near feature it will change 
    but for now it's a right choice:)
  * using correct type for primary keys (`ID`) and fields that are part of MySQL index is very important.
-Using low but type is not only saving MySQL disk space but also memory used to cache index. 
+Using low bit type is not only saving MySQL disk space but also memory used to cache index. 
 :::
 
 All above MySQL fields are defined as `NOT NULL DEFAULT '0'`. If you need to store also `NULL` value use
-reference to int primitive type: `*int8`, `*int16`, `*in32`, `*int`, `*rune`, `*int64`, `*uint8`, `*uint16`, `*uin32`, 
+reference to int primitive type: `*int8`, `*int16`, `*int32`, `*int`, `*rune`, `*int64`, `*uint8`, `*uint16`, `*uint32`, 
 `*uint`, `*uint64`. Then fields in MySQL are defined as `DEFAULT NULL`.
 
 ```go{7}
@@ -64,7 +64,7 @@ type PersonEntity struct {
 
 ## Floats
 
-Working with float values is always challenging. In BeORM you should
+Working with float values is always challenging. In BeeORM you should
 use one of `float32` or `float64` primitive types. Then using special tags you
 can decide how float value is stored in MySQL. Check example below:
 
@@ -102,7 +102,7 @@ type PersonEntity struct {
     beeorm.ORM
     ID           uint
     Married      bool
-    HasChidlren  *bool
+    HasChildren  *bool
 }
 ```
 | go        | MySQL         |
@@ -133,7 +133,7 @@ type ProductEntity struct {
 `
 ::: tip
 Always add `orm:"required"`tag for `string` fields that never holds empty string.
-Thanks to it you can save extra disc space used to store data in MySQL table.
+Thanks to this you can save extra disc space used to store data in MySQL table.
 :::
 
 ## Dates and time
@@ -185,8 +185,8 @@ predefined list you should use MySQL `ENUM` or `SET` field type to store it.
 
 ### Example using structs (recommended):
 
-If you use struct as a set/enum definition 
-BeeORM search for all public fields with type of `string` int this struct
+If you use struct as a set/enum definition, 
+BeeORM searches for all public fields with type of `string` in this struct
 and use them as values. First field is used as default one when field has 
 tag `orm:"required"`.
 
@@ -214,7 +214,7 @@ type UserEntity struct {
 
 func main() {
    registry := beeorm.NewRegistry()
-   registry.RegisterEnumStruct("colors", Colors) // default firts field "red"
+   registry.RegisterEnumStruct("colors", Colors) // default first field "red"
    registry.RegisterEnumStruct("colors_default_blue", Colors, Colors.Blue) // "blue" is used as default
    registry.RegisterEntity(&UserEntity{})
 }
@@ -252,7 +252,7 @@ func main() {
 
 ## One-one reference
 
-In BeORM you can easily define one-one reference between two entities.
+In BeeORM you can easily define one-one reference between two entities.
 All you need to do is define public field with type of referenced entity:
 
 ```go{11}
@@ -270,22 +270,22 @@ type ProductEntity struct {
 }
 ```
 
-In above example BeORM creates column `Category smallint NOT NULL`.
+In above example BeeORM creates column `Category smallint NOT NULL`.
 If field can store `NULL` values simply don't use `orm:"required"` tag.
 
-BeORM creates index and [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) 
+BeeORM creates index and [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) 
 for every defined one-one reference.
 
 ## One-many reference
 
-Try to imagine we are developing e-commerce app used to sell shoes. In our app wec can define
+Try to imagine we are developing e-commerce app used to sell shoes. In our app we can define
 a shoe and list of available sizes:
 
 ```go
 type ShoeEntity struct {
     beeorm.ORM
     ID     uint16
-    Name string `orm:"required"`
+    Name   string `orm:"required"`
 }
 
 type ShoeSizeEntity struct {
@@ -310,8 +310,8 @@ Well, it works, but it's far from optimal solutions. Reasons:
  * we need to define another table that takes disk space
  * this extra table uses contains also three indexes (ID, Shoe, Size) that use MySQL memory
 
-So is there better way to define database model for scenario? With BeeORM yes. Simply create
-public field with type of slice of referenced entities:
+So is there a better way to define database model for this scenario? With BeeORM, yes. Simply create
+a public field with a type of slice of referenced entities:
 
 ```go{5}
 type ShoeEntity struct {
@@ -322,11 +322,11 @@ type ShoeEntity struct {
 }
 ```
 
-What does it do? BeORM simply creates a column `SIZES JSON NOT NULL` tha holds array with ID of
+What does it do? BeeORM simply creates a column `Sizes JSON NOT NULL` that holds an array with IDs of
 referenced sizes, for example `[1,23,43]`. 
 
 ::: tip
-Use this model only in scenarios where number of referenced object is quite small and static.
+Use this model only in scenarios where number of referenced objects is quite small and static.
 We recommend to use one-many field if number of values (shoe sizes in our case) is not higher than
 100 elements. Otherwise, use many-many (`ShoeSizeEntity`) data model.
   :::
@@ -354,21 +354,21 @@ struct Address {
 type UserEntity struct {
     beeorm.ORM
     ID             uint
-    HomeAdddress   Address
+    HomeAddress    Address
     WorkAddress    Address
 }
 
 type CompanyEntity struct {
     beeorm.ORM
     ID         uint
-    Adddress   Address
+    Address    Address
 }
 ```
 
 You can also create struct inside struct, as many levels as you want.
 
-BeORM creates MySQL column for each field in struct by adding field name
-as a suffix for column name. For example `HomeAdddressCountry varchar(255)`.
+BeeORM creates MySQL column for each field in struct by adding field name
+as a suffix for column name. For example `HomeAddressCountry varchar(255)`.
 
 ## Anonymous subfields
 
@@ -390,7 +390,7 @@ type UserEntity struct {
 }
 ```
 
-Anonymous fields are represented in MySQL table withour suffix, for example
+Anonymous fields are represented in MySQL table without suffix, for example
 `Country varchar(255)`.
 
 ## Ignored field
@@ -411,7 +411,7 @@ type UserEntity struct {
 Any public field with type not mentioned above is mapped to `JSON` MySQL column type
 and value of this field is automatically converted to/from JSON:
 
-```go{9-11Subfields}
+```go{9-11}
 type Options struct {
     Option1 string
     Option2 bool
@@ -435,7 +435,7 @@ to marshal/unmarshal JSON value when entity is saved or loaded from database.
 
 There is a special field `FakeDelete bool` in BeeORM that helps you to deal with scenarios
 where entity needs to be deleted, but it's used as reference in other entities 
-and of course delete operation it will cause foreign key exception.
+and of course delete operation will cause foreign key exception.
 
 Let's imagine this scenario:
 
@@ -455,11 +455,11 @@ type ProductEntity struct {
 }
 ```
 As you can see we created field with name `FakeDelete` (it's case-sensitive) type of bool.
-BeORM thread it as a special case and creates MySQL column `FakeDelete smallint` in `ColorEntity` table.
-Notice that type if this column is the same as type of ID column for this entity (uint16).
+BeeORM threads it as a special case and creates MySQL column `FakeDelete smallint` in `ColorEntity` table.
+Notice that type in this column is the same as type of ID column for this entity (uint16).
 
-Now every time you delete this entity using BeeORM (will be described on next pages) what actually
-happens row is updated with query:
+Now every time you delete this entity using BeeORM (will be described on next pages), what actually
+happens is that row is updated with a query:
 
 ```sql
 UPDATE ColorEntity SET `FakeDelete` = `ID` WHERE `ID` = X
@@ -472,9 +472,9 @@ with query similar to this:
 SELECT ... FROM ColorEntity WHERE `FakeDelete` = 0
 ```
 
-No worries. You don't need to remember to add `WHERE FakeDelete = 0` in all in your searches.
+No worries. You don't need to remember to add `WHERE FakeDelete = 0` in all of your searches.
 BeeORM will do it for you automatically in all ORM search methods described on next pages. 
 
-Probably you are asking yourself why BeeORM uses `smallint` instead of `tinyint(1)` (bool) MySQL
+Probably you are asking yourself, why BeeORM uses `smallint` instead of `tinyint(1)` (bool) MySQL
 column type? This topic is related to [unique index](https://dev.mysql.com/doc/refman/8.0/en/create-index.html#create-index-unique)
 usage described on [next page](/guide/mysql_indexes.html).

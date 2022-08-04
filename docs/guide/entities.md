@@ -22,7 +22,7 @@ type SimpleEntity struct {
 
 ## Registering Entity
 
-Every entity must be registered in `beeomr.Registry`:
+Every entity must be registered in `beeorm.Registry`:
 
 ```go{2}
 registry := beeorm.NewRegistry()
@@ -38,7 +38,7 @@ code you will see compilation error in above code.
 ### Mysql pool
 
 By default, Entity is connected to `default` [data pool](/guide/datapools.html#mysql-pool).
-You can define different pool with special setting **mysql=pool_name** put in tag `beeorm` 
+You can define different pool with special setting **mysql=pool_name** put in tag `orm` 
 for `beeorm.ORM` field:
 
 ```go{6}
@@ -62,7 +62,7 @@ func main() {
 
 Entity can be automatically cached in Redis to protect MySQL from queries when Entity
 data is needed. Use setting **redisCache=pool_name**
-in tag `beeorm` for `beeorm.ORM` field to enable redis cache for this entity and define 
+in tag `orm` for `beeorm.ORM` field to enable redis cache for this entity and define 
 which redis server or sentinel pool should be used to store data.
 
 For pool with name `default` you can use short version without pool name ``orm:"redisCache"``.
@@ -167,7 +167,7 @@ in local cache.
 
 ### Defining entity table name
 
-By default, BeORM uses entity struct name as a MySQL table name.
+By default, BeeORM uses entity struct name as a MySQL table name.
 You can define your own name using `table=table_name` tag setting:
 
 ```go{2}

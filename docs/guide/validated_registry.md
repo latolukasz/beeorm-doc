@@ -46,7 +46,7 @@ source of BeeORM settings.
 
 ## Updating validated registry
 
-If you need change configuration you need to create new `beeorm.ValidatedRegistry`:
+If you need to change configuration you need to create new `beeorm.ValidatedRegistry`:
 
 ```go{1}
 registry := validatedRegistry.GetSourceRegistry()

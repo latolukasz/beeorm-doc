@@ -1,6 +1,6 @@
 # Engine
 
-So far you learned how to create `beeorm.ValidatedRegistry` that holds
+So far you have learned how to create `beeorm.ValidatedRegistry` that holds
 information about all database connections and entities. Now it's time to learn
 how to create and use a heart of BeeORM - object called `beeorm.Engine`.
 

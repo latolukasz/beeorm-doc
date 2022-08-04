@@ -60,14 +60,14 @@ If you need to add single field in more than one index separate names with comma
 type PersonEntity struct {
     beeorm.ORM
     ID          uint
-    FistName    string `orm:"index=name:2"`
+    FirstName   string `orm:"index=name:2"`
     LastName    string `orm:"index=name,occupation:2;unique=lastname"`
     Occupation  string `orm:"index=occupation"`
 }
 ```
 
 ```sql
-  KEY `model` (`LastName`, `FistName`),
+  KEY `model` (`LastName`, `FirstName`),
   KEY `occupation` (`Occupation`, `LastName`),
   UNIQUE KEY `lastname` (`LastName`),
 ```
@@ -79,7 +79,7 @@ indexes using field tags. See below example:
 
 ```go
 struct Address {
-   Country    strig
+   Country    string
    City       string
    Street     string
    Building   uint
@@ -89,14 +89,14 @@ struct Address {
 type UserEntity struct {
     beeorm.ORM
     ID             uint
-    HomeAdddress   Address
+    HomeAddress    Address
     WorkAddress    Address
 }
 ```
 
 What if we need these indexes:
 ```sql
-KEY `homeStreet` (`HomeAdddressStreet`),
+KEY `homeStreet` (`HomeAddressStreet`),
 KEY `workAddress` (`WorkAddressCity`, `WorkAddressStreet`),
 ```
 
@@ -104,7 +104,7 @@ BeeORM supports defining indexes as tag attributes for `orm.ORM` field:
 
 ```go{2}
 type UserEntity struct {
-    beeorm.ORM     `orm:"index=homeStreet:HomeAdddressStreet|workAddress:WorkAddressCity,WorkAddressStreet"`
+    beeorm.ORM     `orm:"index=homeStreet:HomeAddressStreet|workAddress:WorkAddressCity,WorkAddressStreet"`
     ID             uint
     HomeAdddress   Address
     WorkAddress    Address
