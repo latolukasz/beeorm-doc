@@ -56,7 +56,7 @@ func main() {
 
 ## Saving new entities
 
-There are many ways to store entity new database.
+There are many ways to store an entity in a new database.
 The Simplest way is to use `engine.Flush()` method:
 
 <code-group>
@@ -104,7 +104,7 @@ number of queries. That's why if you need to save more than one entity at once
 always use `FlushMany()` instead of running Flush()` many times.
 :::
 
-Every time new entity is saved in MySQL BeeORM automatically set inserted
+Every time new entity is saved in MySQL, BeeORM automatically sets inserted
 primary key in `ID` field. Each entity provides getter `GetID()` that is 
 useful if you pass type `beeorm.Entity` in your code:
 
@@ -141,7 +141,7 @@ REDIS DELETE CacheForCategory10
 
 As you can see `Flush()` method is not returning any error. 
 BeeORM will panic instead. Probably most go developers reading this 
-got heart attack. Internet is full of articles where developers 
+got a heart attack. Internet is full of articles where developers 
 are debating (fighting:)) which approach is better. 
 BeeORM is used in many projects by many developers. After many
 emotional discussions everyone agreed that `panicing` is a right approach
@@ -186,8 +186,8 @@ Any other error (for instance unavailable MySQL server) will cause panic.
 
 ### On duplicate key update
 
-MySQL has amazing feature [INSERT ON DUPLICATE KEY](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)
-that is fully supported in BeeORM. In above example we got `*beeorm.DuplicatedKeyError` 
+MySQL has an amazing feature [INSERT ON DUPLICATE KEY](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)
+that is fully supported in BeeORM. In above example, we got `*beeorm.DuplicatedKeyError` 
 because we are trying to store two `CategoryEntity` with the same code. Use `SetOnDuplicateKeyUpdate()` method
 to define correct duplicate key statement:
 
@@ -235,7 +235,7 @@ REDIS DELETE CacheForCategory10
 
 ### Flushing references
 
-BeeORM automatically flush all new entities (entity with ID equal to 0) assigned in flushed
+BeeORM automatically flushes all new entities (entities with ID equal to 0) assigned in flushed
 entity as reference. Look at this example:
 
 <code-group>
@@ -243,13 +243,13 @@ entity as reference. Look at this example:
 ```go
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
 categoryDogs := &CategoryEntity{Code: "dogs", Name: "Dogs"}
-bwm1 := &ProductEntity{Name: "BMW 1", Category: categoryCars}
+bmw1 := &ProductEntity{Name: "BMW 1", Category: categoryCars}
 fordFocus := &ProductEntity{Name: "Ford focus", Category: categoryCars}
-cockeSpaniel := &ProductEntity{Name: "Cocker spaniel", Category: categoryDogs}
-engine.Flush(bwm1, fordFocus) // we are flushing only products
-bwm1.Category.ID // 1
+cockerSpaniel := &ProductEntity{Name: "Cocker spaniel", Category: categoryDogs}
+engine.Flush(bmw1, fordFocus) // we are flushing only products
+bmw1.Category.ID // 1
 fordFocus.Category.ID // 1
-cockeSpaniel.Category.ID // 2
+cockerSpaniel.Category.ID // 2
 categoryCars.ID // 1
 categoryDogs.ID // 2
 ```
@@ -285,7 +285,7 @@ REDIS DELETE CacheForProduct1
 
 ## Dirty state
 
-Entity is called dirty if has changes that needs to applied in MySQL table:
+Entity is called dirty if it has changes that need to be applied in MySQL table:
  * new entity that needs to be inserted to MySQL table
  * entity that needs to be deleted
  * entity that needs to be edited in MySQL table because at least one column value is
@@ -418,10 +418,10 @@ products[2] == nil // true
 
 ### Loaded state
 
-Every entity store internally data that is stored MySQL table. Thanks to that
+Every entity store internally data that is stored in MySQL table. Thanks to that
 BeeORM knows when entity is dirty and needs to be flushed. This data is stored 
 every time new entity is flushed (saved) or loaded from database. You can use
-`entity.IsLoaded()` method to determinate if entity has this data and ca track 
+`entity.IsLoaded()` method to determine if entity has this data and can track 
 changes or not:
 
 ```go{2,4,7,9,12,14}
@@ -430,31 +430,31 @@ category.IsLoaded() // false, entity needs to be inserted in MySQL table
 engine.FLush(category)
 category.IsLoaded() // true, entity data is saved in database
 
-produt := &ProductEntity{}
-produt.IsLoaded() // false
-engine.LoadByID(1, produt)
-produt.IsLoaded() // true, entity data is loaded from database
+product := &ProductEntity{}
+product.IsLoaded() // false
+engine.LoadByID(1, product)
+product.IsLoaded() // true, entity data is loaded from database
 
-produt2 := &ProductEntity{ID: 2}
-produt2.IsLoaded() // false
-produt.Load(produt2)
-produt2.IsLoaded() // true
+product2 := &ProductEntity{ID: 2}
+product2.IsLoaded() // false
+product.Load(product2)
+product2.IsLoaded() // true
 ```
 
 `entity.IsLoaded()` and `entity.Load()` are very useful when you
 need to work with references:
 
 ```go{3-5}
-produt := &ProductEntity{}
-engine.LoadByID(1, produt)
-produt.Category.Loaded() // false
-engine.Load(produt.Category)
-produt.Category.Loaded() // true
+product := &ProductEntity{}
+engine.LoadByID(1, product)
+product.Category.Loaded() // false
+engine.Load(product.Category)
+product.Category.Loaded() // true
 ```
 
 ## Loading references
 
-Very often when you are loading entity you need also data from
+Very often when you are loading entity you also need data from
 connected referenced entities. For example on product page you need
 to display product title, it's category, brand and brand logo.
 You can do it this way:
@@ -549,7 +549,7 @@ REDIS SET cacheKeyForImage1 "entity data"
 </code-block>
 </code-group>
 
-As you can see above code is not even mush simpler but also produces fewer
+As you can see above code is not even much simpler but also produces fewer
 requests to MySQL and Redis. Look how queries are generated when you use this feature
 to load many entities at once:
 
@@ -682,7 +682,7 @@ REDIS MSET cacheKeyForProduct1 "nil" cacheKeyForProduct2 "nil"
 </code-group>
 
 If entity has  [FakeDelete field](/guide/entity_fields.html#fake-delete)
-then above methods works differently. Instead of deleting rows from table special update 
+then above methods work differently. Instead of deleting rows from table special update 
 query is executed:
 
 <code-group>
@@ -747,7 +747,7 @@ categoryToDelete := &CategoryEntity{}
 engine.LoadByID(10, categoryToDelete)
 flusher.Delete(categoryToDelete)
 categoryToDeleteFromTable := &CategoryEntity{}
-engine.LoadByID(11, categoryToDelete)
+engine.LoadByID(11, categoryToDeleteFromTable)
 flusher.ForceDelete(categoryToDeleteFromTable)
 ```
 </code-block>

@@ -119,7 +119,7 @@ is much faster than publishing event one by one.
 
 Now, when we have few events pushed to our streams it's time
 to consume them. First you need to create `EventsConsumer` object
-that later we will use to read events:
+that will be used later to read events:
 
 ```go
 eventConsumer := engine.GetEventBroker().Consumer("read-group-ab")
@@ -164,9 +164,9 @@ EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 </code-block>
 </code-group>
 
-`eventConsumer.Consume()` requires as a firts argument
+`eventConsumer.Consume()` requires as a first argument
 limit of events that should be read from streams in every iteration. In above example
-we allow max `5` events, that's why we received `2`. Now let' see how it works 
+we allow max `5` events, that's why we received `2`. Now let's see how it works 
 when this limit is set to `1` (see difference in bash tab): 
 
 <code-group>
@@ -194,7 +194,7 @@ EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 </code-block>
 </code-group>
 
-Did you notice that above examples never prints `FINISHED` to console?
+Did you notice that above examples never print `FINISHED` to console?
 It's because by default `eventConsumer.Consume()` works in blocking mode - it waits
 for new events to come. You can disable this mode with `eventConsumer.DisableLoop()` 
 method. In non-blocking mode consumer reads all events from streams and finish: 
@@ -260,8 +260,8 @@ go func() {
 
 In above example we successfully run two consumers: `consumer-1` and `consumer-2`.
 
-Unscaling is easy - simply run another `Consumer()` with higher number (`3` in our example).
-Problem starts when you want to downscale your consumers. In above example we are running two consumer.
+Upscaling is easy - simply run another `Consumer()` with higher number (`3` in our example).
+Problem starts when you want to downscale your consumers. In above example we are running two consumers.
 Now imagine we want to run only one `consumer-1`. Of course first you should stop `consumer-2`.
 But there is a chance `consumer-2` has still some `pending` events that are not [acknowledged](https://redis.io/commands/XACK).
 You must move these events to another active consumer. In our case we should move events from
@@ -269,7 +269,7 @@ You must move these events to another active consumer. In our case we should mov
 
 ```go{2}
 eventConsumer := eventBroker.Consumer("read-group-ab")
-ventConsumer.Claim(2, 1)
+eventConsumer.Claim(2, 1)
 ````
 
 ## Event metadata
@@ -332,8 +332,8 @@ eventConsumer.Consume(context.Background(), 100, func(events []Event) {
 
 All acknowledged events are not removed from stream. You should
 check that all consumer groups connected to stream acknowledged this event and then
-this even should be removed from stream with [XDEL](https://redis.io/commands/xdel). 
-Lucky you beeORM do it for you. Simply run at least one [background consumer](/guide/background_consumer.html)
-and this consumer will automatically remove all acknowledged events from every register stream.
+this event should be removed from stream with [XDEL](https://redis.io/commands/xdel). 
+Lucky you BeeORM does it for you. Simply run at least one [background consumer](/guide/background_consumer.html)
+and this consumer will automatically remove all acknowledged events from every registered stream.
 So if you see that your streams length is growing and all events are acknowledged it means you forgot
 to run [background consumer](/guide/background_consumer.html).

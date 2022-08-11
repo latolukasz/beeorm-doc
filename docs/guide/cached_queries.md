@@ -4,9 +4,9 @@ In [Search](/guide/search.html) section of this guide you learned
 how to search for entities. Every time you run `engine.Search()` method
 SQL query is executed in MySQL database. In high availability applications
 it may cause performance issues. Good practice is to use no-sql cache layer
-to cache results from this query so next search will not hit MySQL database but
-data will be loaded from this cache. There are one issue with this solution - 
-every time data in MySQL is changed (inserts, updates, deletes) also corresponding
+to cache results from this query so next search will not hit MySQL database, but instead
+data will be loaded from this cache. There is one issue with this solution - 
+every time data in MySQL is changed (inserts, updates, deletes), also corresponding
 data in cached search results should be updated. Lucky you BeeORM provides
 a feature called ``CachedQuery`` that hides this complexity from you and allows
 you to write simple code used to cache search results.
@@ -24,7 +24,7 @@ type UserEntity struct {
 }
 ```
 
-In our application very often we are searching for a user with his email:
+In our application very often we are searching for a user using his email:
 
 <code-group>
 <code-block title="code">
@@ -146,9 +146,9 @@ As you can see we simply added another field type of `*beeorm.CachedQuery` but t
 time with tag `query` instead of `queryOne`. 
 
 :::tip
-Notice that you can use also `ORDER BY` syntax
-in your query cache SQL condition. Never forget to prefix all fields
-with `:` otherwise cache data will be not updated when entity field was changed.
+Notice that you can also use `ORDER BY` syntax
+in your cached query SQL condition. Never forget to prefix all fields
+with `:`, otherwise cache data will not be updated when entity field changes..
 :::
 
 Now we are ready to run our search:
@@ -208,7 +208,7 @@ for _, id := range ids {
 ```
 
 :::tip
-If Entity has [FakeDelete](guide/entity_fields.html#fake-delete) you don't need to
-add `WHERE FakeDelete = 0` in your cached query condition. BeeORM is search for rows
+If Entity has [FakeDelete](guide/entity_fields.html#fake-delete), you don't need to
+add `WHERE FakeDelete = 0` in your cached query condition. BeeORM searches for rows
 with `FakeDelete = 0` automatically.
 :::

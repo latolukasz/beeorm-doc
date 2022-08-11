@@ -1,10 +1,10 @@
 # Lazy CRUD
 
 So far you have learned how to work with [CRUD](/guide/crud.html) actions. 
-We are always trying to optimise our code in a way every CRUD operation is as
+We are always trying to optimise our code in a way that every CRUD operation is as
 fast as possible and use minimum number of memory and allocations. 
 In some scenarios you may require even better performance, for instance in 
-scripts that operates on huge amount of data. BeeORM provides special
+scripts that operate on a huge amount of data. BeeORM provides special
 feature called *lazy* that helps you get top performance.
 
 ## Lazy flush
@@ -49,7 +49,7 @@ application.
 :::
 
 In case you need to flush more than one entity [Flusher](/guide/crud.html#flusher) you can use
-``flusger.FLushLazy()`` method:
+``flusher.FLushLazy()`` method:
 
 <code-group>
 <code-block title="code">

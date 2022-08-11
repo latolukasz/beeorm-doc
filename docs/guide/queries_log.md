@@ -78,5 +78,5 @@ First one (with white background) contains these fields:
  * query time in milliseconds
 
 White bar length has correlation with query time. If query takes more time
-this bar is longer and more reddy. It helps you to spot queries that are slow.
-Below bar full query is displayed.
+this bar is longer and more red. It helps you to spot queries that are slow.
+In the second line, full query is displayed.

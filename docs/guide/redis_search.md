@@ -32,7 +32,7 @@ type UserEntity struct {
 } 
 ```
 
-In above example redis search index is created in deafult ('localhost:6379') redis.
+In above example redis search index is created in default ('localhost:6379') redis.
 You can define another redis data pool with `redisSearch` tag:
 
 ```go{1,3}
@@ -47,8 +47,8 @@ type UserEntity struct {
 We strongly recommend using one redis pool for cache data
 (without [Redis search](https://oss.redislabs.com/redisearch/) module) and another one
 for redis search indices.
-Reasons are two:
-* Redis search module slow down redis queries a bit
+There are two reasons:
+* Redis search module slows down redis queries a bit
 * In real life you may want to clear Entity cache data and keep redis search index untouched
 
 Simply use `orm:"redisCache=first_pool;redisSearch=another_pool"` tag.
@@ -92,7 +92,7 @@ in search query:
 | `string`     | TEXT  | not empty string is stored 1:1<br /><br />empty string is stored as `NULL`  | Name = "foo"<br />`@Name:foo`<br /><br />Name != ""<br />`-@Name:NULL`  |
 | `string enum=X`     | TAG  | enum values are stored as tags<br /><br />empty string is stored as tag `NULL`  | Status IN ("foo", "bar")<br />`@Status:{foo | bar}`<br /><br />Status != ""<br />`-@Status:{NULL}`  |
 | `[]string setX`     |  TAG | set values are stored as tags<br /><br />empty set is stored as tag `NULL`  |  Status IN ("foo", "bar")<br />`@Status:{foo | bar}` |
-| `[]uin8`     |   | not supported  |   |
+| `[]uint8`     |   | not supported  |   |
 | `bool`     | TAG  | `true` is stored as tag `"true"`<br /><br />`false` is stored as tag `"false"`  | Active = true<br />`@Active:{true}`<br /><br />Active = false<br />`@Active:{false}`  |
 | `*bool`     | TAG  | `true` is stored as tag `"true"`<br /><br />`false` is stored as tag `"false"`<br /><br />`nil` is stored as tag `"NULL"`  | Active = true<br />`@Active:{true}`<br /><br />Active IS NULL<br />`@Active:{NULL}`  |
 | `time.Time`     | NUMERIC  | date is stored as unix timestamp (`time.Unix()`)  | CreatedAt BETWEEN "2020-08-21" AND "2020-09-01"<br />`@CreatedAt:[1597960800 1598911200]`  |
@@ -260,7 +260,7 @@ FT.SEARCH beeorm.UserEntity * FILTER LoggedAt 1626645600 1626645600 LIMIT 0 100
 
 
 As you can see in all queries we are using `beeorm.RedisSearchQuery` object.
-Below tables demonstrates how you can build redis search query using this struct:
+Below table demonstrates how you can build redis search query using this struct:
 
 
 | Method        | Query         | 

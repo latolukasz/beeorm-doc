@@ -75,7 +75,7 @@ server to store all log tables (see example above).
 
 ## Consuming log events
 
-Now, whe our `UserEntity` entity has `log tagle` enabled, it's time to
+Now, when our `UserEntity` entity has `log tagle` enabled, it's time to
 save some data and see our first logs:
 
 ```go
@@ -294,7 +294,7 @@ To revert above setting run:
 registry.ForceEntityLogInAllEntities("")
 ```
 
-## extra consumer
+## Extra consumer
 
 You can also register extra consumer group that can be used to track changes in entity. In
 below example we are adding `my-consumer` consumer group: 
@@ -339,7 +339,8 @@ consumer.Consume(context.Background(), 10, func(events []Event) {
 	    
 	    if logEvent.TableName == "_log_default_UserEntity" { // UserEntity
 	        if logEvent.Before != nil && logEvent.Changes != nil { // update
-	            if has { // Name was changesd
+	            if logEvent.Changes["Name"] != nil { // Name was changed
+			old := logEvent.Before["Name"]
 	                new := logEvent.Changes["Name"]
 	                fmt.Printf("USER %d CHANGED NAME FROM %s TO %s\n", logEvent.ID, old, new)
 	            }

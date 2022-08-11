@@ -1,13 +1,11 @@
 # Schema update
 
-One of the most important benefit using ORM is possibility to generate and 
+One of the most important benefits using ORM is a possibility to generate and 
 update database schema based on data structure in your code.
-In BeeORM this data structure are of course registered entities.
+In BeeORM, these data structures are of course registered entities.
 Our ORM provides two ways to generate or update MySQL schema:
 
-##  Updating database schema
-
-This approach is recommended one. BeeORM is comparing current MySQL
+This approach is the recommended one. BeeORM is comparing current MySQL
 schema in all MySQL databases used by all registered entities 
 and returns detailed information that can be used to update database schema:
 
@@ -77,7 +75,7 @@ You can also use entity `beeorm.TableSchema` object to update it's database sche
 tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
 alters, has := tableSchema.GetSchemaChanges(engine)
 if has {
-    for _, alter := range  {
+    for _, alter := range alters {
       alter.SQL // "CREATE TABLE `CategoryEntity` ..."
       alter.Pool // "products"
       alter.Safe // true

@@ -52,8 +52,8 @@ testPool.FlushDB() // flush redis DB 3
 
 ## Redis pipeline
 
-To send redis commands in [pipeline](https://redis.io/topics/pipelining)
-create `beeomr.RedisPipeLine` object with `PipeLine()` method, register commands
+To send redis commands in [pipeline](https://redis.io/topics/pipelining),
+create `beeorm.RedisPipeLine` object with `PipeLine()` method, register commands
 and run `Execute()` method to send all commands to redis:
 
 ```go{1,5,12}
@@ -84,11 +84,11 @@ performance.
 ## Rate limiter
 
 BeeORM redis client provides method `RateLimit` used for rate limiting based on Redis.
-Fo instance when you want to limit login attempts to max 5 tries in one minute:
+For instance, when you want to limit login attempts to max 5 tries in one minute:
 
 ```go{3}
 user := // data sent from web login form
-resourceKey := "logoin_attempt_" + user.Email
+resourceKey := "login_attempt_" + user.Email
 if !engine.GetRedis().RateLimit(resourceKey, time.Minute, 5) {
     return errors.New("login attemps limit exceeded")
 }

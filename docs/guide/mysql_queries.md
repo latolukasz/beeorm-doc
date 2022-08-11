@@ -49,14 +49,14 @@ result.LastInsertId() // 0
 result.RowsAffected() // 1
 
 dbUsers := engine.GetMysql("users")
-dbUsers.Exec("DELETE FROM `Users` WHERE `Status` = ?", "rejeceted")
+dbUsers.Exec("DELETE FROM `Users` WHERE `Status` = ?", "rejected")
 result.LastInsertId() // 0
 result.RowsAffected() // 0
 ```
 
 
-BeeORM `Exec` supports [multi statements](https://github.com/go-sql-driver/mysql#multistatements)
-but be aware you can define attributes (`?`) only in first query. Check below example: 
+BeeORM `Exec` supports [multi statements](https://github.com/go-sql-driver/mysql#multistatements),
+but be aware, you can define attributes (`?`) only in first query. Check below example: 
 
 ```go
 db := engine.GetMysql()
@@ -90,7 +90,7 @@ Be sure you are always validating and escaping values used in batch query. Espec
 import "github.com/latolukasz/beeorm/tools"
 
 query := "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name1) + ";"
-query (= "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name2) + ";"
+query = "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name2) + ";"
 engine.GetMysql().Exec(query)
 ```
 :::
@@ -125,7 +125,7 @@ close() // never forget to close query when finished
 
 ## Transactions
 
-Working with transaction is very easy:
+Working with transactions is very easy:
 
 ```go
 db := engine.GetMysql()
@@ -145,7 +145,7 @@ Always put `defer db.Rollback()` after `db.Begin()`.
 :::
 
 :::warning
-When you are using transactions remember to use one instance of engine for every transaction.
+When you are using transactions, remember to use one instance of engine for every transaction.
 You can use `engine.Clone()`:
 
 ```go{10}
@@ -189,7 +189,7 @@ SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
 
 ## Query execution time limit
 
-By default, all MySQL queries has no time limitation. If query takes 2 minutes 
+By default, all MySQL queries has no time limitation. If query takes 2 minutes, 
 query execution of `db.Query()` takes 2 minutes. You can define time limit for all queries
 run from one `engine` instance using `SetQueryTimeLimit` method:
 

@@ -73,7 +73,7 @@ cache.Set("another-key", SomeStruct{Field: "hello"})
 
 ## Setting many values
 
-Use ``MSet()`` method to add one value to local cache:
+Use ``MSet()`` method to add many values to local cache:
 
 ```go{2,4}
 cache := engine.GetLocalCache()
@@ -83,7 +83,7 @@ cache.MSet("key-1", "ValueForKey1", "key-2", "ValueForKey2")
 ## Getter with setter
 
 Local cache has very useful method `GetSet()` that
-simplify your code. 
+simplifies your code. 
 
 Instead of:
 
@@ -91,7 +91,7 @@ Instead of:
 val, found := cache.Get("key")
 if !found {
     val = ... // calculate value
-    cache.Set("key")
+    cache.Set("key", val)
 }
 return val
 ```
@@ -105,8 +105,8 @@ val := cache.GetSet("key", time.Second * 30, func() {
 })
 ```
 
-As you can see in above example you can also define Time to Live (TTL). 
-Our value will be cached for 30 second and after this period it's evicted.
+As you can see in above example, you can also define Time to Live (TTL). 
+Our value will be cached for 30 seconds and after this period it's evicted.
 
 
 ## Hashes
@@ -124,7 +124,7 @@ values["lastName"] // "Malcovic"
 values["age"] // nil
 
 cache.HMSet("some-key", map[string]interface{}{"age": 18})
-values = cache.HMGet("some-key", "firstName", "age", "age")
+values = cache.HMGet("some-key", "firstName", "age")
 values["firstName"] // "Tom"
 values["age"] // 18
 ```

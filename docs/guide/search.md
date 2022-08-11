@@ -46,19 +46,19 @@ where.String() // "Email = ? AND Age >= ? AND Age <= ?"
 where.GetParameters() // []interface{}{"elephant@beeorm.io", 20, 60}
 ```
 
-You should also use ``beeorm.Where`` to define ``ORDEBY BY`` in query:
+You should also use ``beeorm.Where`` to define ``ORDER BY`` in query:
 
 ```go
 // WHERE 1 ORDER BY Age
 where := beeorm.NewWhere("1 ORDER BY Age")
-// WHERE 1 ORDER BY Age > 10
+// WHERE Age > 10 ORDER BY Age
 where := beeorm.NewWhere("Age > ? ORDER BY Age", 10)
 ```
 When you pass slice as an argument ``beeorm.Where`` converts it into
-sql ``IN (?,?...)`` syntax making your life a bit simper:
+sql ``IN (?,?...)`` syntax making your life a bit simpler:
 
 ```go
-where := beeorm.NewWhere("Age in ?", []int{18, 20, 30})
+where := beeorm.NewWhere("Age IN ?", []int{18, 20, 30})
 where.String() // WHERE Age IN (?,?,?)
 where.GetParameters() // []interface{}{18, 20, 30}
 ```
@@ -97,7 +97,7 @@ func main() {
 
     var users []*UserEntity
     engine.Search(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100), &users)
-    len(users) // 1000
+    len(users) // 100
     users[0].Email // "bee@beeorm.io"
 }
 ```
@@ -127,7 +127,7 @@ SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 
 </code-block>
 </code-group>
 
-You can also provide optional parameters to define which references should me loaded. 
+You can also provide optional parameters to define which references should be loaded. 
 You can read more about this feature on [CRUD/loading references](/guide/crud.html#loading-references) page.
 
 <code-group>
@@ -193,7 +193,7 @@ SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 
 
 ::: tip
 This method is always adding `LIMIT 1` in SQL queries so in case your query selects more
-than one row from database first row will be returned.
+than one row from database, first row will be returned.
 :::
 
 ## Searching for primary keys

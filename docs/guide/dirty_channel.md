@@ -23,7 +23,7 @@ application using elastic search. Every time user is added, updated
 or removed we must send request to elastic search
 with the newest user data. First we need to define
 [redis stream and consumer group](/guide/event_broker.html#registering-streams) that
-will be used to store and consume events publish by BeORM every time user entity is changed:
+will be used to store and consume events publish by BeeORM every time user entity is changed:
 
 <code-group>
 <code-block title="code">
@@ -60,20 +60,20 @@ type UserEntity struct {
 
 Tag is defined for `beeorm.ORM ` field that's why 
 every time user is added, updated (any field) or deleted special event
-is published to `user-changed` channel. Now it's time to consumer these events:
+is published to `user-changed` channel. Now it's time to consume these events:
 
 ```go{4}
 consumer := engine.GetEventBroker().Consumer("update-es-document")
 consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
-        dityEvent := beeorm.EventDirtyEntity(event)
-        if dityEvent.Deleted() { 
-            yourESService.DeleteDocument("users_index", dityEvent.ID())
+        dirtyEvent := beeorm.EventDirtyEntity(event)
+        if dirtyEvent.Deleted() { 
+            yourESService.DeleteDocument("users_index", dirtyEvent.ID())
         } else {
             user := &UserEntity{}
-            if engine.LoadByID(dityEvent.ID(), user) {
+            if engine.LoadByID(dirtyEvent.ID(), user) {
                 esUserDocument := esDocument{Name: user.Name, Email: user.Email....}
-                yourESService.AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
+                yourESService.AddUpdateDocument(("users_index", dirtyEvent.ID(), esUserDocument)
             }
         }
     }
@@ -84,41 +84,41 @@ consumer.Consume(context.Background(), 10, func(events []Event) {
 
 ```go
 // primary ID of entity
-dityEvent.ID()
+dirtyEvent.ID()
 // true if entity was inserted into DB
-dityEvent.Added()
+dirtyEvent.Added()
 // true if entity was updated in DB
-dityEvent.Updated()
+dirtyEvent.Updated()
 // true if entity was deleted from DB
-dityEvent.Deteled()
+dirtyEvent.Deteled()
 // entity 
-tableSchema := dityEvent.TableSchema()
+tableSchema := dirtyEvent.TableSchema()
 ```
 
-You can get also entity [table schema](/guide/validated_registry.html#entity-schema):
+You can also get entity [table schema](/guide/validated_registry.html#entity-schema):
 ```go{1}
-tableSchema:= dityEvent.TableSchema()
+tableSchema := dirtyEvent.TableSchema()
 tableSchema.GetTableName() // "UserEntity"
 entity := tableSchema.NewInstance()
-found := engine.LoadByID(dityEvent.ID(), entity)
+found := engine.LoadByID(dirtyEvent.ID(), entity)
 ```
 
-Now let's assume we need another feature - time user is added or updated 
+Now let's assume we need another feature - every time user is added or updated 
 we should send email. We can add extra code in already created consumer:
 
 ```go{11}
 consumer := engine.GetEventBroker().Consumer("update-es-document")
 consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
-        dityEvent := beeorm.EventDirtyEntity(event)
-        if dityEvent.Deleted() { 
-            yourESService.DeleteDocument("users_index", dityEvent.ID())
+        dirtyEvent := beeorm.EventDirtyEntity(event)
+        if dirtyEvent.Deleted() { 
+            yourESService.DeleteDocument("users_index", dirtyEvent.ID())
         } else {
             user := &UserEntity{}
-            if engine.LoadByID(dityEvent.ID(), user) {
+            if engine.LoadByID(dirtyEvent.ID(), user) {
                 esUserDocument := esDocument{Name: user.Name, Email: user.Email....}
                 yourEmailService.SendEmail(user.Email, "Your account was changed")
-                yourESService.AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
+                yourESService.AddUpdateDocument(("users_index", dirtyEvent.ID(), esUserDocument)
             }
         }
     }
@@ -126,10 +126,10 @@ consumer.Consume(context.Background(), 10, func(events []Event) {
 ```
 
 Well, this code works perfectly but there is one problem with this implementation -
-try to imagine elastic search sever is down. Then after sending email code will
+try to imagine elastic search server is down. Then after sending email, code will
 panic in next line, so next time you run consumer email will be send again.
 Adding different functionalities in one consumer is a bad idea. 
-BeeORM helps you solve this problem very ease - simply define two different consumer groups
+BeeORM helps you solve this problem very easily - simply define two different consumer groups
 for one dirty stream:
 
 <code-group>
@@ -146,14 +146,14 @@ registry.RegisterRedisStream("user-changed", "default", []string{"update-es-docu
 consumer := engine.GetEventBroker().Consumer("update-es-document")
 consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
-        dityEvent := beeorm.EventDirtyEntity(event)
-        if dityEvent.Deleted() { 
-            yourESService.DeleteDocument("users_index", dityEvent.ID())
+        dirtyEvent := beeorm.EventDirtyEntity(event)
+        if dirtyEvent.Deleted() { 
+            yourESService.DeleteDocument("users_index", dirtyEvent.ID())
         } else {
             user := &UserEntity{}
-            if engine.LoadByID(dityEvent.ID(), user) {
+            if engine.LoadByID(dirtyEvent.ID(), user) {
                 esUserDocument := esDocument{Name: user.Name, Email: user.Email....}
-                yourESService.AddUpdateDocument(("users_index", dityEvent.ID(), esUserDocument)
+                yourESService.AddUpdateDocument(("users_index", dirtyEvent.ID(), esUserDocument)
             }
         }
     }
@@ -166,10 +166,10 @@ consumer.Consume(context.Background(), 10, func(events []Event) {
 consumer := engine.GetEventBroker().Consumer("send-user-updated-mail")
 consumer.Consume(context.Background(), 10, func(events []Event) {
     for _, event := range events {
-        dityEvent := beeorm.EventDirtyEntity(event)
-        if !dityEvent.Deleted() { 
+        dirtyEvent := beeorm.EventDirtyEntity(event)
+        if !dirtyEvent.Deleted() { 
             user := &UserEntity{}
-            if engine.LoadByID(dityEvent.ID(), user) {
+            if engine.LoadByID(dirtyEvent.ID(), user) {
                 yourEmailService.SendEmail(user.Email, "Your account was changed")
                 event.Ack()
             }    
@@ -183,7 +183,7 @@ consumer.Consume(context.Background(), 10, func(events []Event) {
 ## Field dirty stream
 
 Now imagine we need another feature in our application - every
-time user update location (`Latitude` or `Longitude`) we should send
+time user updates location (`Latitude` or `Longitude`) we should send
 email "your location was changed". In previous example we added `dirty` tag
 for `beeorm.ORM` entity field to track all changes in all fields. But in this
 example we should track changes only in these two field. That's why
@@ -222,9 +222,9 @@ consumer.Consume(context.Background(), 10, func(events []Event) {
 </code-block>
 </code-group>
 
-Now only if `Latitude` or `Longitude` field is change dirty event is published 
-to `location-changed` channel. if both fields are changed only one dirty event
-is published, not twice.
+Now only if `Latitude` or `Longitude` field is changed, dirty event is published 
+to `location-changed` channel. If both fields are changed only one dirty event
+is published, not two.
 
 Now imagine we need last feature - every time user updates location or name 
 we should send email "your account data was changed". In BeeORM

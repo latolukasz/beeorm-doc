@@ -16,7 +16,7 @@ provides `EscapeSQLParam` function that do exactly this:
 import "github.com/latolukasz/beeorm/tools"
 
 query := "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name1) + ";"
-query (= "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name2) + ";"
+query = "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name2) + ";"
 engine.GetMysql().Exec(query)
 ```
 
