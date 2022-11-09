@@ -41,8 +41,6 @@ registry.RegisterRedis("192.123.11.12:6379", "", 0, "another_pool")
 registry.RegisterRedisStream("orm-lazy-channel", "another_pool", []string{"orm-async-consumer"})
 // logs tables
 registry.RegisterRedisStream("orm-log-channel", "another_pool", []string{"orm-async-consumer"})
-// redis search indexer
-registry.RegisterRedisStream("orm-redis-search-channel", "another_pool", []string{"orm-async-consumer"})
 // redis streams garbage collector
 registry.RegisterRedisStream("orm-stream-garbage-collector", "another_pool", []string{"orm-async-consumer"})
 ```

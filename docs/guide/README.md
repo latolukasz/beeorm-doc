@@ -159,43 +159,6 @@ broker.Publish("stream-name", event)
 broker.Consumer("my-consumer", "my-group").Consume(...)
 ```
 
-## Full text and advanced search
-
-In many applications, you also need to implement full-text search.
-The natural choice is probably [Elastic search](https://www.elastic.co/). 
-It's adding of course extra complexity to your code and infrastructure.
-You need to set up and monitor Elastic Search cluster, define indexes and create a code that with every data change updates data in ES index. 
-Also, there is a short delay between data is changed in the database and ES index 
-that you should handle in your code. 
-
-Probably you need to search for data using simple and complex conditions without
-full-text support. For example, you want to find 100 users with the status "active" 
-added in the last one hour sorted by registration date. You don't need a full-text search here
-but a query to database `WHERE status = ? AND created_at >= ? ORDER BY LIMIT 100`.
-Using MySQL queries to get data is a bad idea. It's fast if you use MySQL indexes, 
-but you may have many WHERE conditions, so you will need to create many indexes n MySQL table that takes memory and slow down inserts and updates. In high-traffic
-applications such queries are often the first bottleneck. Of course, you still
-use Elastic Search to query for this data. You can also cache queries in Redis.
-Both solutions are very difficult to implement. You need to build special ES indexes and keep
-them up to date. You also need to update the cache in Redis when data changed and believe us, it's
-extremely difficult to calculate which keys in Redis should be removed.
-
-Lucky you, BeeORM hides this complexity from you. Thanks to amazing 
-[Redis Search module](https://github.com/RediSearch/RediSearch) you can implement full-text and advanced search very easily. It provides top-edge performance, protects MySQL
-from queries, and simplify your code:
-
-```go
-user := &User{CreatedAt: time.Now(), Status: "active"}
-beeORMEngine.Flush()
-
-query := beeORMEngine.NewRedisSearchQuery()
-query.FilterTag("Status", "active")
-query.FilterDateGreaterEqual("CreatedAt", time.Now().Sub(time.Hour))
-query.Sort("CreatedAt", false)
-var users []*User
-total := beeORMEngine.RedisSearch(&users, query, NewPager(1, 100))
-```
-
 ## And much much more...
 
 BeeORM has many great features. Please spend some time and read the rest of this
