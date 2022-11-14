@@ -644,7 +644,6 @@ REDIS DELETE cacheKeyForCategory1 cacheKeyForProduct1 cacheKeyForProduct2
 Sometimes you need to copy entity, change some fields and save it as a new row in database. 
 You can simply use `entity.Clone()` method:
 
-<code-block title="code">
 ```go{3}
 category := &CategoryEntity{}
 engine.LoadByID(1, &category)
@@ -652,7 +651,6 @@ newCategory := category.Clone(*CategoryEntity)
 newCategory.Name = "New name"
 engine.Flush(newCategory)
 ```
-</code-block>
 
 ## Deleting entities
 
