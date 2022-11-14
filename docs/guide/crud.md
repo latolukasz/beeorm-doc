@@ -646,7 +646,7 @@ You can simply use `entity.Clone()` method:
 
 ```go{3}
 category := &CategoryEntity{}
-engine.LoadByID(1, &category)
+engine.LoadByID(1, category)
 newCategory := category.Clone(*CategoryEntity)
 newCategory.Name = "New name"
 engine.Flush(newCategory)
