@@ -33,6 +33,24 @@ insert query `is not` add to queue, instead query is executed at the same time w
 executed in background (in another goroutine). If your application generates many inserts
 it may cause performance issues.
 
+<code-group>
+<code-block title="code">
+```go
+address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
+person := &PersonEntity{Name: "Adam Smith", Address: address}
+engine.FlushLazyMany(person, address)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+INSERT INTO AddressEntity(Street, City) VALUES("Blue bird 23", "New York"); // ID = 1
+// sends another query to MySQL
+INSERT INTO PersonEntity(Name, Address) VALUES("Adam Smith", 1);
+```
+</code-block>
+</code-group>
+
 ## Enabling UUID
 
 You can solve above issues using special tag `uuid`:
@@ -81,4 +99,38 @@ It's worth to spend some time and enable UUID in your code, because
 you can handle even bigger traffic. Below you can see how
 all limitations described at the beginning of this page are solved with
 UUID enabled:
+
+<code-group>
+<code-block title="code">
+```go
+address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
+person := &PersonEntity{Name: "Adam Smith", Address: address}
+engine.FlushMany(person, address)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+// all these queries are sent as one multi-query to MySQL:
+INSERT INTO AddressEntity(ID, Street, City) VALUES(28025074678235139, "Blue bird 23", "New York");
+INSERT INTO PersonEntity(ID, Name, Address) VALUES(28025074678235140", Adam Smith", 1);
+```
+</code-block>
+</code-group>
+
+<code-group>
+<code-block title="code">
+```go
+address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
+person := &PersonEntity{Name: "Adam Smith", Address: address}
+engine.FlushLazyMany(person, address)
+```
+</code-block>
+
+<code-block title="queries">
+```sql
+// None:) both queries are added to lazy queue, and executed later.
+```
+</code-block>
+</code-group>
 
