@@ -27,4 +27,21 @@ INSERT INTO PersonEntity(Name, Address) VALUES("Adam Smith", 1);
 </code-block>
 </code-group>
 
-Rest soon...
+ * When new entity (that needs to be inserted in table) is [flushed lazy](/guide/lazy_crud.html#lazy-flush) 
+insert query `is not` add to queue, instead query is executed at the same time when
+`engine.FlushLazy()` is executed. Only entity updates and deletes are added to queue and
+executed in background (in another goroutine). If your application generates many inserts
+it may cause performance issues.
+
+## Enabling UUID
+
+You can solve above issues using special tag `uuid`:
+
+```go{2}
+type AddressEntity struct {
+	ORM  `orm:"uuid"`
+	ID   uint64 // ID must be uint64
+	Street string `orm:"required"`
+	City string `orm:"required"`
+}
+```
