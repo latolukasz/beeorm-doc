@@ -60,4 +60,25 @@ Above entity creates table where `ID` is defined as `bigint unsigned NOT NULL`.
 As you can see `AUTO_INCREMENT` is missing. From now BeeORM is responsible to 
 generate ID using function similar to [MySQL uuid_short()](https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_uuid-short).
 
-Rest soon...
+There is one big limitation. If you are running your application
+using more than one binary at once you must define unique `UUIDServerID` in each
+application:
+
+```go
+// first applications
+beeorm.SetUUIDServerID(0)
+// second applications
+beeorm.SetUUIDServerID(1)
+```
+
+You can define UUIDServerID between 0 and 255. It means 
+you can run ap to 256 binary applications at the same time when
+uuid functionality is enabled.
+
+## Benefits using UUID
+
+It's worth to spend some time and enable UUID in your code, because
+you can handle even bigger traffic. Below you can see how
+all limitations described at the beginning of this page are solved with
+UUID enabled:
+
