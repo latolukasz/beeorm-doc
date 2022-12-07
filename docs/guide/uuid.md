@@ -1,6 +1,6 @@
 # UUID
 
-By default all MySQL tables uses `PRIMARY KEY AUTO_INCREMENT. It means
+By default all MySQL tables use `PRIMARY KEY AUTO_INCREMENT. It means
 that MySQL server is responsible to automatically generate new unique number (ID) for
 every time new row is created. It's simple and easy to use, but also it comes with few
 limitations:
