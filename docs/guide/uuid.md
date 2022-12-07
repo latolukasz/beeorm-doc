@@ -37,12 +37,19 @@ it may cause performance issues.
 
 You can solve above issues using special tag `uuid`:
 
-```go{2}
+```go{2,9}
 type AddressEntity struct {
 	ORM  `orm:"uuid"`
 	ID   uint64 // ID must be uint64
 	Street string `orm:"required"`
 	City string `orm:"required"`
+}
+
+type PersonEntity struct {
+	ORM  `orm:"uuid"`
+	ID   uint64
+	Name string `orm:"required"`
+	Address *AddressEntity `orm:"required"`
 }
 ```
 
