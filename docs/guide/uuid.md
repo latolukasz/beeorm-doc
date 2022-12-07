@@ -45,3 +45,12 @@ type AddressEntity struct {
 	City string `orm:"required"`
 }
 ```
+
+Notice field `ID` is type of `uint64`. If you use `uuid` tag in entity which has
+`ID` different than `uint64` exception is thrown.
+
+Above entity creates table where `ID` is defined as `bigint unsigned NOT NULL`. 
+As you can see `AUTO_INCREMENT` is missing. From now BeeORM is responsible to 
+generate ID using function similar to [MySQL uuid_short()](https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_uuid-short).
+
+Rest soon...
