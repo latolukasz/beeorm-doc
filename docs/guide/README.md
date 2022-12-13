@@ -8,13 +8,11 @@ ORM libraries can greatly simplify the development process and reduce the amount
 
 ## Designed for MySQL
 
-BeeORM has a different concept. In real life, developers choose one database software and stick to it.
-It's very unlikely you want to switch from MySQL to SQL Server and later to PostgreSQL. 
-Every database has unique features and requires different optimization to squeeze top performance.
-Our team is following a simple rule - **"don't be average in many technologies, be expert in few"**.
-That's why BeeORM supports only one database - [MySQL](https://www.mysql.com/). It's designed from
-the beginning to use all MySQL features most optimally. We are following new releases of MySQL
-implementing all required changes and improvements, so you can be sure that BeeORM supports everything that MySQL provides.
+BeeORM has a unique approach to database support. Unlike other ORM libraries, which aim to provide a generic interface to 
+many different databases, BeeORM is specifically tailored to work with [MySQL](https://www.mysql.com/). 
+This allows us to take full advantage of MySQL's unique features and optimization techniques, resulting in top performance and reliability. 
+Our team is committed to staying up-to-date with the latest MySQL releases and implementing any necessary changes and improvements. 
+With BeeORM, you can trust that you are using a database-specific ORM that is expertly designed to support all of MySQL's capabilities.
 
 ## Centralised data model
 
