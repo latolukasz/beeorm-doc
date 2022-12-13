@@ -3,7 +3,7 @@ home: true
 heroText:  
 siteTitle: 
 heroImage: logo.svg
-tagline: Golang ORM build for MySQL and Redis
+tagline: Golang ORM designed for optimal performance with MySQL and Redis
 actionText: Quick Start →
 actionLink: /guide/
 features:
