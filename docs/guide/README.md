@@ -1,8 +1,10 @@
 # Introduction
 
-All ORM libraries such as [GORM](https://gorm.io/) 
-focus on converting data between a relational database and object-oriented language.
-Most of them provide an interface to many databases like  MySQL, PostgreSQL, SQLite, SQL Server.
+Object-relational mapping (ORM) libraries such as [GORM](https://gorm.io/) are designed to 
+facilitate the conversion of data between relational databases and object-oriented programming languages. 
+These libraries provide a unified interface for working with various databases, including MySQL, PostgreSQL, SQLite, and SQL Server. 
+This allows developers to interact with the database using familiar object-oriented concepts and syntax, rather than having to write raw SQL queries. 
+ORM libraries can greatly simplify the development process and reduce the amount of boilerplate code required to work with databases.
 
 ## Designed for MySQL
 
