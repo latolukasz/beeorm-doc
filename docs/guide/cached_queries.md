@@ -208,7 +208,7 @@ for _, id := range ids {
 ```
 
 :::tip
-If Entity has [FakeDelete](guide/entity_fields.html#fake-delete), you don't need to
+If Entity has [FakeDelete](/guide/entity_fields.html#fake-delete), you don't need to
 add `WHERE FakeDelete = 0` in your cached query condition. BeeORM searches for rows
 with `FakeDelete = 0` automatically.
 :::
