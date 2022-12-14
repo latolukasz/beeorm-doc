@@ -57,5 +57,5 @@ broker.Consumer("my-consumer", "my-group").Consume(...)
 ## And much much more...
 
 To learn more about BeeORM and all of its capabilities, please take some time to read through the rest of our [guide](/guide/registry.html). 
-You can find the rest of the guide here: /guide/registry.html. We encourage you to explore all of the features of BeeORM and see how they can help you build high-traffic applications more easily and efficiently.
+We encourage you to explore all of the features of BeeORM and see how they can help you build high-traffic applications more easily and efficiently.
 
