@@ -1,21 +1,22 @@
 # Registry
 
-Our journey with BeeORM starts with method called `beeorm.NewRegistry()`.
-It initialises object `beeorm.Registry` used to configure database connections 
-and structs needed to represent your data as a go object.
-
+The beeorm.Registry object is the starting point for using BeeORM. It allows you to configure your database connections and register structs that represent your data. You can initialize a 
+beeorm.Registry object using the beeorm.NewRegistry() method, as shown in the following example:
 ```go
 package main
 
 import "github.com/latolukasz/beeorm"
 
 func main() {
+    // Initialize a new Registry
     registry := beeorm.NewRegistry()
+    
+    // Register a MySQL connection pool
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db") 
-}  
+} 
 ```
 
-You can also configure `beeorm.Registry` using data from a yaml file:
+Alternatively, you can configure the beeorm.Registry object using data from a YAML file, as shown in the following example:
 
 <code-group>
 <code-block title="go">
