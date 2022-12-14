@@ -14,152 +14,48 @@ This allows us to take full advantage of MySQL's unique features and optimizatio
 Our team is committed to staying up-to-date with the latest MySQL releases and implementing any necessary changes and improvements. 
 With BeeORM, you can trust that you are using a database-specific ORM that is expertly designed to support all of MySQL's capabilities.
 
-## Centralised data model
+## Centralized data model
 
-Supporting only MySQL is not what makes BeeORM so unique. Our ORM is created by developers for developers
-to help build high-traffic applications. Our team spent the last 20 years
-building projects that are used by more than 400 million daily active users. What we learned
-is relational database such as MySQL is only a small piece in a big machine called 
-"application data model". MySQL should be treated as persistent data storage that can be easily backup. That's it. You should always try to protect it from queries because it's not designed to
-get top performance. Many other technologies are needed in your application to be able
-to handle huge traffic such as NoSQL in-memory databases and message brokers. BeeORM supports them out
-of the box.
+BeeORM is a unique object-relational mapping (ORM) tool that was created by developers, for developers. 
+Our team has spent the last 20 years building high-traffic applications, and we have learned that a relational database like MySQL is just one piece of the puzzle when it comes to building an application data model. 
+While MySQL is great for storing data persistently, it is not optimized for handling heavy traffic. This is where other technologies like NoSQL and message brokers come in. 
+With BeeORM, you can easily integrate these technologies and take your application to the next level.
+
+
 
 ## It's all about cache
 
-Let's say you are using typical ORM in your code, and you need to implement login form.
-At some stage, you need to search in users database for a user with the provided login name.
-So probably your code looks like:
+Adding a caching layer can improve the performance of a login form by reducing the number of queries that need to be executed against the database. Instead of querying the database every time a user tries to log in, a caching layer can be used to store the results of frequently-used queries. This can help reduce the load on the database, allowing it to handle more traffic without sacrificing performance.
 
-```go
-user := someorm.QueryByField("user_name = ?", userNameFromForm)
-```
+However, implementing a caching layer can be complex and error-prone, as the code must be carefully written to ensure that the cache is always up-to-date and that it is properly cleared when necessary. For example, if a user changes their username, the cache must be updated to reflect this change. If this is not done properly, the login form may continue to use the old username, leading to errors or security vulnerabilities.
 
-It's not a real code but just an overview to demonstrate the big picture.
-Ok, looks simple right? In real life, this code can produce a dangerous bottleneck.
-Every time users try to log in MySQL query is executed. Yes, it's fast query 
-(if you add a unique index on "user_name" field) but still, it's a query that uses MySQL resources.
-Many developers (unfortunately) may say "and what? if there is a problem we can add more RAM or better CPU".
-"Smart" developers know that there is a better way to deal with this bottleneck - adding a caching layer:
-
-```go
-var user User
-cacheKey := "user:name:" + userNameFromForm
-userInCache, has := someredislibrary.Get(cacheKey)
-if !has {
-    user, found := someorm.QueryByField("user_name = ?", userNameFromForm)
-    if found {
-        someredislibrary.Set(cacheKey, serialise(user))    
-    }
-} else {
-    user = unserialise(userInCache)
-}
-```
-
-Better right? But code is much more complicated. Also, you need to configure connections
-to redis server, choose redis library and best serialization method and remove data from the cache when user 
-is deleted:
-
-```go
-someorm.Delete(user)
-someredislibrary.Delete("user:name:" + userNameFromForm)
-```
-
-So you should always remember to clear the cache when user is deleted. 
-But what if someone is trying to log in with a name that doesn't exist in the database?
-It will always generate a query to MySQL table. Because we are caching data only when user is found.
-So we still have a bottleneck. You can improve your code and cache special value in redis that
-means "data does not exist":
-
-```go
-var user User
-cacheKey := "user:name:" + userNameFromForm
-userInCache, has := someredislibrary.Get(cacheKey)
-if !has {
-    user, found := someorm.QueryByField("user_name = ?", userNameFromForm)
-    if found {
-        someredislibrary.Set(cacheKey, serialise(user))    
-    }
-} else if (userInCache != "nil") {
-    user = unserialise(userInCache)
-}
-```
-Code is getting even more complicated right? Now you should also remember to remove cache
-when a new user is created because we may cache "nil" value if someone tried to log in before using new 
-usernameCode is getting even more complicated right? Now you should also remember to remove cache
-when a new user is created because we may cache "nil" value if someone tried to log in before using new 
-username:
-
-```go
-someorm.Add(user)
-someredislibrary.Delete("user:name:" + user.Name)
-```
-
-Ok, so now you have two places where you should not forget to clear the cache. What if user decided
-to change his username? Now the situation is getting very complicated. You should remove two keys from the cache,
-one for the previous username because new users can register using this name, and of course, you should remove
-also the key with a new username because maybe someone tried to log in with this name and "nil" is cached:
-
-```go
-oldName := user.Name
-user.Name = "new"
-someorm.Update(user)
-someredislibrary.Delete("user:name:" + oldName, "user:name:" + user.Name)
-```
-
-Now try to imagine you should use cache for most of your data. Keeping cache updated in
-all scenarios is much more complicated than you can expect. The above examples demonstrate only a small
-part of this topic. In real life, you need to load and modify many objects at the same time.
-You should always group queries to redis as much as possible, using [redis pipelines](https://redis.io/topics/pipelining)
-for instance. Deletes in the cache should be executed only after `COMMIT` when MySQL transaction is used and so on.
-
-What if all this complexity is managed automatically by BeeORM. Look how easy is to work with cache using our ORM:
-
-```go
-user := UserEntity{}
-beeORMEngine.RedisSearchOne(user, beeORMEngine.NewRedisSearchQuery().FilterString("user_name", userNameFromForm))
-```
-
-That's it. You don't need to worry about cache, everything is updated when need in the most optimal way.
-For example, if you want to change username:
-
-```go
-user.Name = "new"
-beeORMEngine.Flush(user)
-```
-
-I hope the above example helped you understand why BeeORM is different from other ORM libraries. BeeORM
-is used to work with every data your application is storing and using. You don't need any other libraries to
-implement your application data model.
+In short, while a caching layer can improve the performance of a login form, it is important to carefully consider the trade-offs and ensure that the implementation is correct and maintainable
 
 ## Redis client
 
-BeeORM provides its own redis client. You don't need to use any other client library like
-[go-redis](https://github.com/go-redis/redis). Our client supports all redis commands plus extend
-it with some additional features like shared lock and rate limiter.
+BeeORM provides its own redis client, which includes support for all standard redis commands as well as additional features like shared lock and rate limiter. This means that you do not need to use any other redis client libraries, such as go-redis, when using BeeORM. Our client is specifically designed to make it easy to integrate redis into your application, without the need for additional dependencies.
 
-```go
-value, has := beeORMEngine.GetRedis().Get("key")
-```
 
 ## Events streaming
 
-Building modern high-traffic applications very often requires the implementation of event streaming systems. 
-It helps developers to distribute (as events) data between services in an asynchronous and scalable way. 
-There are many solutions available such us [Apache Kafka](https://kafka.apache.org/) or 
-[RabbitMQ](https://www.rabbitmq.com/). Do you remember our golden rule 
-*"don't be average in many technologies, be expert in few"*? There is no need to add
-additional complexity to your infrastructure. We are using Redis as a key-value database.
-Redis provides also amazing feature [streams](https://redis.io/topics/streams-intro) that
-can be used to build fast event streaming system. Thanks to BeeORM it's very easy:
+Event streaming systems are crucial for building modern, high-traffic applications. They allow developers to distribute data between services in an asynchronous and scalable way. There are many solutions available, such as Apache Kafka and RabbitMQ, but implementing these technologies can add complexity to your infrastructure.
+
+Redis, a popular key-value database, includes a powerful feature called streams that can be used to build fast event streaming systems. With BeeORM, it's easy to integrate Redis streams into your application using the built-in event broker. This allows you to leverage the power of Redis streams without adding additional complexity to your infrastructure.
+
+Here's an example of how to use the BeeORM event broker to publish and consume events with Redis streams:
 
 ```go
 broker := beeORMEngine.GetEventBroker()
+
+// Publish an event to a stream
 broker.Publish("stream-name", event)
+
+// Consume events from a stream using a consumer and consumer group
 broker.Consumer("my-consumer", "my-group").Consume(...)
 ```
 
 ## And much much more...
 
-BeeORM has many great features. Please spend some time and read the rest of this
-[guide](/guide/registry.html) to discover all of them.
+To learn more about BeeORM and all of its capabilities, please take some time to read through the rest of our [guide](/guide/registry.html). 
+You can find the rest of the guide here: /guide/registry.html. We encourage you to explore all of the features of BeeORM and see how they can help you build high-traffic applications more easily and efficiently.
+
