@@ -1,14 +1,13 @@
 # Data pools
 
-Now it's time to learn how to configure connections to your databases. 
+It's time to learn how to set up connections to your databases in BeeORM.
 
-In BeeORM every connection pool requires a name that will be used later in your code to define
-where data is located.
+Each connection pool in BeeORM requires a unique name that will be used in your code to identify the source of data. This name will be used later to access the data in your code. 
+Make sure to choose a clear and descriptive name for each connection pool to avoid confusion and make your code easy to read and maintain.
 
 ## MySQL pool
 
-Connection to MySQL database can be defined using `RegisterMySQLPool` method
-which requires [MySQL golang sql driver data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name).
+To connect to a MySQL database, you can use the RegisterMySQLPool method, which takes a MySQL golang sql driver [data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name) as an argument. The method is defined as follows:
 
 <code-group>
 <code-block title="in go">
@@ -33,26 +32,38 @@ logs:
 </code-block>
 </code-group>
 
-By default BeeORM allows to open 100 permitted number of simultaneous 
-client connections in one MySQL pool.
-But no more than 90% of current [MySQL max_connections system variable](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_max_connections).
-For example if your MySQL server has `max_connections = 50` BeeORM will set limit to 45. But you can define your own
-limit of connection using special parameter `limit_connections` in data source URI, for example:
+
+By default, BeeORM allows up to 100 simultaneous client connections in one MySQL pool. However, this limit cannot exceed 90% of the value of 
+the [max_connections](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_max_connections) system variable in MySQL. For example, 
+if max_connections is set to 50, BeeORM will set the connection limit to 45.
+
+You can override this default behavior and specify a custom connection limit by using the limit_connections parameter in the data source URI, as shown in the following example:
 
 ```go
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db?limit_connections=10")
 ```
 
+2 / 2
+
+Here is a possible revision:
+
+By default, BeeORM allows up to 100 simultaneous client connections in one MySQL pool. However, this limit cannot exceed 90% of the value of the max_connections system variable in MySQL. For example, if max_connections is set to 50, BeeORM will set the connection limit to 45.
+
+You can override this default behavior and specify a custom connection limit by using the limit_connections parameter in the data source URI, as shown in the following example:
+
+Copy code
+registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db?limit_connections=10")
+This will set the connection limit to 10, regardless of the value of max_connections in MySQL. Keep in mind that setting the connection limit too low may result in connection errors if too many clients try to connect to the database at the same time.
+
 ::: tip
-Setting correct`limit_connections` value is very important. You should try to find a right balance.
-Low value protects your MySQL server from too many connections which may slow down MySQL server. 
-At the same time too low value will slow down your application 
-because some goroutines need to wait for another connections to be returned 
-to pool after query execution.
+Setting the limit_connections value correctly is crucial to the performance of your application and the stability of your MySQL server. The ideal value is a balance between allowing enough connections to serve the needs of your application, while not overloading the MySQL server.
+
+If the limit_connections value is set too low, it can slow down your application because some goroutines may need to wait for other connections to be returned to the pool after query execution. On the other hand, if the value is too high, it can put a strain on the MySQL server and cause it to become slow or unresponsive.
+
+It is recommended to carefully monitor the performance of your application and MySQL server, and adjust the limit_connections value as needed to find the right balance. You may also need to tune other MySQL server parameters, such as max_connections, to optimize its performance.
 :::
 
-By default all tables use character set `utf8mb4` and `0900_ai_ci` collation. 
-You can change it with `SetDefaultEncoding` and `SetDefaultCollate` methods:
+By default, BeeORM uses the utf8mb4 character set and 0900_ai_ci collation for all tables. You can change this default behavior using the SetDefaultEncoding and SetDefaultCollate methods, as shown in the following example:
 
 <code-group>
 <code-block title="in go">
