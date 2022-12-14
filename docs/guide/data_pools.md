@@ -43,16 +43,14 @@ You can override this default behavior and specify a custom connection limit by 
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db?limit_connections=10")
 ```
 
-2 / 2
-
-Here is a possible revision:
-
 By default, BeeORM allows up to 100 simultaneous client connections in one MySQL pool. However, this limit cannot exceed 90% of the value of the max_connections system variable in MySQL. For example, if max_connections is set to 50, BeeORM will set the connection limit to 45.
 
 You can override this default behavior and specify a custom connection limit by using the limit_connections parameter in the data source URI, as shown in the following example:
 
-Copy code
+```go
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db?limit_connections=10")
+```
+
 This will set the connection limit to 10, regardless of the value of max_connections in MySQL. Keep in mind that setting the connection limit too low may result in connection errors if too many clients try to connect to the database at the same time.
 
 ::: tip
