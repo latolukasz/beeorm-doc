@@ -83,11 +83,9 @@ default:
 
 ## Local cache pool
 
-BeeORM provides simple and extremely fast in-memory key-value cache. 
-Values are stored in local map using [LRU](https://en.wikipedia.org/wiki/Cache_replacement_policies#Least_recently_used_(LRU))
-algorithm to evict least recently used value in case cache is full. 
+BeeORM offers a simple and extremely fast in-memory key-value cache for storing values. The cache uses the least recently used ([LRU](https://en.wikipedia.org/wiki/Cache_replacement_policies#Least_recently_used_(LRU))) algorithm to manage its size and automatically evicts the least frequently used values when it reaches capacity.
 
-Simply define pool name and cache size (maximum number of cached keys):
+To use the cache, you simply need to specify the pool name and the maximum number of cached keys:
 
 <code-group>
 <code-block title="in go">
@@ -110,10 +108,9 @@ last_searches:
 </code-group>
 
 ::: tip
-Be sure that cache size is not too small (data is evicted very often, low hit rate) 
-or too big (cache is using lots of memory, most of the data is not used anymore).
-Remember you can also define many pools with different cache size to optimise evictions.
-Keep popular data in big pools and other values in small pools.
+When using BeeORM's in-memory key-value cache, it's important to carefully consider the cache size. If the cache is too small, data will be evicted frequently, resulting in a low hit rate. On the other hand, if the cache is too large, it will use up a lot of memory and may contain data that is no longer needed.
+
+To optimize the use of the cache, you can define multiple pools with different cache sizes. For example, you can keep frequently accessed data in larger pools, while less frequently used data can be stored in smaller pools. This will help to ensure that the most relevant data is always available and that the cache is used efficiently.
 :::
 
 ## Redis server pool
