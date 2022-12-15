@@ -217,20 +217,14 @@ Providing Redis credentials is optional, but it can improve the security of your
 
 ## Redis keys namespace
 
-You should always try to use dedicated redis server for your application.
-There are three reasons:
- * performance. Only your application is using redis, it's easy then to monitor and optimise redis performance
- * duplicate key prevention. If two applications uses the same redis instance and DB number and
-both applications store for example key "user:1" then one application overrides other application data
- * flushing database. Sometimes you need to remove all keys in redis database. Using FLushDB() will 
-remove all keys from all applications that are using the same redis DB. Having one instance of redis
-for one application you are sure keys are removed only for this application.
+It is best to use a dedicated Redis server for each application for several reasons:
 
-But sometimes you have no other options than using one redis for many applications.
-Also when you are running tests in parallel you must be sure each test is using different
-redis keys. Lucky you BeeORM provides a feature called **keys namespace**.
-Simply define unique namespace name for each application in every BeeORM redis pool.
-This name will be added as prefix to all keys used in this redis pool.
+ * Performance: By using a separate Redis server for each application, it is easier to monitor and optimize Redis performance for that specific application.
+ * Duplicate key prevention: If two applications use the same Redis instance and database number, and both applications store a key like "user:1," one application may overwrite the other's data.
+ * Flushing the database: If you need to remove all keys in a Redis database, using the FLUSHDB() command will remove all keys for all applications that are using that same Redis database. By using a separate Redis server for each application, you can be sure that only the keys for that specific application will be removed.
+However, sometimes it may not be possible to use a separate Redis server for each application. In these cases, it is important to ensure that different applications do not use the same Redis keys. The BeeORM framework provides a feature called keys namespace that can help with this. By defining a unique namespace name for each application in every BeeORM Redis pool, this name will be added as a prefix to all keys used in that pool, ensuring that the keys are unique.
+
+Here is an example of how to register a Redis pool for two different applications with unique namespace names:
 
 Application #1
 ```go
@@ -241,3 +235,6 @@ Application #2
 ```go
 registry.RegisterRedis("localhost:6379", "application2", 0)
 ```
+
+With this approach, each application will have its own keys namespace, preventing key collisions and ensuring that data is not overwritten.
+
