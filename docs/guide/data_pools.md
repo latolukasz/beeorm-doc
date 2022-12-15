@@ -115,20 +115,23 @@ To optimize the use of the cache, you can define multiple pools with different c
 
 ## Redis server pool
 
-Connection to single Redis server can be defined using `RegisterRedis` method
-which requires connection URI in format `HOST:PORT` followed by redis keys namespace
-and database number (0-15).
+BeeORM allows you to connect to a single Redis server using the RegisterRedis method. This method requires a connection URI in the format HOST:PORT, followed by a Redis keys namespace and the database number (0-15).
+
+Here are some examples of how to use the RegisterRedis method:
 
 <code-group>
 <code-block title="in go">
 ```go
-//pool with name "default", empty keys namespace, pointing to redis database #0: 
+// pool with name "default", empty keys namespace, pointing to Redis database #0:
 registry.RegisterRedis("localhost:6379", "", 0)
-//pool with name "users", keys namespace "global", pointing to redis database #0: 
+
+// pool with name "users", keys namespace "global", pointing to Redis database #0:
 registry.RegisterRedis("/var/redis.sock", "global", 0, "users")
-//pool with name "products", empty keys namespace pointing to redis database #1: 
+
+// pool with name "products", empty keys namespace pointing to Redis database #1:
 registry.RegisterRedis("198.112.22.21:6379", "", 1, "products")
-//pool with credentials
+
+// pool with credentials
 registry.RegisterRedisWithCredentials("198.112.22.21:6379", "", "user", "password"," 1, "products")
 ```
 </code-block>
