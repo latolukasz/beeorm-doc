@@ -150,21 +150,20 @@ products:
 
 ## Redis sentinel pool
 
-You can define redis pool connected to [Redis Sentinel](https://redis.io/topics/sentinel) group
-using `RegisterRedisSentinel` method that requires master name, list with
-addresses to sentinel deamons and redis database number.
-
+You can define a Redis pool connected to a [Redis Sentinel](https://redis.io/topics/sentinel) group using the RegisterRedisSentinel method. 
+This method requires the master name, a list of addresses to the Sentinel daemons, and the Redis database number.
 
 
 <code-group>
 <code-block title="in go">
 ```go
-//pool with name "default" pointing to redis database #0: 
+// Define a pool with the name "default" pointing to Redis database #0: 
 poolDefault := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
 registry.RegisterRedisSentinel("master", "", 0, poolDefault)
-//pool with name "products" pointing to redis database #1: 
+
+// Define a pool with the name "products" pointing to Redis database #1:
 poolProducts := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
-registry.RegisterRedisSentinel("master", "global", 1, poolProducts, "products") 
+registry.RegisterRedisSentinel("master", "global", 1, poolProducts, "products")
 ```
 </code-block>
 
@@ -186,12 +185,13 @@ products:
 </code-block>
 </code-group>
 
+Redis Sentinel provides high availability for Redis by allowing multiple Sentinel instances to monitor the master and its slaves. When the master fails, one of the slaves is promoted to master automatically and the Sentinels update the client connections to use the new master. By using a Redis Sentinel pool, you can ensure that your applications can continue to access Redis even if the master fails.
+
 ::: tip
-We strongly recommend to use Redis Sentinel pools instead of single server pool 
-in your production environment. 
+We strongly recommend using Redis Sentinel pools instead of a single server pool in your production environment.
 :::
 
-You can also provide redis credentials:
+To provide Redis credentials, you can use the RegisterRedisSentinelWithCredentials method in Go:
 
 <code-group>
 <code-block title="in go">
@@ -212,6 +212,8 @@ default:
 ```
 </code-block>
 </code-group>
+
+Providing Redis credentials is optional, but it can improve the security of your Redis instance by requiring clients to authenticate before they can access the data stored in Redis.
 
 ## Redis keys namespace
 
