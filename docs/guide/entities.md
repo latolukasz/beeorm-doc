@@ -9,7 +9,7 @@ To define an Entity struct, you must follow these three rules:
  * The second field should have the name "ID" and be of type uint, uint8, uint16, uint32, or uint64.
  * The struct should always be used as a reference in your code.
 
- * Here is an example of a simple Entity struct:
+Here is an example of a simple Entity struct:
 
 ```go
 import "github.com/latolukasz/beeorm"
