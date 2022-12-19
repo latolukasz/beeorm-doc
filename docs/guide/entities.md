@@ -1,4 +1,4 @@
-# Entities in BeeORM
+# Entities
 
 In BeeORM, an Entity is a struct that represents data stored in a database. In this section, you will learn how to define golang structs as Entity types.
 
@@ -55,12 +55,11 @@ func main() {
 
 ### Redis pool
 
-Entity can be automatically cached in Redis to protect MySQL from queries when Entity
-data is needed. Use setting **redisCache=pool_name**
-in tag `orm` for `beeorm.ORM` field to enable redis cache for this entity and define 
-which redis server or sentinel pool should be used to store data.
+To protect MySQL from unnecessary queries, entities can be automatically cached in Redis. To enable Redis cache for an entity, use the setting redisCache=pool_name in the orm tag of the beeorm.ORM field. This specifies which Redis server or Sentinel pool should be used to store the data.
 
-For pool with name `default` you can use short version without pool name ``orm:"redisCache"``.
+For a pool with the name default, you can use the short version orm:"redisCache" without specifying the pool name.
+
+Here is an example in Go code:
 
 ```go{6,11}
 package main
@@ -89,17 +88,14 @@ func main() {
 ```
 
 ::: tip
-For redis used as cache for Entities you should always set `maxmemory` setting to some value 
-(below machine memory size) and enable `allkeys-lru` policy. 
-Also, you should disable persistence storage because if data is lost
-in redis BeeORM will fill it back from MySQL. Thanks to that you can get top performance and even
-if you reach max memory application should be up and running.
+To optimize Redis as a cache for entities, it is recommended to set the maxmemory setting to a value below the machine's memory size, and enable the allkeys-lru policy. This will prevent Redis from using too much memory and potentially crashing the application.
+
+Additionally, it is a good idea to disable persistence storage in Redis. If data is lost, BeeORM will automatically refill it from MySQL, ensuring top performance and preventing the application from going down.
 :::
 
 ### Local in-memory pool
 
-In the same way as registering redis pool (see example above) you can enable local in-memory
-cache to cache Entity data using this time **localCache=pool_name** setting.
+To cache Entity data in memory locally, you can use the setting localCache=pool_name in the same way as registering a Redis pool (see the example above). This will enable a local in-memory cache to store the data.
 
 ```go{6,11}
 package main
@@ -127,15 +123,12 @@ func main() {
 ```
 
 ::: tip
-Local cache is not shared across all servers. Entity updated on one server is
-still cached with old value on other servers. Data is cached forever until it's evicted
-by LRU algorithm. That's why you should use local cache for data that is not changed very often 
-(developer is responsible to clear local cache on all machines if needed).
+It is important to note that the local cache is not shared across all servers. If an Entity is updated on one server, it will still have the old value cached on other servers. The data in the local cache is cached indefinitely, until it is evicted by the LRU (Least Recently Used) algorithm. Therefore, it is recommended to use the local cache for data that does not change frequently. If necessary, the developer is responsible for clearing the local cache on all machines.
 :::
 
-### Using both redis and local cache at once
+### Using Both Redis and Local Cache Simultaneously
 
-What if you want to cache Entity in local cache and redis? In BeeORM it's possible:
+It is possible to cache an Entity in both a local cache and Redis using BeeORM. To do so, you can use the following syntax:
 
 ```go{2,7}
 type CategoryEntity struct {
@@ -149,21 +142,20 @@ type BrandEntity struct {
 }
 ```
 
+This allows you to take advantage of the benefits of both types of caching in your application. The local cache can provide faster access to frequently used data, while Redis can store larger amounts of data and be accessed by multiple servers.
+
 ::: tip
-We strongly recommend enabling local cache in entity together with redis cache.
-It helps protect MySQL from queries when your code is distributed across many physical servers, 
-or you are autoscaling your services based on actual traffic. 
-When data is missing in local cache BeORM will try to load it from redis cache, if still not there
-data is loaded from MySQL, stored in redis and local cache. So next request to the same app loads
-data from local cache, and request on another machine loads data from redis, not MySQL and store it
-in local cache.
+It is highly recommended to enable both local caching and Redis caching for Entity in your application. This can greatly improve the performance of your system by reducing the number of queries made to the MySQL database.
+
+When data is requested and not found in the local cache, BeeORM will try to load it from the Redis cache. If the data is still not available, it will be retrieved from MySQL, stored in Redis, and then also stored in the local cache. This means that subsequent requests for the same data from the same machine will be served from the local cache, while requests from other machines will be served from the Redis cache.
+
+Enabling both local caching and Redis caching helps to distribute the load on the MySQL database and can be especially useful when your code is running on multiple physical servers or when you are using autoscaling based on traffic.
 :::
 
 
-### Defining entity table name
+### Customizing the Entity Table Name
 
-By default, BeeORM uses entity struct name as a MySQL table name.
-You can define your own name using `table=table_name` tag setting:
+By default, BeeORM will use the name of the Entity struct as the name of the corresponding MySQL table. However, you can specify a custom table name by using the table tag setting:
 
 ```go{2}
 type UserEntity struct {
@@ -171,3 +163,5 @@ type UserEntity struct {
 	ID   uint
 }
 ```
+
+This allows you to specify a table name that may be more descriptive or follow a naming convention that you have established for your database tables.
