@@ -126,9 +126,9 @@ type ProductEntity struct {
 When defining string fields in your Go structs, consider adding the orm:"required" tag if the field should never hold an empty string. This can help to save space in the MySQL table where the data is stored, as the database will not need to reserve space for empty strings.
 :::
 
-## Dates and time
+## Dates and Times
 
-If you want to store date or date with time use `time.Time`:
+To store date or date and time values, use time.Time in your struct::
 
 ```go{5-7}
 
@@ -141,6 +141,12 @@ type UserEntity struct {
 }
 ```
 
+The time.Time type will be mapped to a date NOT NULL column in MySQL. If you want to store a datetime value in MySQL, you can use the orm:"time" tag. This will map the time.Time field to a datetime NOT NULL column in MySQL.
+
+If you want to store a nullable date or datetime value in MySQL, you can use a pointer to time.Time. A pointer to time.Time will be mapped to a date column in MySQL, and a pointer to time.Time with the orm:"time" tag will be mapped to a datetime column in MySQL.
+
+Here is a summary of the mapping between Go types and MySQL columns:
+
 | go        | MySQL         |
 | ------------- |:-------------:|
 | time.Time      | date NOT NULL |
@@ -151,7 +157,7 @@ type UserEntity struct {
 
 ## Binary strings
 
-You can store binary strings using `[]uint8` type:
+To store binary strings in your database, use the []uint8 type in your struct:
 
 ```go{5}
 
@@ -162,23 +168,23 @@ type UserEntity struct {
 }
 ```
 
+This will map the []uint8 field to a blob column in MySQL. If you want to store a mediumblob or longblob value in MySQL, you can use the orm:"mediumblob" or orm:"longblob" tag, respectively.
+
+Here is a summary of the mapping between Go types and MySQL columns:
+
 | go        | MySQL         |
 | ------------- |:-------------:|
 | []uint8      | blob |
 | []uint8 with tag `orm:"mediumblob"` | mediumblob      |
 | []uint8 with tag `orm:"longblob"` | longblob      |
 
-## Enums and sets
+## Enums and Sets
 
-If one of your field contains text from
-predefined list you should use MySQL `ENUM` or `SET` field type to store it.
+If one of your fields contains a value from a predefined list, you can use the MySQL ENUM or SET field types to store it.
 
-### Example using structs (recommended):
+### Using Structs (Recommended)
 
-If you use struct as a set/enum definition, 
-BeeORM searches for all public fields with type of `string` in this struct
-and use them as values. First field is used as default one when field has 
-tag `orm:"required"`.
+If you use a struct as a set/enum definition, BeeORM will search for all public fields with a string type in the struct, and use them as values. The first field is used as the default value when the field has the orm:"required" tag.
 
 ```go{5-13,18-19,24}
 package main
@@ -209,6 +215,9 @@ func main() {
    registry.RegisterEntity(&UserEntity{})
 }
 ```
+
+Here is a summary of the mapping between Go types and MySQL columns:
+
 | go        | MySQL         |
 | ------------- |:-------------:|
 | string with tag `orm:"enum=colors"` | enum('red', 'blue', 'yellow') DEFAULT NULL     |
@@ -218,7 +227,7 @@ func main() {
 
 ### Example using list of values:
 
-Second argument is used as default value when `orm:"required"` tag is used.
+You can also define an enum or set using a list of values. The second argument is used as the default value when the orm:"required" tag is used.
 
 ```go{8-9,14}
 package main
