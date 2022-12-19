@@ -249,10 +249,9 @@ func main() {
 }
 ```
 
-## One-one reference
+## One-to-One References
 
-In BeeORM you can easily define one-one reference between two entities.
-All you need to do is define public field with type of referenced entity:
+In BeeORM, you can define a one-to-one reference between two entities by declaring a public field with the type of the referenced entity:
 
 ```go{11}
 type CategoryEntity struct {
@@ -269,11 +268,9 @@ type ProductEntity struct {
 }
 ```
 
-In above example BeeORM creates column `Category smallint NOT NULL`.
-If field can store `NULL` values simply don't use `orm:"required"` tag.
+In the example above, BeeORM will create a Category smallint NOT NULL column in the ProductEntity table. If the field is allowed to store NULL values, simply omit the orm:"required" tag.
 
-BeeORM creates index and [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) 
-for every defined one-one reference.
+BeeORM will also create an index and a [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) for every defined one-to-one reference.
 
 ## One-many reference
 
