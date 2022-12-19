@@ -102,7 +102,7 @@ In MySQL, the IsActive field will be defined as NOT NULL, while the HasLicense f
 
 ## Strings
 
-If you need to store text use `string` type:
+To store text in Go, you can use the string type. Here is an example of how to use strings in a struct definition:
 
 ```go{5-7}
 
@@ -123,8 +123,7 @@ type ProductEntity struct {
 | string with tag `orm:"length=max"` | mediumtext      |
 `
 ::: tip
-Always add `orm:"required"`tag for `string` fields that never holds empty string.
-Thanks to this you can save extra disc space used to store data in MySQL table.
+When defining string fields in your Go structs, consider adding the orm:"required" tag if the field should never hold an empty string. This can help to save space in the MySQL table where the data is stored, as the database will not need to reserve space for empty strings.
 :::
 
 ## Dates and time
