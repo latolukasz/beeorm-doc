@@ -238,13 +238,13 @@ type UserEntity struct {
     beeorm.ORM
     ID              uint
     FavoriteColor   string `orm:"enum=colors;required"`
-    HatedColors     []string `orm:"set=colors"`
+    HatedColors     []string `orm:"set=hated_colors"`
 }
 
 func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterEnum("colors", []string{"red", "blue", "yellow"}) // default is "red"
-   registry.RegisterEnum("colors_default_yellow", []string{"red", "blue", "yellow"}, "yellow") // default is "yellow"
+   registry.RegisterEnum("hated_colors", []string{"red", "blue", "yellow"}, "yellow") // default is "yellow"
    registry.RegisterEntity(&UserEntity{})
 }
 ```
