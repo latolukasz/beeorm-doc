@@ -1,17 +1,12 @@
 # Entity fields
 
-Now you know how to create simple Entity that contains
-only one field `ID`. In this section you will learn how to define
-other fields and how these fields are stored in database.
+You have learned how to create a simple Entity with a single field, ID. In this section, we will delve into defining other fields and how they are stored in the database.
 
-By default, every public entity field (that starts with uppercase letter)
-is stored in MySQL.
+By default, every public entity field (which starts with an uppercase letter) is stored in MySQL. However, you can specify different storage options for your fields if needed. It is important to carefully consider the types and names of your fields to ensure proper and efficient storage and retrieval of data.
 
 ## Integers
 
-Most go developers use `int` primitive type forgetting go has much more to offer, 
-e.g. `int8, int16`, `uint`, `uint32`. BeeORM supports all of them.
-
+Go offers a variety of integer types such as int8, int16, uint, and uint32, and BeeORM supports all of them.
 ```go{5-6}
 
 type PersonEntity struct {
@@ -22,7 +17,7 @@ type PersonEntity struct {
 }
 ```
 
-This table describes how integer fields are mapped to MySQL column types:
+The table below shows how Go's integer types are mapped to MySQL column types:
 | go        | MySQL         | min value  | max value  |
 | ------------- |:-------------:| -----:| -----:|
 | int8      | tinyint  | -128 | 127 |
@@ -37,28 +32,26 @@ This table describes how integer fields are mapped to MySQL column types:
 | uint64 | bigint      |    	0 | 	2<sup>64</sup>-1 |
 | uint16 with tag `orm:"year"` | year      |    [0 or 1901](https://dev.mysql.com/doc/refman/8.0/en/year.html) | 2155 |
 
+Note that the minimum and maximum values for each type may vary depending on the MySQL version you are using. Refer to the MySQL documentation for more information.
+
 ::: tip
-Always spend extra time to analise your data and choose best `int` type for every field:
- * if field contains only positive numbers always use unsigned type (`uint`, `uint16`...)
- * try to use as low bit type as possible. For example using `uin16` for `PersonAge` is wrong. 
-   Use `uint8` because people are living no longer than 255 years. Maybe in near feature it will change 
-   but for now it's a right choice:)
- * using correct type for primary keys (`ID`) and fields that are part of MySQL index is very important.
-Using low bit type is not only saving MySQL disk space but also memory used to cache index. 
+Always take the time to carefully analyze your data and choose the best int type for each field:
+
+ * If a field contains only positive numbers, use an unsigned type (e.g. uint, uint16, etc.). 
+ * Try to use the smallest possible bit size for each field. For example, using uint16 for the PersonAge field would be incorrect because people do not live longer than 255 years (at least not yet). In this case, uint8 would be a more appropriate choice.
+ * It is important to use the correct type for primary keys (such as ID) and fields that are part of a MySQL index. Using a low bit size not only saves MySQL disk space, but also reduces the memory used to cache the index.
 :::
 
-All above MySQL fields are defined as `NOT NULL DEFAULT '0'`. If you need to store also `NULL` value use
-reference to int primitive type: `*int8`, `*int16`, `*int32`, `*int`, `*rune`, `*int64`, `*uint8`, `*uint16`, `*uint32`, 
-`*uint`, `*uint64`. Then fields in MySQL are defined as `DEFAULT NULL`.
+If you need to store a NULL value for any of the above MySQL fields, you can use a reference to the corresponding integer type (e.g. *int8, *int16, *int32, *int, *rune, *int64, *uint8, *uint16, *uint32, *uint, *uint64). In MySQL, these fields will be defined as DEFAULT NULL.
 
 ```go{7}
 
 type PersonEntity struct {
     beeorm.ORM
-    ID         uint
+    ID       uint
     // null if we don't know how many friends this person has
-    // zero if noone likes him:)
-    ID         *uint
+    // zero if no one likes him:)
+    Friends *uint
 }
 ```
 
