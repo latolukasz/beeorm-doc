@@ -110,16 +110,3 @@ type UserEntity struct {
     WorkAddress    Address
 }
 ```
-
-## Removing foreign key
-
-You can instruct BeeORM to not create index
-and foreign-key in one-one reference field with special tag `orm:"skip_FK"`:
-
-```go{5}
-type PersonEntity struct {
-    beeorm.ORM
-    ID      uint
-    Name    string
-    Mother  *PersonEntity `orm:"skip_FK"` 
-}

@@ -272,6 +272,20 @@ In the example above, BeeORM will create a Category smallint NOT NULL column in 
 
 BeeORM will also create an index and a [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) for every defined one-to-one reference.
 
+You can instruct BeeORM to not create an index and foreign key in a one-to-one reference field by using the orm:"skip_FK" tag:
+
+```go
+type PersonEntity struct {
+    beeorm.ORM
+    ID      uint
+    Name    string
+    Mother  *PersonEntity `orm:"skip_FK"` 
+}
+```
+
+By using the orm:"skip_FK" tag, BeeORM will not create an index or foreign key for the Mother field. This can be useful if you do not want to enforce a foreign key constraint in your database.
+
+
 ## One-many reference
 
 Try to imagine we are developing e-commerce app used to sell shoes. In our app we can define
