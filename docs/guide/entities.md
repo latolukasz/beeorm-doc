@@ -3,11 +3,10 @@
 In BeeORM, an Entity is a struct that represents data stored in a database. In this section, you will learn how to define golang structs as Entity types.
 
 ## Defining an Entity
-To define an Entity struct, you must follow these three rules:
+To define an Entity struct, you must follow these two rules:
 
  * The first field of the struct should be an anonymous field with a type of beeorm.ORM.
  * The second field should have the name "ID" and be of type uint, uint8, uint16, uint32, or uint64.
- * The struct should always be used as a reference in your code.
 
 Here is an example of a simple Entity struct:
 
@@ -22,16 +21,12 @@ type SimpleEntity struct {
 
 ## Registering Entity
 
-Every entity must be registered in `beeorm.Registry`:
+In order to use an entity in beeorm, it must be registered in the Registry:
 
 ```go{2}
 registry := beeorm.NewRegistry()
 registry.RegisterEntity(&entity.UserEntity()) 
 ```
-
-As you can see you must pass reference to actual variable, not a string 
-with name of entity. Thanks to this approach if entity was removed from your
-code you will see compilation error in above code.
 
 ## Defining data pools
 

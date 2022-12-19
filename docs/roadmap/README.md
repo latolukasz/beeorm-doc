@@ -8,6 +8,5 @@
 
 ## Planned in near feature
 
- * UUID support <Badge text="new feature"/>
  * redis keys sharding <Badge text="new feature"/>  
  * field increments and decrement in OnDuplicateKeyUpdate <Badge text="new feature"/>
