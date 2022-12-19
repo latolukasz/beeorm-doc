@@ -57,10 +57,7 @@ type PersonEntity struct {
 
 ## Floats
 
-Working with float values is always challenging. In BeeORM you should
-use one of `float32` or `float64` primitive types. Then using special tags you
-can decide how float value is stored in MySQL. Check example below:
-
+Working with floating point values can be challenging. In BeeORM, you can use either float32 or float64 as your primitive type. You can then use special tags to specify how the float value should be stored in MySQL.
 ```go{5-7}
 
 type PersonEntity struct {
@@ -81,13 +78,11 @@ type PersonEntity struct {
 | float32,float64 with tag `orm:"decimal=X,Y"`     | decimal(X,Y)  |
 | float32,float64 with tag `orm:"decimal=X,Y;unsigned"`     | decimal(X,Y) unsigned  |
 
-All above MySQL fields are defined as `NOT NULL`. If you need to store also `NULL` value use
-reference to float primitive type: `*float32`, `*float64`. Then fields in MySQL are defined as `DEFAULT NULL`.
+All of the above MySQL fields are defined as NOT NULL. If you need to store a NULL value, you can use a reference to the corresponding floating point type (e.g. *float32, *float64). In MySQL, these fields will be defined as DEFAULT NULL.
 
 ## Booleans
 
-Working with booleans is very simple. Use `bool` type or `*bool` if MySQL
-field can hold `NULL` values.
+Working with boolean values is straightforward in BeeORM. You can use the bool type to store boolean values in MySQL. If you need to allow NULL values in your MySQL field, you can use the *bool type instead.
 
 ```go{5-7}
 
@@ -98,9 +93,12 @@ type PersonEntity struct {
     HasChildren  *bool
 }
 ```
+In MySQL, the IsActive field will be defined as NOT NULL, while the HasLicense field will be defined as DEFAULT NULL.
+
 | go        | MySQL         |
 | ------------- |:-------------:|
 | bool      | tinyint(1)  |
+
 
 ## Strings
 
