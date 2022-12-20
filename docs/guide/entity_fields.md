@@ -286,64 +286,39 @@ type PersonEntity struct {
 By using the orm:"skip_FK" tag, BeeORM will not create an index or foreign key for the Mother field. This can be useful if you do not want to enforce a foreign key constraint in your database.
 
 
-## One-many reference
+## One-To-Many References
 
-Try to imagine we are developing e-commerce app used to sell shoes. In our app we can define
-a shoe and list of available sizes:
-
-```go
-type ShoeEntity struct {
-    beeorm.ORM
-    ID     uint16
-    Name   string `orm:"required"`
-}
-
-type ShoeSizeEntity struct {
-    beeorm.ORM
-    ID    uint
-    Size  uint8
-}
-```
-
-How we can connect sizes with a shoe? Well, one option is to use many-many table:
-
-```go
-type ShoeShoeSizeEntity struct {
-    beeorm.ORM
-    ID     uint
-    Shoe   *ShoeEntity `orm:"required"`
-    Size   *ShoeSizeEntity `orm:"required"`
-}
-```
-
-Well, it works, but it's far from optimal solutions. Reasons:
- * we need to define another table that takes disk space
- * this extra table uses contains also three indexes (ID, Shoe, Size) that use MySQL memory
-
-So is there a better way to define database model for this scenario? With BeeORM, yes. Simply create
-a public field with a type of slice of referenced entities:
+You can define a one-to-many reference using the `[]Entity` type in the following way:
 
 ```go{5}
-type ShoeEntity struct {
+type RoomEntity struct {
+    beeorm.ORM
+    ID     uint32
+    Name  string `orm:"required"`
+}
+
+type HouseEntity struct {
     beeorm.ORM
     ID    uint16
     Name  string `orm:"required"`
-    Sizes []*ShoeSizeEntity `orm:"required"`
+    Rooms []*RoomEntity
 }
 ```
 
-What does it do? BeeORM simply creates a column `Sizes JSON NOT NULL` that holds an array with IDs of
-referenced sizes, for example `[1,23,43]`. 
+::: tip
+Keep in mind that this model should only be used in scenarios where the number of referenced objects is relatively small and static. We recommend using the one-to-many field only if the number of values is not higher than 100 elements. For larger datasets, consider using a many-to-many data model instead:
+```go
+type RoomHouseEntity struct {
+    beeorm.ORM
+    ID     uint32
+    House  *HouseEntity `orm:"required"`
+    Room   *RoomEntity `orm:"required"`
+}
+```
+:::
 
 ::: tip
-Use this model only in scenarios where number of referenced objects is quite small and static.
-We recommend to use one-many field if number of values (shoe sizes in our case) is not higher than
-100 elements. Otherwise, use many-many (`ShoeSizeEntity`) data model.
-  :::
-
-::: tip
-BeeORM can't create foreign keys for values stored in this array. If you are deleting
-shoe size you should also remove its ID from all related shoe entities.
+Note that BeeORM does not support creating foreign keys for values stored in this array. If you delete a shoe size, you will need to manually remove its ID from all related shoe entities.
 :::
 
 ## Subfields
