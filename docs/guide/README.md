@@ -25,7 +25,7 @@ With BeeORM, you can easily integrate these technologies and take your applicati
 
 ## It's all about cache
 
-Adding a caching layer can improve the performance of a login form by reducing the number of queries that need to be executed against the database. Instead of querying the database every time a user tries to log in, a caching layer can be used to store the results of frequently-used queries. This can help reduce the load on the database, allowing it to handle more traffic without sacrificing performance.
+Adding a caching layer can improve the performance of your application by reducing the number of queries that need to be executed against the database. Instead of querying the database every time data is needed, a caching layer can be used to store the results of frequently-used queries. This can help reduce the load on the database, allowing it to handle more traffic without sacrificing performance.
 
 However, implementing a caching layer can be complex and error-prone, as the code must be carefully written to ensure that the cache is always up-to-date and that it is properly cleared when necessary. For example, if a user changes their username, the cache must be updated to reflect this change. If this is not done properly, the login form may continue to use the old username, leading to errors or security vulnerabilities.
 
