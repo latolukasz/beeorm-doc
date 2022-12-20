@@ -387,10 +387,9 @@ type UserEntity struct {
 
 With this tag, BeeORM will not create a column for the `MyField` field in the MySQL table for the `UserEntity` entity. This can be useful in cases where you want to store additional information in the struct that is not relevant to the database.
 
-## JSON field
+## JSON Field
 
-Any public field with type not mentioned above is mapped to `JSON` MySQL column type
-and value of this field is automatically converted to/from JSON:
+In BeeORM, any public field with a type that is not explicitly supported is mapped to a `JSON` MySQL column type, and the value of the field is automatically converted to and from JSON when the entity is saved or loaded from the database. For example:
 
 ```go{9-11}
 type Options struct {
@@ -408,17 +407,14 @@ type ProductEntity struct {
 ```
 
 ::: tip
-Always try to avoid JSON fields if possible. It takes extra time
-to marshal/unmarshal JSON value when entity is saved or loaded from database.
+While JSON fields can be convenient, they can also be less efficient than other field types. Marshalling and unmarshalling JSON values can take extra time, so it is usually best to avoid them if possible. If you do need to use a JSON field, consider minimizing the amount of data stored in it to reduce the performance impact.
 :::
 
-## Fake delete
+## Fake Delete
 
-There is a special field `FakeDelete bool` in BeeORM that helps you to deal with scenarios
-where entity needs to be deleted, but it's used as reference in other entities 
-and of course delete operation will cause foreign key exception.
+In some cases, you may need to delete an entity that is used as a reference in other entities, but doing so would cause a foreign key exception. To handle this situation, BeeORM includes a special field called FakeDelete bool.
 
-Let's imagine this scenario:
+For example:
 
 ```go{5}
 type ColorEntity struct {
@@ -435,27 +431,21 @@ type ProductEntity struct {
     Color   *ColorEntity `orm:"required"` 
 }
 ```
-As you can see we created field with name `FakeDelete` (it's case-sensitive) type of bool.
-BeeORM threads it as a special case and creates MySQL column `FakeDelete smallint` in `ColorEntity` table.
-Notice that type in this column is the same as type of ID column for this entity (uint16).
 
-Now every time you delete this entity using BeeORM (will be described on next pages), what actually
-happens is that row is updated with a query:
+The `FakeDelete` field is case-sensitive and is treated as a special case by BeeORM. When you create a `ColorEntity` table in the database, BeeORM will create a MySQL column named `FakeDelete smallint` with the same type as the `ID` column (`uint16`).
+
+When you delete a `ColorEntity` using BeeORM, the row is actually updated with the following query:
 
 ```sql
 UPDATE ColorEntity SET `FakeDelete` = `ID` WHERE `ID` = X
 ```
 
-If you need to show actual available colors in your app you should search for colors
-with query similar to this:
+To show the available colors in your app, you can use a query like this:
 
 ```sql
 SELECT ... FROM ColorEntity WHERE `FakeDelete` = 0
 ```
 
-No worries. You don't need to remember to add `WHERE FakeDelete = 0` in all of your searches.
-BeeORM will do it for you automatically in all ORM search methods described on next pages. 
+Note that BeeORM will automatically add the `WHERE FakeDelete = 0` condition to all ORM search methods, so you don't need to remember to include it yourself.
 
-Probably you are asking yourself, why BeeORM uses `smallint` instead of `tinyint(1)` (bool) MySQL
-column type? This topic is related to [unique index](https://dev.mysql.com/doc/refman/8.0/en/create-index.html#create-index-unique)
-usage described on [next page](/guide/mysql_indexes.html).
+You may be wondering why BeeORM uses the smallint column type instead of `tinyint(1)` (bool) for the FakeDelete field. This is related to the use of [unique indexes](https://dev.mysql.com/doc/refman/8.0/en/create-index.html#create-index-unique), which are described in the [next page](/guide/mysql_indexes.html) of the guide.
