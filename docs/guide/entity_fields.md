@@ -318,15 +318,12 @@ type RoomHouseEntity struct {
 :::
 
 ::: tip
-Note that BeeORM does not support creating foreign keys for values stored in this array. If you delete a shoe size, you will need to manually remove its ID from all related shoe entities.
+Note that BeeORM does not support creating foreign keys for values stored in this array. If you delete a shoe size, you will need to manually remove its ID from all related entities.
 :::
 
 ## Subfields
 
-Very often entity fields can be divided into logical groups that help you
-read the code and use field definition in the same or other entities.
-In BeeORM simply create struct for them and use it as a type of field:
-
+It is often useful to divide entity fields into logical groups, as this can help improve code readability and facilitate reuse of field definitions in other entities. In BeeORM, you can do this by creating a struct for the subfields and using it as the type of a field. For example:
 ```go{1-7,12-13,19}
 struct Address {
    Country    string
@@ -350,14 +347,13 @@ type CompanyEntity struct {
 }
 ```
 
-You can also create struct inside struct, as many levels as you want.
+You can also nest structs within structs to any desired level of complexity.
 
-BeeORM creates MySQL column for each field in struct by adding field name
-as a suffix for column name. For example `HomeAddressCountry varchar(255)`.
+When working with structs in BeeORM, a MySQL column is created for each field in the struct, with the field name added as a suffix to the column name. For example, the field HomeAddressCountry would be stored in a column named HomeAddressCountry varchar(255).
 
-## Anonymous subfields
+## Anonymous Subfields
 
-You can also define files using anonymous struct:
+In addition to using named structs as subfields, you can also define fields using anonymous structs. For example:
 
 ```go{12}
 struct Address {
@@ -375,13 +371,11 @@ type UserEntity struct {
 }
 ```
 
-Anonymous fields are represented in MySQL table without suffix, for example
-`Country varchar(255)`.
+When using anonymous structs in BeeORM, the fields are represented in the MySQL table without a suffix. For example, the field Country would be stored in a column named `Country varchar(255)`.
 
-## Ignored field
+## Ignored Fields
 
-If you have public fields in entity that should not be stored in database use
-`orm:"ignore"` tag:
+Sometimes you may have public fields in an entity that should not be stored in the database. To instruct BeeORM to ignore a field, you can use the `orm:"ignore"` tag:
 
 ```go{4}
 type UserEntity struct {
@@ -390,6 +384,8 @@ type UserEntity struct {
     MyField   string `orm:"ignore"`
 }
 ```
+
+With this tag, BeeORM will not create a column for the `MyField` field in the MySQL table for the `UserEntity` entity. This can be useful in cases where you want to store additional information in the struct that is not relevant to the database.
 
 ## JSON field
 
