@@ -129,43 +129,38 @@ colors.Index("orange") // 0
 
 The `GetFields()` method returns a slice of strings containing the names of the enum fields. The `GetDefault()` method returns the default value of the enum, which is the first field by default. The `Has()` method checks if the enum has a field with the given name, and returns a boolean indicating whether it does or not. The `Index()` method returns the index of the field with the given name, or 0 if the field does not exist. These methods can be useful for validating and processing user input or data stored in the database.
 
-## Entity schema
+## Entity Schema
 
-Validated registry holds information about every registered entity in
-object `beeorm.TableSchema`. You have two options to get entity table schema:
+The `ValidatedRegistry` object holds information about every registered entity in the form of a `beeorm.TableSchema` object. There are two ways to get the table schema for an entity:
 
-<code-group>
-<code-block title="using name">
+Using the entity name:
+
 ```go
 // remember to use full entity name including package name
 tableSchema := validatedRegistry.GetTableSchema("main.CarEntity")
 ```
-</code-block>
 
-<code-block title="using entity">
+Using the entity itself:
+
 ```go
 var carEntity *CarEntity
 tableSchema := validatedRegistry.GetTableSchemaForEntity(carEntity)
 ```
-</code-block>
-</code-group>
 
-This method returns `nil` if entity is not registered in `beeorm.Registry`.
+If the entity is not registered in the `beeorm.Registry`, the `GetTableSchema()` and `GetTableSchemaForEntity()` methods will return nil.
 
-Once you have `beeorm.TableSchema` object, you can get useful data about entity:
+Once you have the `beeorm.TableSchema` object, you can use the following methods to get useful information about the entity:
 
 ```go
 tableSchema := validatedRegistry.GetTableSchema("main.CarEntity")
 tableSchema.GetTableName() // "CarEntity"
-tableSchema.GetType() // reftect.Type of CarEntity
+tableSchema.GetType() // Returns the reflect.Type of the CarEntity
 tableSchema.GetColumns() // []string{"ID", "Color", "Owner"}
-tableSchema.GetReferences() // []string{"Owner"} // one-one and one-many field names
+tableSchema.GetReferences() // []string{"Owner"} // Returns the names of one-to-one
+
 ```
 
-`beeorm.TableSchema` provides special method `GetUsage()` that shows where this entity
-is used as one-one or one-many reference. It returns ` map[reflect.Type][]string` where
-key is type of parent entity and value is a slice of field names where this entity is used.
-Hard to understand? Hope below example helps you understand it better:
+`beeorm.TableSchema` provides a special method called `GetUsage()` that returns a map of types and field names where the entity is used as a one-to-one or one-to-many reference. The map has a key of type reflect.Type and a value of a slice of field names where the entity is used. Here's an example of how to use it:
 
 ```go{2}
 tableSchema := validatedRegistry.GetTableSchema("main.PersonEntity")
@@ -175,28 +170,26 @@ for type, fields := range tableSchema.GetUsage(validatedRegistry) {
 }
 ```
 
-With `NewEntity()` method you can create new instance of entity:
+You can use the `NewEntity()` method to create a new instance of the entity. For example:
 
 ```go{2}
 tableSchema := validatedRegistry.GetTableSchema("main.PersonEntity")
 carEntity := tableSchema.NewEntity().(*CarEntity)
 ```
 
-You can also get `beeorm.TableSchema` from entity cache key.
-For example if you see query in redis:
+You can also retrieve the `beeorm.TableSchema` from the entity cache key. For example, if you see the following query in Redis:
 
 ```GET f3b2d:123```
 
-you can get table schema with:
+You can retrieve the table schema with:
 
 ```go
 tableSchema := validatedRegistry.GetTableSchemaForCachePrefix("f3b2d")
 ```
 
-
 ## Getting MySQL pools
 
-To get list of registered MySQL pools use `GetMySQLPools()` method:
+To retrieve a list of registered MySQL pools, you can use the `GetMySQLPools()` method:
 
 <code-group>
 <code-block title="code">
@@ -222,7 +215,7 @@ Version: 8
 
 ## Getting Redis pools
 
-To get list of registered redis pools use `GetRedisPools()` method:
+To retrieve a list of registered Redis pools, you can use the `GetRedisPools()` method:
 
 <code-group>
 <code-block title="code">
@@ -246,7 +239,7 @@ Address: localhost:6379
 
 ## Getting local cache pools
 
-To get list of registered local cache pools use `GetLocalCachePools()` method:
+To retrieve a list of registered local cache pools, you can use the GetLocalCachePools() method:
 
 <code-group>
 <code-block title="code">
