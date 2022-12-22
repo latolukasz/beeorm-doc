@@ -53,9 +53,9 @@ This will create the following unique index in the MySQL table:
   UNIQUE KEY `model` (`Name`, `Color`, `Size`),
 ```
 
-## One field in many indexes
+## One Field in Many Indexes
 
-If you need to add single field in more than one index separate names with comma:
+If you need to add a single field to multiple indexes, you can do so by separating the index names with a comma in the BeeORM tag. For example:
 
 ```go{5-6}
 type PersonEntity struct {
@@ -67,16 +67,19 @@ type PersonEntity struct {
 }
 ```
 
+This will create the following indexes in the MySQL table:
+
 ```sql
   KEY `model` (`LastName`, `FirstName`),
   KEY `occupation` (`Occupation`, `LastName`),
   UNIQUE KEY `lastname` (`LastName`),
 ```
 
-## Defining index in subfields 
+Note that the LastName field is included in both the name and occupation indexes, and it is also defined as a unique key.
 
-There is one scenario where it's not possible to define
-indexes using field tags. See below example:
+## Defining Indexes in Subfields
+
+There may be cases where it is not possible to define indexes using field tags, such as when a struct field itself contains multiple fields that need to be included in an index. For example:
 
 ```go
 struct Address {
@@ -95,13 +98,14 @@ type UserEntity struct {
 }
 ```
 
-What if we need these indexes:
+Suppose we need the following indexes:
+
 ```sql
 KEY `homeStreet` (`HomeAddressStreet`),
 KEY `workAddress` (`WorkAddressCity`, `WorkAddressStreet`),
 ```
 
-BeeORM supports defining indexes as tag attributes for `orm.ORM` field:
+To define these indexes in BeeORM, you can use tag attributes on the `orm.ORM` field:
 
 ```go{2}
 type UserEntity struct {
@@ -111,3 +115,5 @@ type UserEntity struct {
     WorkAddress    Address
 }
 ```
+
+This will create the two indexes specified above in the MySQL table.
