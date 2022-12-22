@@ -1,14 +1,8 @@
-# Schema update
+# Schema Update
 
-One of the most important benefits using ORM is a possibility to generate and 
-update database schema based on data structure in your code.
-In BeeORM, these data structures are of course registered entities.
-Our ORM provides two ways to generate or update MySQL schema:
+One of the main benefits of using an ORM is the ability to generate and update a database schema based on the data structures in your code. In BeeORM, these data structures are represented as registered entities. There are two ways to generate or update the MySQL schema in BeeORM:
 
-This approach is the recommended one. BeeORM is comparing current MySQL
-schema in all MySQL databases used by all registered entities 
-and returns detailed information that can be used to update database schema:
-
+The recommended approach is to use the GetAlters() method of the beeorm.Engine object. This method compares the current MySQL schema in all the MySQL databases used by the registered entities and returns detailed information that can be used to update the schema. Here is an example of how to use the `GetAlters()` method:
 ```go{22}
 package main
 
@@ -40,13 +34,14 @@ func main() {
 }  
 ```
 
-`Safe` field is `false` when one of these conditions is met:
- * table needs to be dropped and is not empty
- * at least one column needs to be removed or changed and table is not empty
+The Safe field of the beeorm.Alter object is false if any of the following conditions are met:
 
-As you can see `Safe` equal `true` means - "executing this query you will not lose any data".
+ * The table needs to be dropped and is not empty.
+ * At least one column needs to be removed or changed and the table is not empty.
 
-You can easily execute all alters:
+If the Safe field is true, it means that executing the alter will not result in any data loss.
+
+To execute all the alters, you can use a loop like this:
 
 ```go
 for _, alter := range alters {
@@ -55,21 +50,16 @@ for _, alter := range alters {
 ```
 
 ::: tip
-Always run all alters in exact order. Starting from first one, then second one
-and so on. Very often previous alter is required in next one, for example first
-we need to create index on column and only then we can run query that defines 
-foreign key.
+Make sure to execute all the alters in the exact order they are returned by the GetAlters() method. Often, a previous alter is required for a subsequent one, for example, creating an index on a column before defining a foreign key on it.
 :::
 
 ::: warning
-BeeORM is creating `DROP table ...` queries for all tables that exists in registered
-MySQL database that are NOT mapped as entity. This os one of reasons why you should always
-check all generated alters before executing them.
+BeeORM generates `DROP TABLE ...` queries for all tables in the registered MySQL database that are not mapped as entities. This is one of the reasons why you should always review all the generated alters before executing them.
 :::
 
-## Updating entity schema
+## Updating Entity Schema
 
-You can also use entity `beeorm.TableSchema` object to update it's database schema:
+You can also use the `beeorm.TableSchema` object of an entity to update its database schema. Here is an example:
 
 ```go{2}
 tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
@@ -84,17 +74,18 @@ if has {
 }
 ```
 
-If you need to execute all alters you can use short version:
+For convenience, you can use the following short versions to execute all the necessary alters:
+
 ```go{2-3}
 tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
 tableSchema.UpdateSchema(engine) // executes all alters
 tableSchema.UpdateSchemaAndTruncateTable(engine) // truncates table and executes all alters
 ```
 
-`beeorm.TableSchema` provides many useful methods used to manage entity table:
+The beeorm.TableSchema object also provides several useful methods for managing the entity table:
 
 ```go
 tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
-tableSchema.DropTable(engine) // drops whole table
-tableSchema.TruncateTable(engine) // truncates table
+tableSchema.DropTable(engine) // drops the entire table
+tableSchema.TruncateTable(engine) // truncates the table
 ```
