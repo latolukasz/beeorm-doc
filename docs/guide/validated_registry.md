@@ -1,10 +1,11 @@
-# Validated registry
+# Validated Registry
 
-On previous pages you learned how to create `beeorm.Registry` and entities.
-You should also know already how to configure database connections.
-Now it's time to learn how to create the heart of BeeORM - object called `ValidatedRegistry`.
+n previous sections, you learned how to create a `beeorm.Registry` object and register entities with it. You should also know how to configure database connections by now. In this section, you will learn about the `ValidatedRegistry`, which is the heart of BeeORM.
 
-## Validating registry
+## Validating the Registry
+
+Validating the Registry
+To create a ValidatedRegistry, you first need to create a `beeorm.Registry` object and register the necessary database connections and entities with it. Then, you can call the `registry.Validate()` method to create a `ValidatedRegistry` object. Here is an example:
 
 ```go{17}
 package main
@@ -32,35 +33,30 @@ func main() {
 ```
 
 ::: tip
-You should create `beeorm.Registry` and run `registry.Validate()` only once
-in your application, when applications start. For instance if you are running
-http server run above code before `http.ListenAndServe(":8080", nil)` line.
+It is recommended to create the `beeorm.Registry` object and call `registry.Validate()` only once in your application, when it starts. For example, if you are running an HTTP server, you should run the above code before the `http.ListenAndServe(":8080", nil)` line.
 :::
 
-You should share returned object `beeorm.ValidatedRegistry` in your application across all goroutines. 
-We can think about it as a source of BeeORM configuration - connection credentials 
-to all databases and entities structures. It provides only getters. You can't use
-it to register more entities or connection. We can say `beeorm.Registry` is a place 
-where you configure BeeORM, `beeorm.ValidatedRegistry` is a readonly, validated 
-source of BeeORM settings.
+The `ValidatedRegistry` object should be shared across all goroutines in your application. It serves as a read-only, validated source of BeeORM settings, including connection credentials and entity structures. You cannot use it to register more entities or connections - this should be done using a `beeorm.Registry` object. In other words, the `beeorm.Registry` is where you configure BeeORM, while the `ValidatedRegistry` is a read-only source of the resulting configuration.
 
-## Updating validated registry
 
-If you need to change configuration you need to create new `beeorm.ValidatedRegistry`:
+## Updating the Validated Registry
+
+If you need to make changes to the configuration of a `ValidatedRegistry`, you will need to create a new one. To do this, you can use the `GetSourceRegistry()` method to retrieve the original `beeorm.Registry` object, make the necessary changes to it, and then call the `registry.Validate()` method again to create a new `ValidatedRegistry` object.
+
+Here is an example:
 
 ```go{1}
 registry := validatedRegistry.GetSourceRegistry()
-// change configuration:
+// Make changes to the configuration:
 registry.RegisterEntity(&ProductEntity{})
-//overrite validated registry: 
+// Overwrite the validated registry: 
 validatedRegistry, deferF, err = registry.Validate()
+
 ```
 
-## Getting entities settings
+## Getting Entity Settings
 
-If you need information about registered entities validated registry provides
-useful getters. In our example we are registering two entities and one enum:
-
+The `ValidatedRegistry` object provides useful getters for accessing information about registered entities. In the following example, we register two entities and an enum:
 ```go
 package main
 
@@ -93,7 +89,7 @@ func main() {
 }  
 ```
 
-To get list of registered entities use `GetEntities` method:
+To get a list of registered entities, you can use the `GetEntities` method:
 
 <code-group>
 <code-block title="code">
@@ -113,9 +109,13 @@ main.PersonEntity = PersonEntity
 </code-block>
 </code-group>
 
-## Getting enum settings
+The GetEntities method returns a map with the names of the entities as keys and their types as values. You can use this information to retrieve additional details about the entities and their fields.
 
-To get details about registered enum use `GetEnum()` method:
+## Getting Enum Settings
+
+To get details about a registered enum, you can use the `GetEnum()` method on the `ValidatedRegistry` object. This method takes the name of the enum as an argument and returns a `beeorm.Enum` object that provides several methods for accessing information about the enum.
+
+Here is an example of how to use the `GetEnum()` method and the various methods provided by the `beeorm.Enum` object:
 
 ```go
 colors := validatedRegistry.GetEnum("colors")
@@ -123,9 +123,11 @@ colors.GetFields() // []string{"red", "blue", "yellow"}
 colors.GetDefault() // "red"
 colors.Has("blue") // true
 colors.Has("orange") // false
-colors.Index("blue") // 2 (start with 1)
+colors.Index("blue") // 2 (starts at 1)
 colors.Index("orange") // 0
 ```
+
+The `GetFields()` method returns a slice of strings containing the names of the enum fields. The `GetDefault()` method returns the default value of the enum, which is the first field by default. The `Has()` method checks if the enum has a field with the given name, and returns a boolean indicating whether it does or not. The `Index()` method returns the index of the field with the given name, or 0 if the field does not exist. These methods can be useful for validating and processing user input or data stored in the database.
 
 ## Entity schema
 
