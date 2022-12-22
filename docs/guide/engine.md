@@ -1,12 +1,10 @@
-# Engine
+# The Engine
 
-So far you have learned how to create `beeorm.ValidatedRegistry` that holds
-information about all database connections and entities. Now it's time to learn
-how to create and use a heart of BeeORM - object called `beeorm.Engine`.
+In this section, you will learn how to create and utilize the central component of BeeORM: the `beeorm.Engine` object. You may recall that the `beeorm.ValidatedRegistry` holds information about all the database connections and entities in your system. The `beeorm.Engine` uses this information to manage and execute database operations. With the `beeorm.Engine`, you can easily connect to your databases, create and modify entities, and query your data. Let's dive in and see how to use this powerful tool.
 
-## Creating engine
+## Creating the Engine
 
-Engine is created using `CreateEngine(context.Background())` method in `beeorm.ValidatedRegistry`:
+To create an `beeorm.Engine` object, you can call the `CreateEngine()` method on a `beeorm.ValidatedRegistry` object. Here is an example of how to create an `beeorm.Engine` in Go:
 
 ```go{13}
 package main
@@ -25,12 +23,12 @@ func main() {
 }  
 ```
 
-## Request cache
+## Request Cache
 
-If you are developing http API it's a good practice to
-enable temporary cache for all entity data loaded in one
-http request. You can do it using `EnableRequestCache()` method:
+If you are building an `HTTP API`, it may be beneficial to enable a temporary cache for entity data loaded during a single HTTP request. You can do this by calling the `EnableRequestCache()` method on the `beeorm.Engine` object:
 
 ```go
 engine.EnableRequestCache()
 ```
+
+This can help improve performance by reducing the number of database queries needed to fulfill a request. However, keep in mind that using a request cache can increase memory usage and may not be suitable for all applications.
