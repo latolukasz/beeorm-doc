@@ -556,8 +556,7 @@ This code generates only three queries to Redis, making it a very efficient way 
 
 ## Updating entities
 
-Updating entity is very easy. All you need to do is to run `entity.Flush()` method 
-on loaded entity:
+Updating entities with BeeORM is straightforward. You can update a single entity by calling the `Flush()` method on the entity, or you can update multiple entities at once by using the `FlushMany()` method and passing in all the entities you want to update as arguments.
 
 <code-group>
 <code-block title="code">
@@ -578,7 +577,6 @@ REDIS DELETE cacheKeyForProduct1
 </code-block>
 </code-group>
 
-If you need to update more than one entity use `entity.FlushMany()`:
 
 <code-group>
 <code-block title="code">
@@ -605,10 +603,15 @@ REDIS DELETE cacheKeyForCategory1 cacheKeyForProduct1 cacheKeyForProduct2
 </code-block>
 </code-group>
 
+To update an entity, you first need to load it from the database using a method like `LoadByID()`. Then, you can modify the entity's properties and call `Flush()` to persist the changes to the database. BeeORM will automatically generate the necessary `SQL UPDATE` statement and execute it against the database, as well as invalidate any relevant cache entries to ensure that the updated data is reflected in future queries.
+
+It's important to note that you can only update entities that are already loaded and have their data stored internally. If you try to update an entity that has not been loaded, BeeORM will return an error.
+
+In the example provided, the code loads two ProductEntity instances and a CategoryEntity instance from the database, then modifies the Name property of each entity and calls `FlushMany()` to update all three entities in a single batch. This results in three `UPDATE` statements being executed against the database, and the relevant cache entries being invalidated to ensure that the updated data is reflected in future queries.
+
 ## Cloning entities
 
-Sometimes you need to copy entity, change some fields and save it as a new row in database. 
-You can simply use `entity.Clone()` method:
+Sometimes you may need to create a copy of an entity, make some changes to it, and save it as a new row in the database. You can easily do this using the `entity.Clone()` method:
 
 ```go{3}
 category := &CategoryEntity{}
@@ -617,6 +620,8 @@ newCategory := category.Clone(*CategoryEntity)
 newCategory.Name = "New name"
 engine.Flush(newCategory)
 ```
+
+This will create a copy of the category entity, assign a new value to its Name field, and save it as a new row in the database. The original category entity will remain unchanged.
 
 ## Deleting entities
 
