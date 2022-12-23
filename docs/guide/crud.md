@@ -1,10 +1,8 @@
 # CRUD
 
-On previous pages you have learned how to configure BeeORM and update MySQL schema.
-Now it's time to play with [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete)
-actions.
+In the previous sections, you learned how to configure BeeORM and update the MySQL schema. Now it's time to perform CRUD (Create, Read, Update, and Delete) actions using BeeORM.
 
-All examples here are build on top of this code:
+The following examples build upon the following code base:
 
 ```go
 package main
@@ -54,10 +52,9 @@ func main() {
 }  
 ```
 
-## Saving new entities
+## Saving New Entities
 
-There are many ways to store an entity in a new database.
-The Simplest way is to use `engine.Flush()` method:
+There are various ways to store a new entity in a database using BeeORM. The simplest method is to use the `engine.Flush()` method, which inserts the entity into the database and updates its ID field with the primary key value:
 
 <code-group>
 <code-block title="code">
@@ -67,7 +64,7 @@ engine.Flush(category)
 ```
 </code-block>
 
-<code-block title="sql">
+<code-block title="queries">
 ```queries
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
 REDIS DELETE CacheForCategory1
@@ -75,7 +72,7 @@ REDIS DELETE CacheForCategory1
 </code-block>
 </code-group>
 
-You can save more than one entity at once using `engine.FlushMany()` method:
+You can save multiple entities at once using the `engine.FlushMany()` method:
 
 <code-group>
 <code-block title="code">
@@ -97,16 +94,10 @@ REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1
 </code-group>
 
 ::: tip
-As you can see in above example `FlushMany()` executed only two SQL queries.
-Both categories were added to MySQL using only one INSERT query. BeeORM query
-optimizer is always trying to group all queries to MySQL and Redis to minimize 
-number of queries. That's why if you need to save more than one entity at once
-always use `FlushMany()` instead of running Flush()` many times.
+Note that `FlushMany()` only generates two SQL queries, as BeeORM's query optimizer groups all queries to MySQL and Redis to minimize the number of queries. It is always more efficient to use `FlushMany()` to save multiple entities at once, rather than calling `Flush()` multiple times.
 :::
 
-Every time new entity is saved in MySQL, BeeORM automatically sets inserted
-primary key in `ID` field. Each entity provides getter `GetID()` that is 
-useful if you pass type `beeorm.Entity` in your code:
+Every time a new entity is saved to MySQL, BeeORM automatically sets the inserted primary key value in the ID field of the entity. Each entity provides a `GetID()` method that is useful if you pass the `beeorm.Entity` type in your code:
 
 ```go
 func printID(entity beeorm.Entity) uint64 {
@@ -120,7 +111,7 @@ categoryCars.ID // 1
 printID(categoryCars) // "ID: 1"
 ```
 
-If needed you can define ID for new entities:
+If needed, you can define the ID for new entities by setting the ID field before flushing the entity:
 
 <code-group>
 <code-block title="code">
@@ -139,16 +130,11 @@ REDIS DELETE CacheForCategory10
 </code-block>
 </code-group>
 
-As you can see `Flush()` method is not returning any error. 
-BeeORM will panic instead. Probably most go developers reading this 
-got a heart attack. Internet is full of articles where developers 
-are debating (fighting:)) which approach is better. 
-BeeORM is used in many projects by many developers. After many
-emotional discussions everyone agreed that `panicing` is a right approach
-in all actions that connect to external service as database.
+By default, the `Flush()` method of BeeORM does not return any errors. Instead, it will panic if an error occurs. This approach is preferred in actions that connect to external services such as databases, as it ensures that any issues are immediately addressed. However, in some cases, you may want to handle specific errors that may occur when saving an entity. For example, you may want to catch errors related to duplicate or invalid values in MySQL indexes.
 
-There are some situations where developer is expecting to get specific errors when
-entity is flushed. In this case you can use `engine.FlushWithCheck()` method:
+To handle these specific errors, you can use the `engine.FlushWithCheck()` method, which returns either a `*beeorm.DuplicatedKeyError` or a `*beeorm.ForeignKeyError` in case of a duplicate or invalid value in a MySQL index, respectively. Any other errors, such as an unavailable MySQL server, will still cause a panic.
+
+Here is an example of using `engine.FlushWithCheck()` to handle specific errors:
 
 <code-group>
 <code-block title="code">
@@ -178,18 +164,11 @@ REDIS DELETE CacheForCategory1, CacheForCategory2
 </code-block>
 </code-group>
 
-`engine.FlushWithCheck()` return only one of two errors:
- * `*beeorm.DuplicatedKeyError` - duplicated value in one of MySQL unique indexes
- * `*beeorm.ForeignKeyError` - invalid value in one of MySQL foreign indexes
-
-Any other error (for instance unavailable MySQL server) will cause panic.
-
 ### On duplicate key update
 
-MySQL has an amazing feature [INSERT ON DUPLICATE KEY](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)
-that is fully supported in BeeORM. In above example, we got `*beeorm.DuplicatedKeyError` 
-because we are trying to store two `CategoryEntity` with the same code. Use `SetOnDuplicateKeyUpdate()` method
-to define correct duplicate key statement:
+MySQL has a useful feature called [INSERT ON DUPLICATE KEY UPDATE](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html) that allows you to update an existing entity if it has a duplicate key in the database. BeeORM fully supports this feature and allows you to use it through the SetOnDuplicateKeyUpdate() method of an entity.
+
+For example, consider the following code:
 
 <code-group>
 <code-block title="code">
@@ -211,27 +190,29 @@ REDIS DELETE CacheForCategory10
 </code-block>
 </code-group>
 
-As you can see `Flush()` run correct query and set `ID` to 10. Is some cases you don't need to
-update any field if inserted entity has duplicated key. In this case simply provide nil as bind:
+In some cases, you may not want to update any fields if the entity you are trying to insert has a duplicate key in the database. In this case, you can simply provide `nil` as the bind parameter when calling the `SetOnDuplicateKeyUpdate()` method.
+
+For example, consider the following code:
 
 <code-group>
 <code-block title="code">
 ```go{3}
- // let's assume we have category in database with `Code` = cars and `ID` = 10:
+// Let's assume we have a category in the database with Code = "cars" and ID = 10:
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
 category.SetOnDuplicateKeyUpdate(nil)
-engine.Flush(categoryCars) // no panic
-category.ID // 10
+engine.Flush(category) // No panic
+fmt.Println(category.ID) // 10
 ```
 </code-block>
 
 <code-block title="sql">
 ```queries
 INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `ID` = `ID`
-REDIS DELETE CacheForCategory10
 ```
 </code-block>
 </code-group>
+
+As you can see, the Flush() method does not panic and the ID field of the category entity is set to 10. The ON DUPLICATE KEY UPDATE clause ensures that no fields are updated if a duplicate key is detected.
 
 ### Flushing references
 
