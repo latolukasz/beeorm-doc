@@ -214,10 +214,9 @@ INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDAT
 
 As you can see, the Flush() method does not panic and the ID field of the category entity is set to 10. The ON DUPLICATE KEY UPDATE clause ensures that no fields are updated if a duplicate key is detected.
 
-### Flushing references
+### Flushing References
 
-BeeORM automatically flushes all new entities (entities with ID equal to 0) assigned in flushed
-entity as reference. Look at this example:
+BeeORM automatically flushes all new entities (entities with an ID of 0) that are assigned as references in a flushed entity. For example:
 
 <code-group>
 <code-block title="code">
@@ -245,8 +244,8 @@ REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1, CacheForPro
 </code-block>
 </code-group>
 
-Sometimes you need to define referenced entity, and you know only it's `ID` value.
-You can assign it as a new entity that has field `ID` set to correct value:
+
+Sometimes you may need to define a referenced entity, but you only know its `ID` value. In this case, you can assign it as a new entity with the `ID` field set to the correct value:
 
 <code-group>
 <code-block title="code">
@@ -264,16 +263,17 @@ REDIS DELETE CacheForProduct1
 </code-block>
 </code-group>
 
-## Dirty state
+Note that the CategoryEntity with an ID of 7 will not be inserted into the database, as it is being referenced rather than created as a new entity.
 
-Entity is called dirty if it has changes that need to be applied in MySQL table:
- * new entity that needs to be inserted to MySQL table
- * entity that needs to be deleted
- * entity that needs to be edited in MySQL table because at least one column value is
-different
-   
-You can check dirty state using `IsDirty()` method. Another method `GetDirtyBind()` 
-returns additional map with fields that needs to inserted/updated:
+## Dirty State
+
+An entity is considered "dirty" if it has changes that need to be applied to the corresponding MySQL table. Examples of dirty states include:
+
+ * A new entity that needs to be inserted into the MySQL table.
+ * An entity that needs to be deleted.
+ * An entity that needs to be edited in the MySQL table because at least one column value has changed.
+
+You can check the dirty state of an entity using the `IsDirty()` method. The `GetDirtyBind()` method returns a map with the fields that need to be inserted or updated.
 
 ```go{2-3}
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
@@ -292,15 +292,12 @@ category.Code = "cars" // setting back to oryginal value
 bind, isDirty := category.GetDirtyBind() // isDirty = false
 ```
 
-You can flush entities that are not dirty, but BeeORM is simply skip these
-entities and no queries are sent to MySQL. Knowing that you can run `Flush()` 
-methods as many times you want and BeeORM will update database and cache only
-when it's needed:
+You can flush entities that are not dirty, but BeeORM will simply skip these entities and no queries will be sent to MySQL. This means that you can run the `Flush()` method as many times as you want, and BeeORM will only update the database and cache when it is necessary.
 
 ```go
-// we don't know what is changed in category inside `DoSmthWithCactegory` method: 
+// we don't know what changes were made to the category inside the `DoSmthWithCactegory` method: 
 some_package.DoSmthWithCactegory(category)
-// but we ask BeeORM to save changes if any:
+// but we ask BeeORM to save any changes that were made:
 engine.Flush(category)
 ```
 
