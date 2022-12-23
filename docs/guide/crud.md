@@ -301,10 +301,11 @@ some_package.DoSmthWithCactegory(category)
 engine.Flush(category)
 ```
 
-## Loading entities
+## Loading Entities
 
-There are many ways to load entities from database when we know primary key.
-You can use `engine.Load()` method:
+There are several ways to load entities from the database when you know the primary key. 
+
+You can use the `engine.Load()` method:
 
 <code-group>
 <code-block title="code">
@@ -329,7 +330,7 @@ REDIS SET cacheKeyForProduct1 "entity data"
 </code-block>
 </code-group>
 
-Another way is to use `engine.LoadByID()`:
+Another option is to use `engine.LoadByID()`:
 
 <code-group>
 <code-block title="code">
@@ -354,7 +355,7 @@ REDIS SET cacheKeyForProduct1 "entity data"
 </code-block>
 </code-group>
 
-In case you need to load more than one entity use `engine.LoadByIDs()`:
+If you need to load more than one entity, you can use `engine.LoadByIDs()`:
 
 <code-group>
 <code-block title="code">
@@ -382,10 +383,10 @@ REDIS MSET cacheKeyForProducts1 "entity1 data" cacheKeyForProducts2 "entity2 dat
 </code-block>
 </code-group>
 
-Missing entities are returned as nil:
+If an entity is not found, it will be returned as `nil`:
 
 ```go
-// we have only product in table with ID 1 and 2
+// we have only products with IDs 1 and 2 in the table
 var products []*ProductEntity{}
 engine.LoadByIDs([]uint64{1, 2, 3}, &products)
 len(products) == 3 // true
@@ -394,16 +395,12 @@ products[1].ID // 2
 products[2] == nil // true
 ```
 
-### Loaded state
+### Loaded State
 
-Every entity store internally data that is stored in MySQL table. Thanks to that
-BeeORM knows when entity is dirty and needs to be flushed. This data is stored 
-every time new entity is flushed (saved) or loaded from database. You can use
-`entity.IsLoaded()` method to determine if entity has this data and can track 
-changes or not:
+Every entity stores internally the data that is stored in the corresponding MySQL table. This allows BeeORM to track changes and determine if an entity is "dirty" and needs to be flushed (saved) to the database. This data is stored in the entity every time a new entity is flushed or loaded from the database. You can use the `entity.IsLoaded()` method to determine if an entity has this data and can track changes:
 
 ```go{2,4,7,9,12,14}
-category := &CategoryEntity{Code: "cars", Name: "Cars"}
+category := &CategoryEntity{ID: 22, Code: "cars", Name: "Cars"}
 category.IsLoaded() // false, entity needs to be inserted in MySQL table
 engine.FLush(category)
 category.IsLoaded() // true, entity data is saved in database
@@ -419,8 +416,7 @@ product.Load(product2)
 product2.IsLoaded() // true
 ```
 
-`entity.IsLoaded()` and `entity.Load()` are very useful when you
-need to work with references:
+The `entity.IsLoaded()` and `entity.Load()` methods are particularly useful when working with references:
 
 ```go{3-5}
 product := &ProductEntity{}
@@ -430,32 +426,29 @@ engine.Load(product.Category)
 product.Category.Loaded() // true
 ```
 
-## Loading references
+## Loading References
 
-Very often when you are loading entity you also need data from
-connected referenced entities. For example on product page you need
-to display product title, it's category, brand and brand logo.
-You can do it this way:
+Often when loading an entity, you also need data from the connected referenced entities. For example, on a product page, you might need to display the product title, its category, brand, and brand logo. One way to do this is as follows:
 
 <code-group>
 <code-block title="code">
 ```go
 product := &ProductEntity{}
 engine.LoadByID(1, product)
-product.Name // "Ford focus"
-product.Category.ID // 1
-product.Brand.ID // 1
-product.Category.Name // "" because entity data is not Loaded
-product.Brand.Name // "" because entity data is not Loaded
-product.Brand.Logo // nil because entity data is not Loaded
+product.Name // returns "Ford focus"
+product.Category.ID // returns 1
+product.Brand.ID // returns 1
+product.Category.Name // returns an empty string because the entity data is not Loaded
+product.Brand.Name // returns an empty string because the entity data is not Loaded
+product.Brand.Logo // returns nil because the entity data is not Loaded
 engine.Load(product.Category)
 engine.Load(product.Brand)
-product.Category.Name // "Cars"
-product.Brand.Name // "Ford"
-product.Brand.Logo.ID // 1
-product.Brand.Logo.Name // "" because entity data is not Loaded
+product.Category.Name // returns "Cars"
+product.Brand.Name // returns "Ford"
+product.Brand.Logo.ID // returns 1
+product.Brand.Logo.Name // returns an empty string because the entity data is not Loaded
 engine.Load(product.Brand.Logo)
-product.Brand.Logo.Url // "/images/ford.png"
+product.Brand.Logo.Url // returns "/images/ford.png"
 ```
 </code-block>
 
@@ -486,10 +479,7 @@ REDIS SET cacheKeyForImage1 "entity data"
 </code-block>
 </code-group>
 
-What if we can make this code much simpler and faster?
-Every method used to load entities like `Load()`, `LoadByID`, `LoadByIDs` accepts
-optional parameters `references` than can be used to inform BeeORM that specific 
-references should be loaded together with entity:
+Is it possible to make this code simpler and faster? Every method used to load entities, such as `Load()`, `LoadByID()`, and `LoadByIDs()`, accepts optional references parameters that can be used to instruct BeeORM to load specific references together with the entity:
 
 <code-group>
 <code-block title="code">
@@ -527,9 +517,7 @@ REDIS SET cacheKeyForImage1 "entity data"
 </code-block>
 </code-group>
 
-As you can see above code is not even much simpler but also produces fewer
-requests to MySQL and Redis. Look how queries are generated when you use this feature
-to load many entities at once:
+As you can see, the code above is not only simpler, but it also produces fewer requests to MySQL and Redis. Notice how queries are generated when you use the references feature to load multiple entities at once:
 
 <code-group>
 <code-block title="code">
@@ -564,7 +552,7 @@ REDIS MSET cacheKeyForImage1 "entity data" cacheKeyForImage2 "entity data" cache
 </code-block>
 </code-group>
 
-This code produces only three queries to redis. Pretty cool right?
+This code generates only three queries to Redis, making it a very efficient way to load multiple entities with their references. Isn't that cool?
 
 ## Updating entities
 
