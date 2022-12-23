@@ -1,13 +1,12 @@
-# Search
+# Searching for Entities
 
-On previous page you learned how to load entities from database using their primary keys.
-In this section you will learn how to search and load entities.
+In the previous section, you learned how to load entities from a database using their primary keys. In this section, we will cover how to search and load entities using other criteria. This can be useful when you want to find specific entities that meet certain conditions or when you want to retrieve a list of entities that match a certain search query. We will explore different techniques for searching and loading entities using various filters and search parameters.
 
-## Pager
+## Using the Pager Object
 
-It's a good practice to always limit number of rows used in search with sql 
-``LIMIT`` condition. BeeORM provides special object ``Pager`` used to define 
-proper SQL syntax in your queries:
+It is a good practice to limit the number of rows returned in a search query using the `LIMIT` condition in SQL. The BeeORM library provides a special object called the `Pager` to help define the proper SQL syntax for pagination in your queries.
+
+Here is an example of how to use the Pager object:
 
 ```go
 // load first 100 rows
@@ -24,29 +23,33 @@ pager.IncrementPage() // LIMIT 200, 100
 pager.GetCurrentPage() // 3
 ```
 
-## Where
+## Using the Where Object
 
-Every SQL search query requires search conditions. 
-You can define them with ``beeorm.Where`` object:
+Every SQL search query requires specific search conditions to be defined. The `beeorm.Where` object can be used to define these conditions in a convenient and flexible way.
+
+Here is an example of how to use the `Where` object:
 
 ```go
 // WHERE Email = "bee@beeorm.io" AND Age >= 18
 where := beeorm.NewWhere("Email = ? AND Age >= ?", "bee@beeorm.io", 18)
-where.String() // "Email = ? AND Age >= ?"
-where.GetParameters() // []interface{}{"bee@beeorm.io", 18}
+where.String() // returns: "Email = ? AND Age >= ?"
+where.GetParameters() // returns: []interface{}{"bee@beeorm.io", 18}
 
+// update the first parameter
 where.SetParameter(1, "lion@beeorm.io")
-where.GetParameters() // []interface{}{"lion@beeorm.io", 18}
+where.GetParameters() // returns: []interface{}{"lion@beeorm.io", 18}
 
+// update all parameters
 where.SetParameters("elephant@beeorm.io", 20)
-where.GetParameters() // []interface{}{"elephant@beeorm.io", 20}
+where.GetParameters() // returns: []interface{}{"elephant@beeorm.io", 20}
 
+// append additional conditions
 where.Append("AND Age <= ?", 60)
-where.String() // "Email = ? AND Age >= ? AND Age <= ?"
-where.GetParameters() // []interface{}{"elephant@beeorm.io", 20, 60}
+where.String() // returns: "Email = ? AND Age >= ? AND Age <= ?"
+where.GetParameters() // returns: []interface{}{"elephant@beeorm.io", 20, 60}
 ```
 
-You should also use ``beeorm.Where`` to define ``ORDER BY`` in query:
+You can also use the `Where` object to define the `ORDER BY` clause in a query:
 
 ```go
 // WHERE 1 ORDER BY Age
@@ -54,8 +57,7 @@ where := beeorm.NewWhere("1 ORDER BY Age")
 // WHERE Age > 10 ORDER BY Age
 where := beeorm.NewWhere("Age > ? ORDER BY Age", 10)
 ```
-When you pass slice as an argument ``beeorm.Where`` converts it into
-sql ``IN (?,?...)`` syntax making your life a bit simpler:
+If you pass a slice as an argument to `beeorm.Where`, it will automatically convert it into the `SQL IN (?,?,...)` syntax, which can simplify your code. For example:
 
 ```go
 where := beeorm.NewWhere("Age IN ?", []int{18, 20, 30})
@@ -63,10 +65,11 @@ where.String() // WHERE Age IN (?,?,?)
 where.GetParameters() // []interface{}{18, 20, 30}
 ```
 
-## Searching for entities
+## Searching for Entities
 
-Method ``engine.Search()`` is used to search entities using SQL query condition.
-It requires ``beeorm.Where``, ``beeorm.Pager`` and reference to slice of entities.
+The `engine.Search()` method is used to search for entities using a SQL query condition. It requires a `beeorm.Where` object, a `beeorm.Pager` object, and a reference to a slice of entities.
+
+Here is an example of how to use the `engine.Search()` method:
 
 <code-group>
 <code-block title="code">
@@ -111,7 +114,7 @@ SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 
 </code-group>
 
 
-Pager is optional, you can provide nil but BeeORM will still limit results to **50000** rows.
+The Pager object is optional. If you provide nil, BeeORM will still limit the results to **50 000** rows.
 
 <code-group>
 <code-block title="code">
@@ -127,8 +130,7 @@ SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 
 </code-block>
 </code-group>
 
-You can also provide optional parameters to define which references should be loaded. 
-You can read more about this feature on [CRUD/loading references](/guide/crud.html#loading-references) page.
+You can also provide optional parameters to define which references should be loaded. You can read more about this feature on the [CRUD/loading references](/guide/crud.html#loading-references) page.
 
 <code-group>
 <code-block title="code">
@@ -146,8 +148,7 @@ SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 
 </code-block>
 </code-group>
 
-If you need total found rows you can use ``engine.SearchWithCount()`` method that works exactly
-the same as ``engine.Search()`` with only one difference - it returns total found rows as `int`.
+If you need the total number of found rows, you can use the `engine.SearchWithCount()` method, which works exactly the same as `engine.Search()`, with the only difference being that it returns the total number of found rows as an int.
 
 <code-group>
 <code-block title="code">
@@ -164,9 +165,9 @@ SELECT COUNT(1) FROM `UserEntity` WHERE FirstName = "Adam"
 </code-block>
 </code-group>
 
-## Searching for entity
+## Searching for a Single Entity
 
-If you need to search one entity use ``engine.SearchOne()``:
+If you need to search for a single entity, you can use the `engine.SearchOne()` method:
 
 <code-group>
 <code-block title="code">
@@ -192,13 +193,12 @@ SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 
 </code-group>
 
 ::: tip
-This method is always adding `LIMIT 1` in SQL queries so in case your query selects more
-than one row from database, first row will be returned.
+This method always adds `LIMIT 1` to the SQL query, so if your query selects more than one row from the database, only the first row will be returned.
 :::
 
-## Searching for primary keys
+## Searching for Primary Keys
 
-You can also search for entity primary keys only with ``engine.SearchIDs()``:
+You can use the `engine.SearchIDs()` method to search for the primary keys of an entity:
 
 <code-group>
 <code-block title="code">
@@ -218,7 +218,3 @@ SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
 </code-block>
 </code-group>
 
-:::tip
-If Entity has [FakeDelete](/guide/entity_fields.html#fake-delete) field do not forget
-to add `WHERE FakeDelete = 0` in your query.
-:::
