@@ -623,9 +623,9 @@ engine.Flush(newCategory)
 
 This will create a copy of the category entity, assign a new value to its Name field, and save it as a new row in the database. The original category entity will remain unchanged.
 
-## Deleting entities
+## Deleting Entities
 
-Entity is deleted from MySQL table with `engine.Delete()` method:
+In BeORM, entities can be deleted from a MySQL table using the `engine.Delete()` method. For example:
 
 <code-group>
 <code-block title="code">
@@ -645,7 +645,9 @@ REDIS SET cacheKeyForProduct1 "nil"
 </code-block>
 </code-group>
 
-Use `engine.DeleteMany()` to delete many entities at once:
+This will delete the `ProductEntity` with an ID of 1 from the table.
+
+To delete multiple entities at once, use the `engine.DeleteMany()` method:
 
 <code-group>
 <code-block title="code">
@@ -665,9 +667,9 @@ REDIS MSET cacheKeyForProduct1 "nil" cacheKeyForProduct2 "nil"
 </code-block>
 </code-group>
 
-If entity has  [FakeDelete field](/guide/entity_fields.html#fake-delete)
-then above methods work differently. Instead of deleting rows from table special update 
-query is executed:
+This will delete all ProductEntity objects with an ID of 1 or 2 from the table.
+
+If the entity has a  [FakeDelete field](/guide/entity_fields.html#fake-delete), the above methods will work differently. Instead of deleting rows from the table, a special update query will be executed:
 
 <code-group>
 <code-block title="code">
@@ -687,8 +689,9 @@ REDIS DELETE cacheKeyForCategory3
 </code-block>
 </code-group>
 
-To force entity that has `FakeDelete` field to be deleted from MySQL table
-use `engine.ForceDelete` or `engine.ForceDeleteMany`:
+This will update the FakeDelete field for the CategoryEntity with an ID of 3 in the table, rather than deleting the row.
+
+To force an entity with a `FakeDelete` field to be deleted from the MySQL table, use the `engine.ForceDelete()` or `engine.ForceDeleteMany()` methods:
 
 <code-group>
 <code-block title="code">
@@ -708,12 +711,13 @@ REDIS SET cacheKeyForCategory3 "nil"
 </code-block>
 </code-group>
 
-## Flusher
+This will delete the `CategoryEntity` with an ID of 3 from the table, even if it has a `FakeDelete` field.
 
-BeeORM provides special object `beeorm.Flusher` that is very useful when
-you need to add, update and delete many entities at the same time. This object
-allows you to "track" entities and provides flush methods that update all tracked 
-dirty entities at once:
+## Using the Flusher
+
+The `beeorm.Flusher` is a useful tool in BeeORM when you need to add, update, and delete multiple entities at the same time. It allows you to "track" entities and provides flush methods that update all tracked dirty entities at once.
+
+Here's an example of using the `Flusher`:
 
 <code-group>
 <code-block title="code">
@@ -745,8 +749,7 @@ flusher.ForceDelete(categoryToDeleteFromTable)
 </code-block>
 </code-group>
 
-Great, we are tracing all entities, now it's time to execute
-updates in database:
+Once you have finished tracking the entities you want to update or delete, you can execute the updates and deletions by calling the `Flush()` method on the `Flusher` object:
 
 <code-group>
 <code-block title="code">
@@ -767,7 +770,14 @@ REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cac
 </code-block>
 </code-group>
 
-Flusher also provides methods that flush that return error: 
+This will execute all of the necessary queries to update or delete the tracked entities in the database. For example, if you tracked an entity to be inserted, updated, and deleted, the `Flush()` method will execute the appropriate INSERT, UPDATE, and DELETE queries.
+
+
+The `beeorm.Flusher` provides several methods for flushing tracked entities to the database. These methods include:
+
+ * `FlushWithCheck()`, which returns a `*beeorm.DuplicatedKeyError` or `*beeorm.ForeignKeyError` if an error occurs during the flush.
+ * `FlushWithFullCheck()`, which returns an error instead of panicking if an error occurs during the flush.
+
 
 ```go
 // returns *beeorm.DuplicatedKeyError or *beeorm.ForeignKeyError
@@ -779,56 +789,9 @@ err := flusher.FlushWithCheck()
 err := flusher.FlushWithFullCheck()
 ```
 
-You can use `beeorm.Flusher` to execute all MySQL queries in one transaction.
-BeeORM automatically run MySQL `ROLLBACK` query before panic():
+The `beeorm.Flusher` allows you to track entities for updates and deletions, but it does not remove them from the tracker after they are flushed to the database. To stop tracking an entity, you can use the `flusher.Clear()` method.
 
-<code-group>
-<code-block title="code">
-```go
-flusher.FlushInTransaction()
-```
-</code-block>
-
-<code-block title="queries">
-```sql
-START TRANSACTION
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
-INSERT INTO `BrandEntity`(`Code`, `Name`) VALUES(?, ?)
-UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
-UPDATE `CategoryEntity` SET `FakeDelete` = 10 WHERE `ID` = 10
-DELETE FROM `CategoryEntity` WHERE `ID` = 11
-COMMIT
-REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cacheKeyForCategory12 cacheKeyForProduct1
-```
-</code-block>
-</code-group>
-
-In case you expect `*beeorm.DuplicatedKeyError` or `*beeorm.ForeignKeyError` error use
-`flusher.FlushInTransactionWithCheck()` method:
-
-<code-group>
-<code-block title="code">
-```go
-flusher.FlushInTransactionWithCheck()
-```
-</code-block>
-
-<code-block title="queries">
-```sql
-START TRANSACTION
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
-INSERT INTO `BrandEntity`(`Code`, `Name`) VALUES(?, ?)
-UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
-UPDATE `CategoryEntity` SET `FakeDelete` = 10 WHERE `ID` = 10
-DELETE FROM `CategoryEntity` WHERE `ID` = 11
-COMMIT
-REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cacheKeyForCategory12 cacheKeyForProduct1
-```
-</code-block>
-</code-group>
-
-Flushing entities in `beeorm.Flusher` doesn't remove entities and all of them are
-still tracked for new changes. To un-track all entities use `flusher.Clear()` method:
+For example:
 
 ```go{7}
 category := &CategoryEntity{Name: "New category"}
@@ -842,12 +805,18 @@ category.Name = "Another name"
 flusher.Flush() // does nothing, category is not tracked
 ```
 
-## Clearing entity cache
+This code will insert the category entity into the database, then update it with a new name. However, after the `flusher.Clear()` method is called, any further updates to the category entity will not be tracked and will not be applied to the database when the `Flush()` method is called.
 
-Sometimes you may need to manually clear entity data in cache.
-Simply use `beeorm.ClearCacheByIDs()` method:
+## Clearing Entity Cache
+
+In BeeORM, you can use the `beeorm.ClearCacheByIDs()` method to manually clear cached entity data. This can be useful if you need to update the cache after making changes to an entity in the database.
+
+Here's an example of how to use the `ClearCacheByIDs()` method:
 
 ```go{2}
 var categoryEntity CategoryEntity
 engine.ClearCacheByIDs(categoryEntity, 7, 13, 33)
 ```
+
+This will clear the cache for the specified entities with the IDs 7, 13, and 33 of the CategoryEntity type. After calling this method, the next time these entities are loaded from the database, the cache will be updated with the latest data from the database.
+
