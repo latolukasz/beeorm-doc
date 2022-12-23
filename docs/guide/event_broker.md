@@ -66,7 +66,7 @@ registry.RegisterRedis("localhost:6379", 0)
 registry.RegisterRedisStream("stream-a", "default", []string{"read-group-a", "read-group-ab"})
 registry.RegisterRedis("192.168.1.20:6379", 3, "second")
 registry.RegisterRedisStream("stream-a", "default", []string{"read-group-c"})
-validatedRegistry, deferF, err := registry.Validate()
+validatedRegistry, err := registry.Validate()
 fmt.Print(err) // "stream with name stream-a aleady exists"
 ```
 :::

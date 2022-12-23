@@ -25,7 +25,7 @@ engine.GetMysql().Exec(query)
 `GetRedisStatistics` function provides detailed statistics for every
 registered redis server:
 
-```go{18}
+```go{17}
 package main
 
 import (
@@ -36,11 +36,10 @@ import (
 func main() {
    registry := beeorm.NewRegistry()
    registry.RegisterRedis("localhost:6379", 0)
-   validatedRegistry, deferF, err := registry.Validate()
+   validatedRegistry, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-    defer deferF()
     engine := validatedRegistry.CreateEngine()
     
     for _, statistics := range tools.GetRedisStatistics(engine) {

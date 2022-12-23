@@ -3,7 +3,7 @@
 One of the main benefits of using an ORM is the ability to generate and update a database schema based on the data structures in your code. In BeeORM, these data structures are represented as registered entities. There are two ways to generate or update the MySQL schema in BeeORM:
 
 The recommended approach is to use the GetAlters() method of the beeorm.Engine object. This method compares the current MySQL schema in all the MySQL databases used by the registered entities and returns detailed information that can be used to update the schema. Here is an example of how to use the `GetAlters()` method:
-```go{22}
+```go{21}
 package main
 
 import "github.com/latolukasz/beeorm"
@@ -18,11 +18,10 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/products", "products")
     registry.RegisterEntity(&CategoryEntity{})
-    validatedRegistry, deferF, err := registry.Validate()
+    validatedRegistry, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-    defer deferF()
     engine := validatedRegistry.CreateEngine()
     
     alters := engine.GetAlters()

@@ -10,11 +10,10 @@ import "github.com/latolukasz/beeorm"
 func main() {
    registry := beeorm.NewRegistry()
    // ... register services in registry
-   validatedRegistry, deferF, err := registry.Validate()
+   validatedRegistry, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-    defer deferF()
     
     waitGroup := &sync.WaitGroup{}
     

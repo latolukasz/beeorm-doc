@@ -43,11 +43,10 @@ func main() {
     registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db") 
     registry.RegisterRedis("localhost:6379", 0)
     registry.RegisterEntity(&CategoryEntity{}, &BrandEntity{}, &ImageEntity{}, &ProductEntity{}) 
-    validatedRegistry, deferF, err := registry.Validate()
+    validatedRegistry, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-    defer deferF()
     engine := validatedRegistry.CreateEngine()
 }  
 ```
