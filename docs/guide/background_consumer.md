@@ -1,8 +1,6 @@
-# Background consumer
+# Background Consumer
 
-Many operations in BeeORM, that we will explain later on next pages, require
-some background asynchronous tasks to be executed. To use these features you must
-run at least one goroutine or go program that is executing `beeorm.BackgroundConsumer`:
+Many operations in BeeORM, which will be explained in later pages, require asynchronous tasks to be executed in the background. To use these features, you must run at least one goroutine or Go program that executes `beeorm.BackgroundConsumer`:
 
 ```go{13-14}
 package main
@@ -17,50 +15,26 @@ func main() {
         panic(err)
     }
     defer deferF()
-    engine := validatedRegistry.CreateEngine()
-    consumer := beeorm.NewBackgroundConsumer(engine)
-    consumer.Digest(context.Background()) // code is blocked here
+    
+    waitGroup := &sync.WaitGroup{}
+    
+    ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+    defer stop()
+    go func() {
+      waitGroup.Add(1)
+      defer waitGroup.Done()
+      engine := validatedRegistry.CreateEngine()
+      consumer := beeorm.NewBackgroundConsumer(engine)
+      consumer.Digest(ctx)
+    }
+    <-ctx.Done()
+    fmt.Print("CLOSING...")
+    stop()
+    waitGroup.Wait()
+    fmt.Println("[CLOSED]")
 }
-
 ```
 
-This script uses another BeeORM feature called `Event Consumer`. 
-You will learn more about on [next pages](/guide/event_broker.html#consuming-events).
-
-## Defining background consumer redis pools
-By default, all features related to `Background Consumer` create redis streams in
-``default`` redis pool name. You can define any pool name you want:
-
-
-<code-group>
-<code-block title="code">
-```go
-registry := beeorm.NewRegistry()
-registry.RegisterRedis("192.123.11.12:6379", "", 0, "another_pool")
-// lazy flush
-registry.RegisterRedisStream("orm-lazy-channel", "another_pool", []string{"orm-async-consumer"})
-// logs tables
-registry.RegisterRedisStream("orm-log-channel", "another_pool", []string{"orm-async-consumer"})
-// redis streams garbage collector
-registry.RegisterRedisStream("orm-stream-garbage-collector", "another_pool", []string{"orm-async-consumer"})
-```
-</code-block>
-
-<code-block title="yaml">
-```yml{4,5}
-another_pool:
-    redis: 192.123.11.12:6379
-    streams:
-        orm-lazy-channel:
-          - orm-async-consumer
-        orm-log-channel:
-          - orm-async-consumer
-        orm-redis-search-channel:
-          - orm-async-consumer
-        orm-stream-garbage-collector:
-          - orm-async-consumer
-```
-</code-block>
-</code-group>
-
-
+:::tip
+It's important to properly terminate your application as shown above. The `beeorm.BackgroundConsumer` needs time to finish any active tasks before the application is closed.
+:::
