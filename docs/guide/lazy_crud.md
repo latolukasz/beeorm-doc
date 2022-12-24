@@ -35,7 +35,7 @@ REDIS XAdd orm-lazy-channel event
 If the length of the `orm-lazy-channel` stream is high or growing, it means that you forgot to run the [background consumer](/guide/background_consumer.html) in your application.
 :::
 
-If you need to flush more than one entity, you can use the [Flusher](/guide/crud.html#flusher) and its` FlushLazy` method:
+If you need to flush more than one entity, you can use the [Flusher](/guide/crud.html#using-the-flusher) and its` FlushLazy` method:
 
 <code-group>
 <code-block title="code">
