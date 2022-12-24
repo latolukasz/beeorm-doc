@@ -1,18 +1,8 @@
-# Lazy CRUD
+# Lazy Flush
 
-So far you have learned how to work with [CRUD](/guide/crud.html) actions. 
-We are always trying to optimise our code in a way that every CRUD operation is as
-fast as possible and use minimum number of memory and allocations. 
-In some scenarios you may require even better performance, for instance in 
-scripts that operate on a huge amount of data. BeeORM provides special
-feature called *lazy* that helps you get top performance.
+In many scenarios, adding, editing, and deleting entities can be done asynchronously using BeeORM's `engine.FlushLazy` method. This method adds the necessary SQL queries to a special Redis stream called `orm-lazy-channel`. A [background consumer](/guide/background_consumer.html) script can then read these queries from the stream and execute them.
 
-## Lazy flush
-
-In many scenarios adding, editing and deleting entities can be executed asynchronously.
-BeeORM provides ``engine.Flush`` methods with prefix ``Lazy`` which adds all SQL queries
-into special redis stream. Then [background consumer](/guide/background_consumer.html) script
-will read these queries from redis stream and execute them:
+Here's an example of how to use `FlushLazy`:
 
 <code-group>
 <code-block title="code">
@@ -42,14 +32,10 @@ REDIS XAdd orm-lazy-channel event
 </code-group>
 
 ::: tip
-As you can see all queries are added as events to redis stream called 
-``orm-lazy-channel``. If length of this stream is high or is growing it means 
-you forgot to run [background consumer](/guide/background_consumer.html) in your 
-application.
+If the length of the `orm-lazy-channel` stream is high or growing, it means that you forgot to run the [background consumer](/guide/background_consumer.html) in your application.
 :::
 
-In case you need to flush more than one entity [Flusher](/guide/crud.html#flusher) you can use
-``flusher.FLushLazy()`` method:
+If you need to flush more than one entity, you can use the [Flusher](/guide/crud.html#flusher) and its` FlushLazy` method:
 
 <code-group>
 <code-block title="code">
@@ -76,6 +62,8 @@ REDIS XAdd orm-lazy-channel event event event
 ```
 </code-block>
 </code-group>
+
+## Defining lazy queries pool name
 
 You can define another redis pool for flush lazy stream:
 
