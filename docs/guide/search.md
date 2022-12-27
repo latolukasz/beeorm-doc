@@ -13,11 +13,13 @@ Here is an example of how to use the Pager object:
 pager := beeorm.NewPager(1, 100) // LIMIT 0, 100
 pager.GetPageSize() // 100
 pager.GetCurrentPage() // 1
+pager.String() // "LIMIT 0,100"
 
 // load next 100 rows (page nr 2)
 pager = beeorm.NewPager(2, 100) // LIMIT 100, 100
 pager.GetPageSize() // 100
 pager.GetCurrentPage() // 2
+pager.String() // "LIMIT 100,100"
 
 pager.IncrementPage() // LIMIT 200, 100
 pager.GetCurrentPage() // 3
