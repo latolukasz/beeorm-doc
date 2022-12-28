@@ -60,6 +60,17 @@ for {
 }
 ````
 
+:::note
+If your application shares a Redis database with other applications, it's important to use Redis key namespaces to ensure that each application uses a unique `BackgroundConsumer` lock. To do this, you can modify the Redis connection string as follows:
+
+```go
+registry.RegisterRedis("localhost:6379", "", 0, "application_keys_namespace")
+```
+
+This will help to prevent conflicts and ensure that each application can access its own `BackgroundConsumer` lock without interference from other applications.
+:::
+
+
 ## Handling panic in the BackgroundConsumer
 
 It's important to remember that the` BackgroundConsumer` may panic in certain situations, such as when the MySQL server goes down. To ensure that the `BackgroundConsumer` continues to function properly, you should include code that handles any potential panics and restarts the `BackgroundConsumer.Digest()` process if necessary. This will help to maintain the stability and reliability of your system. 
