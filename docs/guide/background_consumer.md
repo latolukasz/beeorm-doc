@@ -1,6 +1,6 @@
 # Background Consumer
 
-Many operations in BeeORM, which will be explained in later pages, require asynchronous tasks to be executed in the background. To use these features, you must run at least one goroutine or Go program that executes `beeorm.BackgroundConsumer`:
+Many operations in BeeORM, which will be explained in later pages, require asynchronous tasks to be executed in the background. To use these features, you must run one goroutine or Go program that executes `beeorm.BackgroundConsumer`:
 
 ```go{21-28}
 package main
