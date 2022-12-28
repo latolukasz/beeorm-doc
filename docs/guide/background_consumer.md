@@ -1,6 +1,6 @@
 # Background Consumer
 
-Many operations in BeeORM, which will be explained in later pages, require asynchronous tasks to be executed in the background. To use these features, you must run one goroutine or Go program that executes `beeorm.BackgroundConsumer`:
+Many operations in BeeORM, which will be explained in later pages, require asynchronous tasks to be executed in the background. To use these features, you must run one goroutine or Go program that executes `BackgroundConsumer`:
 
 ```go{21-28}
 package main
@@ -41,7 +41,7 @@ func main() {
 ```
 
 :::tip
-It's important to properly terminate your application as shown above. The `beeorm.BackgroundConsumer` needs time to finish any active tasks before the application is closed.
+It's important to properly terminate your application as shown above. The `BackgroundConsumer` needs time to finish any active tasks before the application is closed.
 :::
 
 ## Running more than one BackgroundConsumer
@@ -59,3 +59,7 @@ for {
     return
 }
 ````
+
+## Handling panic in the BackgroundConsumer
+
+It's important to remember that the` BackgroundConsumer` may panic in certain situations, such as when the MySQL server goes down. To ensure that the `BackgroundConsumer` continues to function properly, you should include code that handles any potential panics and restarts the `BackgroundConsumer.Digest()` process if necessary. This will help to maintain the stability and reliability of your system. 
