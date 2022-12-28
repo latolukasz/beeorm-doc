@@ -2,7 +2,7 @@
 
 Many operations in BeeORM, which will be explained in later pages, require asynchronous tasks to be executed in the background. To use these features, you must run at least one goroutine or Go program that executes `beeorm.BackgroundConsumer`:
 
-```go{21-22}
+```go{21-28}
 package main
 
 import "github.com/latolukasz/beeorm"
@@ -24,7 +24,13 @@ func main() {
       defer waitGroup.Done()
       engine := validatedRegistry.CreateEngine()
       consumer := beeorm.NewBackgroundConsumer(engine)
-      consumer.Digest(ctx)
+      for {
+			if !consumer.Digest(ctx) {
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			return
+		}
     }
     <-ctx.Done()
     fmt.Print("CLOSING...")
