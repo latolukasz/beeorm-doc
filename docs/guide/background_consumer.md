@@ -60,7 +60,7 @@ for {
 }
 ````
 
-:::note
+:::tip
 If your application shares a Redis database with other applications, it's important to use Redis key namespaces to ensure that each application uses a unique `BackgroundConsumer` lock. To do this, you can modify the Redis connection string as follows:
 
 ```go
