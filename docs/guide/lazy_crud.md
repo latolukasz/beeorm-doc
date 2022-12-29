@@ -63,8 +63,8 @@ instead or enable [UUID](/guide/uuid.html#enabling-uuid) for this entity (recomm
 ```go
 user := ProductEntity{Name: "Shoe"}
 engine.FlushLazy(user)
-
-c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf(""https://mysite.com/product/%d/", user.ID)) // bug, user.ID is still zero
+// bug, user.ID is still zero
+c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf(""https://mysite.com/product/%d/", user.ID)) 
 
 ```
 :::
