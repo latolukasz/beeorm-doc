@@ -11,7 +11,7 @@ Look at example below:
 
 <code-group>
 <code-block title="code">
-```go{3,8,12}
+```go{3,10,14,2-}
 // adding new entity
 user := &UserEntity{FirstName: "Tom", LastName: "Bee", Email: "bee@beeorm.io"}
 engine.FlushLazy(user) 
@@ -26,6 +26,12 @@ engine.FlushLazy(user, user2)
 // deleting entity
 engine.LoadByID(2, user)
 engine.DeleteLazy(user)
+
+// using Flusher
+flusher := engine.NewFlusher()
+flusher.Track(user, user2)
+flusher.Delete(user3)
+flusher.FlushLazy()
 ```
 </code-block>
 
@@ -58,7 +64,7 @@ If you see that queries are not executed and `statisticsStream.Len` is growing p
 :::
 
 :::warning
-Remember that `FLushLazy()` is not setting up ID in a new Entity. So if you need ID in your code you must use `Flush()`
+Remember that `FlushLazy()` is not setting up ID in a new Entity. So if you need ID in your code you must use `Flush()`
 instead or enable [UUID](/guide/uuid.html#enabling-uuid) for this entity (recommended).
 ```go
 user := ProductEntity{Name: "Shoe"}
