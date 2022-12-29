@@ -112,10 +112,6 @@ consumer := beeorm.NewBackgroundConsumer(engine)
 consumer.SetLazyFlushWorkers(20)
 ```
 
-:::tip
-You should increase this number if `engine.GetEventBroker().GetStreamGroupStatistics(beeorm.LazyChannelName, beeorm.BackgroundConsumerGroupName).Lag` is growing.
-:::
-
 ## Error resolver
 
 Using `FlushLazy()` is 
