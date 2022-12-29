@@ -114,7 +114,68 @@ consumer.SetLazyFlushWorkers(20)
 
 ## Error resolver
 
-Using `FlushLazy()` is 
+Using `FlushLazy()` can be tricky. When you are using `FlushLazy()` you must be sure data is validated and query
+can be executed in MySQL. Otherwise `BackgroundConsumer` will panic trying executing query and whole redis stream
+consumer is blocked until you gonna remove invalid query from redis stream. Look at example below
+
+```go
+user := User{Email: "user@mail.com"}
+engine.FlushLazy()
+```
+
+Now consider column `Email` in table `User` has Unique Index and there is already user with email `user@mail.com`.
+In this scenario `BackgroundConsumer` panics and while stream with lazy queries is blocked:
+
+```go
+//panics with error "Error 1062 (23000): Duplicate entry 'user@mail.com' for key 'Email'"
+beeorm.NewBackgroundConsumer(engine).Digest(ctx)
+```
+
+Of course, you should improve your code by checking if email is already in use before you run `engine.FlushLazy()`:
+
+```go
+email := "user@mail.com"
+if engine.SearchOne(beeorm.NewWhere("Email = ?", email), user) {
+  return fmt.Errorf("email %s is already in use", email)
+}
+user := User{Email: email}
+engine.FlushLazy()
+```
+
+But in real life you may end in situation where one query in lazy stream is invalid and `BackgroundConsumer` panics.
+BeeORM provides method `RegisterLazyFlushQueryErrorResolver` which helps you deal with such situations. Using this method
+you can register special functions which are executed (in a order you registered them) when query executed in `BackgroundConsumer` failed and allows you to
+deal with this error. If your function returns error it means issue is not solved by this function and `BackgroundConsumer` will try next registered function or will
+panic if there are no more registered function. But if you return `nil`instead you are instructing `BackgroundConsumer` that problem is solved and this query should be removed
+from lazy stream so `BackgroundConsumer` can continue with next query.
+
+To solve our scenario you may register two functions:
+
+```go
+backgroundConsumer := beeorm.NewBackgroundConsumer(engine)
+
+backgroundConsumer.RegisterLazyFlushQueryErrorResolver(func(_ Engine, _ *DB, sql string, queryError *mysql.MySQLError) error {
+   errorLogService.LogEror("lazy flush query [%s] faild with error %s", queryError.Error())
+   return queryError
+})
+
+backgroundConsumer.RegisterLazyFlushQueryErrorResolver(func(_ Engine, _ *DB, sql string, queryError *mysql.MySQLError) error {
+   errorLogService.LogEror("lazy flush query [%s] faild with error %s", queryError.Error())
+   if queryError.Number == 1062 { //Duplicate entry
+     return nil
+   }
+   return queryError
+})
+```
+
+As you can see first function logs all failed queries in error log, so developer can review these queries
+to find a source of the problem in application code and maybe execute some queries by hand to fix data in database.
+This function returns error so `BackgroundConsumer` will execute next registered function.
+
+Second function check if MySQL error code is 1062 (Duplicate entry '%s' for key %d) and if yes then
+returns nil instructing `BackgroundConsumer` to remove this query from stream and continue. 
+
+So from now all queries that throws MySQL error code 1062 will be automatically skipped and logged to error log.
 
 ## Not allowed actions (ON DUPLIKATE KEY, references)
 
