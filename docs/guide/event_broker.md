@@ -337,3 +337,5 @@ Lucky you BeeORM does it for you. Simply run at least one [background consumer](
 and this consumer will automatically remove all acknowledged events from every registered stream.
 So if you see that your streams length is growing and all events are acknowledged it means you forgot
 to run [background consumer](/guide/background_consumer.html).
+
+## Stream Statistics

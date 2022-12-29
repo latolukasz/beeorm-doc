@@ -1,6 +1,6 @@
 # Lazy Flush
 
-In many scenarios, adding, editing, and deleting entities can be done asynchronously using BeeORM's `engine.FlushLazy` method. This method adds the necessary SQL queries to a special Redis stream called `orm-lazy-channel`. A [background consumer](/guide/background_consumer.html) script can then read these queries from the stream and execute them.
+In many scenarios, adding, editing, and deleting entities can be done asynchronously using BeeORM's `engine.FlushLazy` method. This method adds the necessary SQL queries to a special [redis stream](https://redis.io/docs/data-types/streams/) called `orm-lazy-channel`. A [background consumer](/guide/background_consumer.html) script can then read these queries from the stream and execute them.
 
 Here's an example of how to use `FlushLazy`:
 
@@ -14,7 +14,9 @@ engine.FlushLazy(user)
 // updating entity
 engine.LoadByID(1, user)
 user.Name = "John"
-engine.FlushLazy(user)
+engine.LoadByID(2, user2)
+user.Name = "Ivona"
+engine.FlushLazy(user, user2)
 
 // deleting entity
 engine.LoadByID(2, user)
@@ -31,48 +33,30 @@ REDIS XAdd orm-lazy-channel event
 </code-block>
 </code-group>
 
-::: tip
-If the length of the `orm-lazy-channel` stream is high or growing, it means that you forgot to run the [background consumer](/guide/background_consumer.html) in your application.
-:::
+Don't forget to run the [background consumer](/guide/background_consumer.html) in your application which is reading
+all queries from redis stream and executes them. You can easily check statistics of this stream:
 
-If you need to flush more than one entity, you can use the [Flusher](/guide/crud.html#using-the-flusher) and its` FlushLazy` method:
-
-<code-group>
-<code-block title="code">
-```go{13}
-flusher := engine.NewFlusher()
-
-user := &UserEntity{FirstName: "Tom", LastName: "Bee", Email: "bee@beeorm.io"}
-flusher.Track(user) 
-var userToUpdate *UserEntity
-engine.LoadByID(1, userToUpdate)
-userToUpdate.Name = "John"
-flusher.Track(userToUpdate)
-var userToDelete *UserEntity
-engine.LoadByID(2, userToDelete)
-flusher.Delete(userToDelete)
-
-flusher.FlushLazy()
+```go
+statistics := engine.GetEventBroker().GetStreamGroupStatistics(beeorm.LazyChannelName, beeorm.BackgroundConsumerGroupName)
+statistics.Lag // shows how many lazy queries are still in stream waiting to be executed, works only with redis 7
+statistics.Pending // shows how many lazy queries are now processed by `BackgroundConsumer`
+statistics.LowerDuration // how old is the oldest query wating in stream to be executed
 ```
-</code-block>
 
-<code-block title="queries">
-```sql
-REDIS XAdd orm-lazy-channel event event event
-```
-</code-block>
-</code-group>
+We will explain more above statistics on [stream statistics page](/guide/event_broker.html#stream-statistics)
 
 ## Defining lazy queries pool name
 
-You can define another redis pool for flush lazy stream:
+By default BeeORM creates stream in `default` [redis data pool](/guide/data_pools.html#redis-server-pool).
+You can provide different pool name by registering stream `beeorm.LazyChannelName` together with `beeorm.BackgroundConsumerGroupName`
+consumer group name and your redis pool name, as showed on below example
 
 <code-group>
 <code-block title="code">
 ```go{3}
 registry := beeorm.NewRegistry()
 registry.RegisterRedis("192.123.11.12:6379", "", 0, "lazy")
-registry.RegisterRedisStream("orm-lazy-channel", "lazy", []string{"orm-async-consumer"})
+registry.RegisterRedisStream(beeorm.LazyChannelName, "lazy", []string{beeorm.BackgroundConsumerGroupName})
 ```
 </code-block>
 
@@ -96,3 +80,11 @@ parallel. By default Background consumer runs 11 queries in parallel. You can ch
 consumer := beeorm.NewBackgroundConsumer(engine)
 consumer.SetLazyFlushWorkers(20)
 ```
+
+## Error resolver
+
+TODO
+
+## Not allowed actions (ON DUPLIKATE KEY, references)
+
+TODO
