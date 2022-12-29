@@ -45,7 +45,7 @@ Redis, a popular key-value database, includes a powerful feature called streams 
 Here's an example of how to use the BeeORM event broker to publish and consume events with Redis streams:
 
 ```go
-broker := beeORMEngine.GetEventBroker()
+broker := engine.GetEventBroker()
 
 // Publish an event to a stream
 broker.Publish("stream-name", event)
