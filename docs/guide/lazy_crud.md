@@ -1,13 +1,10 @@
 # Lazy Flush
 
-Executing `engine.Lazy()` executes all queries to MySQL and Redis immediately.
-But in many scenarios you may prefer to run queries asynchronously, in another thread, so your code can continue
-without a need to wait a query is executed in database.
+By default, calling `engine.Lazy()` executes all queries to MySQL and Redis immediately. However, in many scenarios it may be more efficient to run queries asynchronously, in a separate thread, so that your code can continue without waiting for the query to be executed in the database.
 
-BeeORM provides special method `FlushLazy()` which is doing exactly it. Queries to MySQL and Redis are added to special [redis stream](https://redis.io/docs/data-types/streams/) 
-called `orm-lazy-channel`. Then [background consumer](/guide/background_consumer.html) is reading these queries and executes them.
+To support this use case, BeeORM provides the `FlushLazy()` method, which adds queries to a special [Redis stream](https://redis.io/docs/data-types/streams/) called `orm-lazy-channel`, from which they can be processed asynchronously by a [BackgroundConsumer](/guide/background_consumer.html).
 
-Look at example below:
+Here is an example of how `FlushLazy()` can be used:
 
 <code-group>
 <code-block title="code">
@@ -44,42 +41,37 @@ REDIS XAdd orm-lazy-channel event
 </code-block>
 </code-group>
 
-Above example adds three events (queries) to redis `orm-lazy-channel` stream. You can easily check statistics of this stream:
-
+This example adds three events to the `orm-lazy-channel` stream. You can check the statistics of this stream using the following code:
 ```go
 statisticsStream := engine.GetEventBroker().GetStreamStatistics(beeorm.LazyChannelName)
-statisticsStream.Len // number of events in a stream, both processed and waiting to be processed by stream group.
-statisticsStream.OldestEventSeconds // how old (in seconds) is olders query that needs to be executed
+statisticsStream.Len // number of events in the stream, both processed and waiting to be processed by the stream group
+statisticsStream.OldestEventSeconds // how old (in seconds) is the oldest query that needs to be executed
 
 statisticsConsumer := engine.GetEventBroker().GetStreamGroupStatistics(beeorm.LazyChannelName, beeorm.BackgroundConsumerGroupName)
-statisticsConsumer.Lag // shows how many lazy queries are still in stream waiting to be executed, works only with redis 7
-statisticsConsumer.Pending // shows how many lazy queries are now processed by `BackgroundConsumer`
-statisticsConsumer.LowerDuration // how old is the oldest query wating in stream to be executed
+statisticsConsumer.Lag // shows how many lazy queries are still in the stream waiting to be executed (works only with Redis 7)
+statisticsConsumer.Pending // shows how many lazy queries are currently being processed by `BackgroundConsumer`
+statisticsConsumer.LowerDuration // how old is the oldest query waiting in the stream to be executed
 ```
 
-We will explain more above statistics on [stream statistics page](/guide/event_broker.html#stream-statistics).
+More information about stream statistics can be found on the [stream statistics page](/guide/event_broker.html#stream-statistics).
 
 :::tip
-If you see that queries are not executed and `statisticsStream.Len` is growing probably you forgot to run [background consumer](/guide/background_consumer.html) in your application.
+If you notice that queries are not being executed, it may be because you forgot to run the [background consumer](/guide/background_consumer.html) in your application.
 :::
 
 :::warning
-Remember that `FlushLazy()` is not setting up ID in a new Entity. So if you need ID in your code you must use `Flush()`
-instead or enable [UUID](/guide/uuid.html#enabling-uuid) for this entity (recommended).
+Keep in mind that `FlushLazy()` does not set the ID in a new entity. If you need the ID in your code, you must use `Flush()` instead, or enable [UUID](/guide/uuid.html#enabling-uuid) for the entity (recommended).
 ```go
 user := ProductEntity{Name: "Shoe"}
 engine.FlushLazy(user)
 // bug, user.ID is still zero
 c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf(""https://mysite.com/product/%d/", user.ID)) 
-
 ```
 :::
 
-## Defining lazy queries pool name
+## Defining the Lazy Queries Pool Name
 
-By default BeeORM creates stream in `default` [redis data pool](/guide/data_pools.html#redis-server-pool).
-You can provide different pool name by registering stream `beeorm.LazyChannelName` together with `beeorm.BackgroundConsumerGroupName`
-consumer group name and your redis pool name, as showed on below example
+By default, BeeORM creates a stream in the `default` [Redis data pool](/guide/data_pools.html#redis-server-pool). You can specify a different pool name by registering the stream `beeorm.LazyChannelName` together with the `beeorm.BackgroundConsumerGroupName` consumer group name and your Redis pool name, as shown in the following example:
 
 <code-group>
 <code-block title="code">
@@ -101,37 +93,23 @@ lazy:
 </code-block>
 </code-group>
 
-## Lazy Flush Workers
+## Lazy Flush Error Resolver
 
-You can define how many SQL queries generated by `engine.FlushLazy()` should be executed at the same time in
-parallel. By default `BackgroundConsumer` runs queries in 11 goroutines. You can change it using
-`SetLazyFlushWorkers` method:
-
-```go{2}
-consumer := beeorm.NewBackgroundConsumer(engine)
-consumer.SetLazyFlushWorkers(20)
-```
-
-## Error resolver
-
-Using `FlushLazy()` can be tricky. When you are using `FlushLazy()` you must be sure data is validated and query
-can be executed in MySQL. Otherwise `BackgroundConsumer` will panic trying executing query and whole redis stream
-consumer is blocked until you gonna remove invalid query from redis stream. Look at example below
+Using `FlushLazy()` can be tricky, as you need to ensure that your data is validated and the query can be executed in MySQL before calling the method. If a query in the lazy stream is invalid, the `BackgroundConsumer` may panic while trying to execute it, blocking the stream until the invalid query is removed. For example:
 
 ```go
 user := User{Email: "user@mail.com"}
 engine.FlushLazy()
 ```
 
-Now consider column `Email` in table `User` has Unique Index and there is already user with email `user@mail.com`.
-In this scenario `BackgroundConsumer` panics and while stream with lazy queries is blocked:
+Now consider that the `Email` column in the User table has a unique index, and there is already a user with the email `user@mail.com`. In this scenario, the` BackgroundConsumer` will panic with the following error:
 
 ```go
 //panics with error "Error 1062 (23000): Duplicate entry 'user@mail.com' for key 'Email'"
 beeorm.NewBackgroundConsumer(engine).Digest(ctx)
 ```
 
-Of course, you should improve your code by checking if email is already in use before you run `engine.FlushLazy()`:
+To prevent this issue, you should improve your code by checking if the email is already in use before calling `engine.FlushLazy()`:
 
 ```go
 email := "user@mail.com"
@@ -142,14 +120,9 @@ user := User{Email: email}
 engine.FlushLazy()
 ```
 
-But in real life you may end in situation where one query in lazy stream is invalid and `BackgroundConsumer` panics.
-BeeORM provides method `RegisterLazyFlushQueryErrorResolver` which helps you deal with such situations. Using this method
-you can register special functions which are executed (in a order you registered them) when query executed in `BackgroundConsumer` failed and allows you to
-deal with this error. If your function returns error it means issue is not solved by this function and `BackgroundConsumer` will try next registered function or will
-panic if there are no more registered function. But if you return `nil`instead you are instructing `BackgroundConsumer` that problem is solved and this query should be removed
-from lazy stream so `BackgroundConsumer` can continue with next query.
+However, in real life you may end up in a situation where one query in the lazy stream is invalid and the `BackgroundConsumer` panics. To deal with these situations, BeeORM provides the `RegisterLazyFlushQueryErrorResolver` method. This method allows you to register special functions that will be executed (in the order they were registered) when a query executed by the `BackgroundConsumer` fails. These functions allow you to handle the error and decide whether the query should be removed from the lazy stream or whether the `BackgroundConsumer` should continue trying to execute it.
 
-To solve our scenario you may register two functions:
+To solve the scenario described above, you can register the following two functions:
 
 ```go
 backgroundConsumer := beeorm.NewBackgroundConsumer(engine)
@@ -168,20 +141,15 @@ backgroundConsumer.RegisterLazyFlushQueryErrorResolver(func(_ Engine, _ *DB, sql
 })
 ```
 
-As you can see first function logs all failed queries in error log, so developer can review these queries
-to find a source of the problem in application code and maybe execute some queries by hand to fix data in database.
-This function returns error so `BackgroundConsumer` will execute next registered function.
+The first function logs all failed queries in an error log, so the developer can review these queries to identify the source of the problem in the application code and potentially execute some queries manually to fix the data in the database. This function returns the error, so the `BackgroundConsumer` will execute the next registered function.
 
-Second function check if MySQL error code is 1062 (Duplicate entry '%s' for key %d) and if yes then
-returns nil instructing `BackgroundConsumer` to remove this query from stream and continue. 
+The second function checks if the MySQL error code is `1062`. If it is, it returns `ni`l, instructing the `BackgroundConsumer` to remove the query from the stream and continue. From now on, all queries that throw a MySQL error code `1062` will be automatically skipped and logged in the error log.
 
-So from now all queries that throws MySQL error code 1062 will be automatically skipped and logged to error log.
+## Scenarios where lazy flush is not supported
 
-## Not supported lazy flush scenarios
+There are two scenarios where using `FlushLazy()` will result in a panic.
 
-There are two scenarios where using `FlushLazy()` is not supported and panics.
-
-One is when you are flushing entity with [on duplicate key update](/guide/crud.html#saving-new-entities) option:
+The first is when you are flushing an entity with the on duplicate key update](/guide/crud.html#saving-new-entities) option
 
 ```go
 category := &CategoryEntity{Code: "cars", Name: "Cars V2"}
@@ -190,7 +158,7 @@ category.SetOnDuplicateKeyUpdate(beeorm.Bind{"Name": "Cars V3"})
 engine.FlushLazy(categoryCars) 
 ```
 
-Another one is when you are flushing entity with one-one references that needs to be inserted to database:
+The second is when you are flushing an entity with one-to-one references that need to be inserted into the database:
 
 ```go
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
