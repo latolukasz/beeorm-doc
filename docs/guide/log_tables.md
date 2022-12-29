@@ -183,7 +183,7 @@ engine.SetLogMetaData("ip", "213.22.11.24")
 user1 := &UserEntity{Name: "Tom", Age 20}
 user2 := &UserEntity{Name: "John", Age 30}
 user2.SetEntityLogMeta("admin_id", 77)
-engine.FlushMany(user1, user2)
+engine.Flush(user1, user2)
 ```
 
 ```sql{7,14}

@@ -14,7 +14,7 @@ this ID is used in second entity.
 ```go
 address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
 person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.FlushMany(person, address)
+engine.Flush(person, address)
 ```
 </code-block>
 
@@ -38,7 +38,7 @@ it may cause performance issues.
 ```go
 address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
 person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.FlushLazyMany(person, address)
+engine.FlushLazy(person, address)
 ```
 </code-block>
 
@@ -105,7 +105,7 @@ UUID enabled:
 ```go
 address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
 person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.FlushMany(person, address)
+engine.Flush(person, address)
 ```
 </code-block>
 
@@ -123,7 +123,7 @@ INSERT INTO PersonEntity(ID, Name, Address) VALUES(28025074678235140", Adam Smit
 ```go
 address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
 person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.FlushLazyMany(person, address)
+engine.FlushLazy(person, address)
 ```
 </code-block>
 

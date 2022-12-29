@@ -71,7 +71,7 @@ REDIS DELETE CacheForCategory1
 </code-block>
 </code-group>
 
-You can save multiple entities at once using the `engine.FlushMany()` method:
+You can save multiple entities at once:
 
 <code-group>
 <code-block title="code">
@@ -79,7 +79,7 @@ You can save multiple entities at once using the `engine.FlushMany()` method:
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
 categoryBikes := &CategoryEntity{Code: "bikes", Name: "Bikes"}
 product := &ProductEntity{Name: "BMW 1", Category: categoryCars}
-engine.FlushMany(categoryCars, categoryBikes, product)
+engine.Flush(categoryCars, categoryBikes, product)
 ```
 </code-block>
 
@@ -93,7 +93,7 @@ REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1
 </code-group>
 
 ::: tip
-Note that `FlushMany()` only generates two SQL queries, as BeeORM's query optimizer groups all queries to MySQL and Redis to minimize the number of queries. It is always more efficient to use `FlushMany()` to save multiple entities at once, rather than calling `Flush()` multiple times.
+Note that `Flush()` only generates two SQL queries, as BeeORM's query optimizer groups all queries to MySQL and Redis to minimize the number of queries. It is always more efficient to use `FlushMany()` to save multiple entities at once, rather than calling `Flush()` multiple times.
 :::
 
 Every time a new entity is saved to MySQL, BeeORM automatically sets the inserted primary key value in the ID field of the entity. Each entity provides a `GetID()` method that is useful if you pass the `beeorm.Entity` type in your code:
@@ -555,7 +555,7 @@ This code generates only three queries to Redis, making it a very efficient way 
 
 ## Updating entities
 
-Updating entities with BeeORM is straightforward. You can update a single entity by calling the `Flush()` method on the entity, or you can update multiple entities at once by using the `FlushMany()` method and passing in all the entities you want to update as arguments.
+Updating entities with BeeORM is straightforward. You can update entity by calling the `Flush()` method on the entities.
 
 <code-group>
 <code-block title="code">
@@ -587,7 +587,7 @@ engine.LoadByID(1, &category)
 products[0].Name = "New name"
 products[1].Name = "Another name"
 category.Name = "New name"
-engine.FlushMany(category, products[0], products[1])
+engine.Flush(category, products[0], products[1])
 ```
 </code-block>
 
@@ -606,7 +606,7 @@ To update an entity, you first need to load it from the database using a method 
 
 It's important to note that you can only update entities that are already loaded and have their data stored internally. If you try to update an entity that has not been loaded, BeeORM will return an error.
 
-In the example provided, the code loads two ProductEntity instances and a CategoryEntity instance from the database, then modifies the Name property of each entity and calls `FlushMany()` to update all three entities in a single batch. This results in three `UPDATE` statements being executed against the database, and the relevant cache entries being invalidated to ensure that the updated data is reflected in future queries.
+In the example provided, the code loads two ProductEntity instances and a CategoryEntity instance from the database, then modifies the Name property of each entity and calls `Flush()` to update all three entities in a single batch. This results in three `UPDATE` statements being executed against the database, and the relevant cache entries being invalidated to ensure that the updated data is reflected in future queries.
 
 ## Cloning entities
 
@@ -646,14 +646,12 @@ REDIS SET cacheKeyForProduct1 "nil"
 
 This will delete the `ProductEntity` with an ID of 1 from the table.
 
-To delete multiple entities at once, use the `engine.DeleteMany()` method:
+To delete multiple entities at once:
 
 <code-group>
 <code-block title="code">
-```go{3}
-var products []*ProductEntity
-engine.LoadByIDs(int64{1, 2}, &products)
-engine.DeleteMany(products...)
+```go
+engine.Delete(product1, product1, product3)
 ```
 </code-block>
 
@@ -690,7 +688,7 @@ REDIS DELETE cacheKeyForCategory3
 
 This will update the FakeDelete field for the CategoryEntity with an ID of 3 in the table, rather than deleting the row.
 
-To force an entity with a `FakeDelete` field to be deleted from the MySQL table, use the `engine.ForceDelete()` or `engine.ForceDeleteMany()` methods:
+To force an entity with a `FakeDelete` field to be deleted from the MySQL table, use the `engine.ForceDelete()` method:
 
 <code-group>
 <code-block title="code">
