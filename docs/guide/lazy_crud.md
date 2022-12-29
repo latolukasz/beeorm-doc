@@ -177,6 +177,24 @@ returns nil instructing `BackgroundConsumer` to remove this query from stream an
 
 So from now all queries that throws MySQL error code 1062 will be automatically skipped and logged to error log.
 
-## Not allowed actions (ON DUPLIKATE KEY, references)
+## Not supported lazy flush scenarios
 
-TODO
+There are two scenarios where using `FlushLazy()` is not supported and panics.
+
+One is when you are flushing entity with [on duplicate key update](/guide/crud.html#saving-new-entities) option:
+
+```go
+category := &CategoryEntity{Code: "cars", Name: "Cars V2"}
+category.SetOnDuplicateKeyUpdate(beeorm.Bind{"Name": "Cars V3"})
+//panics with "lazy flush on duplicate key is not supported" error
+engine.FlushLazy(categoryCars) 
+```
+
+Another one is when you are flushing entity with one-one references that needs to be inserted to database:
+
+```go
+category := &CategoryEntity{Code: "cars", Name: "Cars"}
+product := &ProductEntity{Name: "BMW 1", Category: category}
+//panics with "lazy flush for unsaved references is not supported" error
+engine.FlushLazy(product)
+```
