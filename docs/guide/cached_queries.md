@@ -1,15 +1,8 @@
-# Cached queries
+# Cached Queries
 
-In [Search](/guide/search.html) section of this guide you learned
-how to search for entities. Every time you run `engine.Search()` method
-SQL query is executed in MySQL database. In high availability applications
-it may cause performance issues. Good practice is to use no-sql cache layer
-to cache results from this query so next search will not hit MySQL database, but instead
-data will be loaded from this cache. There is one issue with this solution - 
-every time data in MySQL is changed (inserts, updates, deletes), also corresponding
-data in cached search results should be updated. Lucky you BeeORM provides
-a feature called ``CachedQuery`` that hides this complexity from you and allows
-you to write simple code used to cache search results.
+In the [Search section](/guide/search.html) of this guide, you learned how to search for entities using the `engine.Search()` method. However, executing SQL queries in a MySQL database can lead to performance issues in high availability applications. To improve performance, it is good practice to use a NoSQL cache layer to cache the results of these queries. This way, subsequent searches will not hit the MySQL database and instead load data from the cache.
+
+One issue with this solution is that every time data in the MySQL database is changed (e.g., through inserts, updates, or deletes), the corresponding data in the cached search results must also be updated. Fortunately, BeeORM provides a feature called "CachedQuery" that simplifies this process and allows you to easily cache search results with simple code.
 
 ## Single entity
 
