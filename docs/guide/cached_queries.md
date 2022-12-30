@@ -4,9 +4,9 @@ In the [Search section](/guide/search.html) of this guide, you learned how to se
 
 One issue with this solution is that every time data in the MySQL database is changed (e.g., through inserts, updates, or deletes), the corresponding data in the cached search results must also be updated. Fortunately, BeeORM provides a feature called "CachedQuery" that simplifies this process and allows you to easily cache search results with simple code.
 
-## Single entity
+## Single Entity
 
-Let's assume we have ``UserEntity``:
+Let's assume we have a `UserEntity` struct:
 
 ```go
 type UserEntity struct {
@@ -17,7 +17,7 @@ type UserEntity struct {
 }
 ```
 
-In our application very often we are searching for a user using his email:
+In our application, we often search for a user using their email:
 
 <code-group>
 <code-block title="code">
@@ -34,8 +34,7 @@ SELECT `ID`,`FirstName`,`LastName`,`Email` FROM `UserEntity` WHERE Email = "bee@
 </code-block>
 </code-group>
 
-To cache this query first you need to define cache layer that will be used to store data.
-In our example we will use redis:
+To cache this query, we first need to define the cache layer that will be used to store the data. In this example, we will use Redis.
 
 ```go{2}
 type UserEntity struct {
@@ -46,7 +45,7 @@ type UserEntity struct {
 }
 ```
 
-Next we need to add extra field type of ``*beeorm.CachedQuery`` with tag `queryOne`: 
+Next, we need to add an extra field of type `*beeorm.CachedQuery` with the `queryOne` tag:
 
 ```go{6}
 type UserEntity struct {
@@ -58,12 +57,9 @@ type UserEntity struct {
 }
 ```
 
-That's it. Now you are ready to search for user using cache. 
-In `queryOne` that we simply define SQL query conditions where every entity
-field must be prefixed with `:`. Thanks to that BeeORM knows which entity fields 
-must be tracked for changes so cache in updated when needed.
+This enables us to cache search queries for the `UserEntity` struct. The `queryOne` tag specifies the SQL query conditions, where each entity field must be prefixed with `:`. This allows BeeORM to track which entity fields need to be updated in the cache when changes are made to the data.
 
-Now it's time to run our cached search query:
+We can now run a cached search query using `engine.CachedSearchOne()`:
 
 <code-group>
 <code-block title="code">
@@ -88,12 +84,9 @@ REDIS SET cache_key ID_OF_ENTITY
 </code-block>
 </code-group>
 
-That's it. `engine.CachedSearchOne` method required name of entity field used to define
-cached query and list of parameters that are required in SQL query condition defined
-in`queryOne` tag.
+`engine.CachedSearchOne()` requires the name of the entity field used to define the cached query and a list of parameters required in the SQL query condition defined in the queryOne tag.
 
-You don't need to worry when entity is updated. BeeORM will update cached query results
-for you. Look at this example:
+BeeORM will automatically update the cached query results when the entity is updated. For example:
 
 ```go
 var user *UserEntity
@@ -116,10 +109,9 @@ found = engine.CachedSearchOne(user, "CachedQueryEmail", "fish@beeorm.io")
 found == true // false
 ```
 
-## Many entities
+## Many Entities
 
-Now it's time to search for many entities using cached query.
-First we need to define another cached query in our entity:
+We can also search for multiple entities using a cached query. To do so, we first need to define another cached query in our `UserEntity` struct:
 
 ```go{6-8,10}
 type UserEntity struct {
@@ -135,16 +127,10 @@ type UserEntity struct {
 }
 ```
 
-As you can see we simply added another field type of `*beeorm.CachedQuery` but this
-time with tag `query` instead of `queryOne`. 
+Note that we added another field of type `*beeorm.CachedQuery`, but this time with the query tag instead of queryOne. You can also use the `ORDER BY` syntax in your cached query SQL condition. Remember to prefix all fields with `:`, or else the cache data will not be updated when the entity field changes.
 
-:::tip
-Notice that you can also use `ORDER BY` syntax
-in your cached query SQL condition. Never forget to prefix all fields
-with `:`, otherwise cache data will not be updated when entity field changes..
-:::
 
-Now we are ready to run our search:
+We can now run our search using `engine.CachedSearch()`:
 
 <code-group>
 <code-block title="code">
@@ -169,8 +155,7 @@ REDIS SET cache_key ID_OF_ENTITY
 </code-block>
 </code-group>
 
-Of course, you can also ask for another page but with one condition - BeeORM allows caching max *50 000* rows.
-If you skip pager all rows will be returned but no more than 50 000:
+You can also request a different page, but keep in mind that BeeORM only allows caching a maximum of 50,000 rows. If you skip the pager, all rows will be returned, but no more than 50,000.
 
 ```go
 // LIMIT 100,100
@@ -183,13 +168,14 @@ engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(1, 60000), true, 1
 engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(3, 20000), true, 18)
 ```
 
-If you need only search for total found rows:
+f you only need to search for the total number of found rows, you can use `engine.CachedSearchCount()`:
+
 ```go{2}
 var user *UserEntity
 total := engine.CachedSearchCount(user, "CachedQueryAdmins", true, 18)
 fmt.Printf("Total rows: %d\n", total) 
 ```
-To search for primary keys:
+To search for primary keys, you can use `engine.CachedSearchIDs()`:
 
 ```go{2}
 var user *UserEntity
@@ -201,7 +187,5 @@ for _, id := range ids {
 ```
 
 :::tip
-If Entity has [FakeDelete](/guide/entity_fields.html#fake-delete), you don't need to
-add `WHERE FakeDelete = 0` in your cached query condition. BeeORM searches for rows
-with `FakeDelete = 0` automatically.
+If your entity has the [FakeDelete](/guide/entity_fields.html#fake-delete) field, you do not need to include `WHERE FakeDelete = 0` in your cached query condition. BeeORM will automatically filter out rows with `FakeDelete = 1` when executing a search.
 :::
