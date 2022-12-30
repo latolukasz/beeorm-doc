@@ -12,73 +12,63 @@ this ID is used in second entity.
 <code-group>
 <code-block title="code">
 ```go
-address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
-person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.Flush(person, address)
+father := &PersonEntity{Name: "John Conan"}
+son := &PersonEntity{Name: "Adam Smith", Father: father}
+engine.Flush(son, father)
 ```
 </code-block>
 
 <code-block title="queries">
 ```sql
-INSERT INTO AddressEntity(Street, City) VALUES("Blue bird 23", "New York"); // ID = 1
+INSERT INTO PersonEntity(Name, Father) VALUES("John Conan", NULL); // ID = 1
 // sends another query to MySQL
-INSERT INTO PersonEntity(Name, Address) VALUES("Adam Smith", 1);
+INSERT INTO PersonEntity(Name, Father) VALUES("Adam Smith", 1);
 ```
 </code-block>
 </code-group>
 
- * When new entity (that needs to be inserted in table) is [flushed lazy](/guide/lazy_crud.html#lazy-flush) 
-insert query `is not` add to queue, instead query is executed at the same time when
-`engine.FlushLazy()` is executed. Only entity updates and deletes are added to queue and
-executed in background (in another goroutine). If your application generates many inserts
-it may cause performance issues.
+ * When new entity is [flushed lazy](/guide/lazy_crud.html#lazy-flush) 
+`ID` is not generated and you cann't use it in your code after `FlushLazy()` is executed.
 
 <code-group>
 <code-block title="code">
 ```go
-address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
-person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.FlushLazy(person, address)
+user := ProductEntity{Name: "Shoe"}
+engine.FlushLazy(user)
+// bug, user.ID is still zero
+c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf(""https://mysite.com/product/%d/", user.ID)) 
 ```
 </code-block>
 
 <code-block title="queries">
-```sql
-INSERT INTO AddressEntity(Street, City) VALUES("Blue bird 23", "New York"); // ID = 1
-// sends another query to MySQL
-INSERT INTO PersonEntity(Name, Address) VALUES("Adam Smith", 1);
+```
+REDIS XAdd orm-lazy-channel event
 ```
 </code-block>
 </code-group>
 
 ## Enabling UUID
 
-You can solve above issues using special tag `uuid`:
+BeeORM provides an option to instruct Entity  to use generated `UUID` instead of MySQL auto incremental value.
+Simply add `uuid` tag to `beeorm.ORM` field and define `ID` as `uint64`:
 
 ```go{2,9}
-type AddressEntity struct {
-	ORM  `orm:"uuid"`
-	ID   uint64 // ID must be uint64
-	Street string `orm:"required"`
-	City string `orm:"required"`
-}
-
 type PersonEntity struct {
-	ORM  `orm:"uuid"`
+	beeorm.ORM  `orm:"uuid"`
 	ID   uint64
 	Name string `orm:"required"`
-	Address *AddressEntity `orm:"required"`
+	Father *PersonEntity
 }
 ```
 
-Notice field `ID` is type of `uint64`. If you use `uuid` tag in entity which has
+If you use `uuid` tag in entity which has
 `ID` different than `uint64` exception is thrown.
 
 Above entity creates table where `ID` is defined as `bigint unsigned NOT NULL`. 
 As you can see `AUTO_INCREMENT` is missing. From now BeeORM is responsible to 
 generate ID using function similar to [MySQL uuid_short()](https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_uuid-short).
 
-There is one big limitation. If you are running your application
+There is one limitation. If you are running your application
 using more than one binary at once you must define unique `UUIDServerID` in each
 application:
 
@@ -93,6 +83,10 @@ You can define UUIDServerID between 0 and 255. It means
 you can run ap to 256 binary applications at the same time when
 uuid functionality is enabled.
 
+Probably you ask yourself why BeeORM is using `uint64` UUID instead standard `UUID` text implementation (32 hexadecimal).
+ID column in MySQL table uses `PRIMARY INDEX` that uses server memory. 32 hexadecimal UUID uses 128 bits, `uint64` uses 64 bits.
+So `uint64` implementations uses twice less memory.
+ 
 ## Benefits using UUID
 
 It's worth to spend some time and enable UUID in your code, because
@@ -103,17 +97,18 @@ UUID enabled:
 <code-group>
 <code-block title="code">
 ```go
-address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
-person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.Flush(person, address)
+father := &PersonEntity{Name: "John Conan"}
+son := &PersonEntity{Name: "Adam Smith", Father: father}
+engine.Flush(son, father)
 ```
 </code-block>
 
 <code-block title="queries">
 ```sql
 // all these queries are sent as one multi-query to MySQL:
-INSERT INTO AddressEntity(ID, Street, City) VALUES(28025074678235139, "Blue bird 23", "New York");
-INSERT INTO PersonEntity(ID, Name, Address) VALUES(28025074678235140", Adam Smith", 1);
+INSERT INTO PersonEntity(ID, Name, Father) VALUES
+(28025074678235140", Adam Smith", 28025074678235141),
+(28025074678235141, "John Conan", NULL);
 ```
 </code-block>
 </code-group>
@@ -121,15 +116,16 @@ INSERT INTO PersonEntity(ID, Name, Address) VALUES(28025074678235140", Adam Smit
 <code-group>
 <code-block title="code">
 ```go
-address := &AddressEntity{Street: "Blue bird 23", City: "New York"}
-person := &PersonEntity{Name: "Adam Smith", Address: address}
-engine.FlushLazy(person, address)
+user := ProductEntity{Name: "Shoe"}
+engine.FlushLazy(user)
+// user.ID has valid UUID
+c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf(""https://mysite.com/product/%d/", user.ID)) 
 ```
 </code-block>
 
 <code-block title="queries">
-```sql
-// None:) both queries are added to lazy queue, and executed later.
+```
+REDIS XAdd orm-lazy-channel event
 ```
 </code-block>
 </code-group>
