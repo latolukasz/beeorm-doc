@@ -1,13 +1,8 @@
 # UUID
 
-By default all MySQL tables use `PRIMARY KEY AUTO_INCREMENT. It means
-that MySQL server is responsible to automatically generate new unique number (ID) 
-every time new row is created. It's simple and easy to use, but also it comes with few
-limitations:
+By default, all MySQL tables use `PRIMARY KEY AUTO_INCREMENT`, which means that the MySQL server automatically generates a new, unique number (ID) every time a new row is created. While this is simple and easy to use, it also comes with a few limitations:
 
- * When one entity holds reference to another entity (with foreign key) and you are inserting both entities at
-at the same time then two queries needs to be executed. First referenced entity is added, and when ID is generated
-this ID is used in second entity.
+ * When one entity holds a reference to another entity and you are inserting both entities at the same time, two queries need to be executed. First, the referenced entity is added, and when the ID is generated, this ID is used in the second entity. For example:
 
 <code-group>
 <code-block title="code">
@@ -27,8 +22,7 @@ INSERT INTO PersonEntity(Name, Father) VALUES("Adam Smith", 1);
 </code-block>
 </code-group>
 
- * When new entity is [flushed lazy](/guide/lazy_crud.html#lazy-flush) 
-`ID` is not generated and you cann't use it in your code after `FlushLazy()` is executed.
+ * When a new entity is [flushed lazy](/guide/lazy_crud.html#lazy-flush), the ID is not generated and you cannot use it in your code after FlushLazy() is executed. For example:
 
 <code-group>
 <code-block title="code">
@@ -49,10 +43,9 @@ REDIS XAdd orm-lazy-channel event
 
 ## Enabling UUID
 
-BeeORM provides an option to instruct Entity  to use generated `UUID` instead of MySQL auto incremental value.
-Simply add `uuid` tag to `beeorm.ORM` field and define `ID` as `uint64`:
+BeeORM provides an option to use generated UUID instead of MySQL's auto-incrementing values for the ID of an entity. To do this, simply add the `uuid` tag to the `beeorm.ORM` field and define the ID field as a `uint64`:
 
-```go{2,9}
+```go{2,3}
 type PersonEntity struct {
 	beeorm.ORM  `orm:"uuid"`
 	ID   uint64
@@ -61,16 +54,11 @@ type PersonEntity struct {
 }
 ```
 
-If you use `uuid` tag in entity which has
-`ID` different than `uint64` exception is thrown.
+If you use the uuid tag in an entity with an ID field that is not a uint64, an exception will be thrown.
 
-Above entity creates table where `ID` is defined as `bigint unsigned NOT NULL`. 
-As you can see `AUTO_INCREMENT` is missing. From now BeeORM is responsible to 
-generate ID using function similar to [MySQL uuid_short()](https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_uuid-short).
+The above entity will create a table with an ID column defined as bigint unsigned NOT NULL. As you can see, AUTO_INCREMENT is missing, and BeeORM will be responsible for generating the ID using a function similar to [MySQL's uuid_short()](https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_uuid-short).
 
-There is one limitation. If you are running your application
-using more than one binary at once you must define unique `UUIDServerID` in each
-application:
+There is one limitation to using uuid: if you are running your application with more than one binary at the same time, you must define a unique `UUIDServerID` in each application:
 
 ```go
 // first applications
@@ -79,20 +67,12 @@ beeorm.SetUUIDServerID(0)
 beeorm.SetUUIDServerID(1)
 ```
 
-You can define UUIDServerID between 0 and 255. It means 
-you can run ap to 256 binary applications at the same time when
-uuid functionality is enabled.
-
-Probably you ask yourself why BeeORM is using `uint64` UUID instead standard `UUID` text implementation (32 hexadecimal).
-ID column in MySQL table uses `PRIMARY INDEX` that uses server memory. 32 hexadecimal UUID uses 128 bits, `uint64` uses 64 bits.
-So `uint64` implementations uses twice less memory.
+You can define the `UUIDServerID` to be any value between 0 and 255. This means you can run up to 256 binary applications at the same time with the uuid functionality enabled.
  
-## Benefits using UUID
+## Benefits of using UUID
 
-It's worth to spend some time and enable UUID in your code, because
-you can handle even bigger traffic. Below you can see how
-all limitations described at the beginning of this page are solved with
-UUID enabled:
+With UUID enabled, all of the limitations described at the beginning of this page can be solved, as demonstrated in the following examples:
+
 
 <code-group>
 <code-block title="code">
