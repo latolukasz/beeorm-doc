@@ -1,8 +1,6 @@
-# Mysql queries
+# MySQL Queries
 
-In this section you will learn how to run SQL queries in MySQL.
-First we need to configure MySQL data pools and engine. In our example
-we will create two pools - one with name `default` and another with name `users`:
+In this section, you will learn how to run SQL queries in MySQL. First, we need to configure the MySQL data pools and engine. In our example, we will create two pools - one with the name `default` and another with the name `users`:
 
 ```go
 registry := beeorm.NewRegistry()
@@ -15,10 +13,9 @@ if err != nil {
 engine := validatedRegistry.CreateEngine()
 ```
 
-## MySQL data pool
+## MySQL Data Pool
 
-Now we are ready to get MySQL data pool that is used to execute all queries.
-This pool also provides few useful methods:
+Now we are ready to get the MySQL data pool that will be used to execute all queries. This pool also provides a few useful methods:
 
 ```go
 db := engine.GetMysql()
@@ -29,9 +26,9 @@ config.GetDataSourceURI() // "user:password@tcp(localhost:3306)/default_db"
 config.GetVersion() // 5 for MySQL 5.x, 8 for MySQL 8.x and so on
 ```
 
-## Executing modification queries
+## Executing Modification Queries
 
-Use ``Exec()`` method to run queries that modify data in MySQL:
+To run queries that modify data in MySQL, use the `Exec()` method:
 
 ```go{2,6,10,15}
 db := engine.GetMysql()
@@ -54,8 +51,8 @@ result.RowsAffected() // 0
 ```
 
 
-BeeORM `Exec` supports [multi statements](https://github.com/go-sql-driver/mysql#multistatements),
-but be aware, you can define attributes (`?`) only in first query. Check below example: 
+
+BeeORM's `Exec()` method supports [multi-statements](https://github.com/go-sql-driver/mysql#multistatements), but keep in mind that you can only define attributes (`?`) in the first query. See the following example:
 
 ```go
 db := engine.GetMysql()
@@ -79,24 +76,13 @@ UPDATE Cities SET Name = ? WHERE ID = ?;
 db.Exec(queries, "London", 13) // panics
 ```
 
-:::warning
-While BeeORM allows batch queries, it also greatly increases the risk of SQL injections.
-Be sure you are always validating and escaping values used in batch query. Especially
-`string` values provided by application users (from web form for instance). You can use
-``tools.EscapeSQLParam()`` method to escape string values:
-
-```go
-import "github.com/latolukasz/beeorm/tools"
-
-query := "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name1) + ";"
-query = "UPDATE Cities SET Name =" + tools.EscapeSQLParam(name2) + ";"
-engine.GetMysql().Exec(query)
-```
+:::tip
+Avoid running modification queries that change entities which are using the caching layer, as it will result in the entity data in the cache not being updated with the latest changes in MySQL. Instead, you should always use `Flush()` or `FlashLazy()`. Alternatively, after running a modification query with `Exec()`, you should clear the entity cache by, for example, clearing the Redis database. This will ensure that the cache reflects the most recent changes made to the data in MySQL.
 :::
 
-## Query one row
+## Querying a Single Row
 
-Use ``QueryRow()`` method to run query which returns only one row:
+To run a query that returns only one row, use the `QueryRow()` method:
 
 ```go{5}
 db := engine.GetMysql()
@@ -106,9 +92,9 @@ var name string
 found := db.QueryRow(where, &id, &name)
 ```
 
-## Query many rows
+## Querying Multiple Rows
 
-Use ``Query()`` method to run query which return many rows:
+To run a query that returns multiple rows, use the `Query()` method:
 
 ```go{4}
 db := engine.GetMysql()
@@ -124,7 +110,7 @@ close() // never forget to close query when finished
 
 ## Transactions
 
-Working with transactions is very easy:
+Working with transactions is straightforward:
 
 ```go
 db := engine.GetMysql()
@@ -144,7 +130,7 @@ Always put `defer db.Rollback()` after `db.Begin()`.
 :::
 
 :::warning
-When you are using transactions, remember to use one instance of engine for every transaction.
+When using transactions, remember to use one instance of the engine for every transaction.
 You can use `engine.Clone()`:
 
 ```go{10}
@@ -165,37 +151,14 @@ go func() {
 ```
 :::
 
-Never run modification queries from MySQL data pool (`Exec()`) that
-change entities which are using caching layer:
+## Setting a Query Execution Time Limit
 
-<code-group>
-<code-block title="code">
-```go{2}
-var user *UserEntity
-ids := engine.SearchIDs(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10), user)
-for _, id := range ids {
-    fmt.Printf("ID: %d\n", id)
-}
-```
-</code-block>
-
-<code-block title="sql">
-```sql
-SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
-```
-</code-block>
-</code-group>
-
-## Query execution time limit
-
-By default, all MySQL queries has no time limitation. If query takes 2 minutes, 
-query execution of `db.Query()` takes 2 minutes. You can define time limit for all queries
-run from one `engine` instance using `SetQueryTimeLimit` method:
+By default, all MySQL queries have no time limitation. If a query takes 2 minutes, the `Query()` function will take 2 minutes to execute. You can define a time limit for all queries run from a single engine instance using the `SetQueryTimeLimit()` method:
 
 ```go
 engine := .....
 engine.SetQueryTimeLimit(5) //limit set to 5 seconds
-engine.SetQueryTimeLimit(0) //limit is removed (default value)
+engine.SetQueryTimeLimit(0) //limit removed (default value)
 ```
 
-When query takes more than X seconds BeeORM will panic with message `query exceeded limit of X seconds`.
+If a query takes longer than the specified time limit, BeeORM will panic with the message `query exceeded limit of X seconds`.
