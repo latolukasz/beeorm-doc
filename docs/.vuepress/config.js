@@ -53,6 +53,7 @@ module.exports = {
             'mysql_queries',
             'local_cache',
             'redis_operations',
+            'distributed_lock',
             'event_broker',
             'log_tables',
             'queries_log',
