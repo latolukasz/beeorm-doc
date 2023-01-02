@@ -1,7 +1,6 @@
-# Queries log
+# Queries Log
 
-You can log all MySQL, Redis and local cache queries.
-Simply register logger with `engine.RegisterQueryLogger()`:
+You can log all MySQL, Redis, and local cache queries by registering a logger using the `engine.RegisterQueryLogger()` method:
 
 ```go{7}
 type MyLogger struct{}
@@ -13,7 +12,7 @@ func (l *MyLogger) Handle(log map[string]interface{}) {
 engine.RegisterQueryLogger(&MyLogger{}, true, true, true)
 ```
 
-This method requires instance of `beeorm.LogHandler` interface:
+This method requires an implementation of the `beeorm.LogHandler` interface:
 
 ```go
 type LogHandler interface {
@@ -21,7 +20,7 @@ type LogHandler interface {
 }
 ```
 
-`log` map attribute provides these fields:
+The `log` map attribute provides the following fields:
 
 | key        | value type         | description  |
 | :------------- |:-------------| :-----|
@@ -30,15 +29,13 @@ type LogHandler interface {
 | query      | string  | full query  |
 | operation      | string  | short label of query  |
 | microseconds      | int64  | query time  |
-| started      | int64  | unix timestamp (nanoseconds) when query started  |
-| finished      | int64  | unix timestamp (nanoseconds) when query finished  |
-| error      | string  | query error if query returned error  |
+| started      | int64  | Unix timestamp (nanoseconds) when the query started  |
+| finished      | int64  | Unix timestamp (nanoseconds) when the query finished  |
+| error      | string  | query error, if the query returned an error  |
 
-Queries to [local cache](/guide/local_cache.html) are very fast, that's why
-query log for this cache layer doesn't provide `microseconds`, `started` and `finished`
-keys.
+Queries to the [local cache](/guide/local_cache.html) are very fast, which is why the query log for this cache layer does not provide the microseconds, started, and finished keys.
 
-You can decide which queries should be logged:
+You can specify which queries should be logged by setting the respective boolean arguments in the `engine.RegisterQueryLogger()` method:
 
 ```go
 // only queries to MySQL
@@ -49,11 +46,9 @@ engine.RegisterQueryLogger(&MyLogger{}, false, true, false)
 engine.RegisterQueryLogger(&MyLogger{}, false, false, true)
 ```
 
-## Queries debug
+## Queries Debug
 
-BeeORM provides special query logger that prints human friendly output
-to console (`os.Stderr`) that is very useful when you are debugging your queries.
-You can enable it with `engine.EnableQueryDebug()` or `engine.EnableQueryDebugCustom()` method:
+BeeORM provides a special query logger that prints a human-friendly output to the console (os.Stderr) that is useful when debugging your queries. You can enable it with the `engine.EnableQueryDebug()` or `engine.EnableQueryDebugCustom()` method:
 
 ```go{2,4,6}
 // all queries
@@ -64,12 +59,11 @@ engine.EnableQueryDebugCustom(true, false, false)
 engine.EnableQueryDebugCustom(true, true, false)
 ```
 
-Below you can see example how debug will look like:
+Here is an example of how the debug output looks:
 
 ![An image](/query_debug_1.png)
 
-Every query is displayed in two lines.
-First one (with white background) contains these fields:
+Every query is displayed in two lines. The first line (with a white background) contains the following fields:
 
  * BeeORM logo
  * query source (MySQL, redis, local cache)
@@ -77,6 +71,4 @@ First one (with white background) contains these fields:
  * operation
  * query time in milliseconds
 
-White bar length has correlation with query time. If query takes more time
-this bar is longer and more red. It helps you to spot queries that are slow.
-In the second line, full query is displayed.
+The length of the white bar is correlated with the query time. If a query takes more time, the bar is longer and more red. This helps you to identify slow queries. The full query is displayed on the second line.
