@@ -313,3 +313,61 @@ eventConsumer.Consume(context.Background(), 100, func(events []Event) {
 By default, acknowledged events are not removed from streams. You need to check that all consumer groups connected to the stream have acknowledged the event before it can be removed from the stream using the [XDEL](https://redis.io/commands/xdel) command. Fortunately, BeeORM takes care of this for you by running at least one [background consumer](/guide/background_consumer.html). This consumer will automatically remove all acknowledged events from every registered stream. If you notice that the length of your streams is increasing and all events are being acknowledged, it means you forgot to run a [background consumer](/guide/background_consumer.html).
 
 ## Stream Statistics
+
+You can use `GetStreamsStatistics()` to retrieve the current Redis stream statistics. This method returns a slice of `*beeorm.RedisStreamStatistics` that contains useful information about the status of the stream:
+
+```go
+//statistics for all registered streams
+allStreamsStatistics := engine.GetEventBroker().GetStreamsStatistics()
+allStreamsStatistics[0].Stream // "stream-a"
+allStreamsStatistics[1].Stream // "stream-b"
+allStreamsStatistics[2].Stream // "stream-c"
+// or only for some streams:
+chosenStreamsStatistics := engine.GetEventBroker().GetStreamsStatistics("stream-a", "stream-b")
+allStreamsStatistics[0].Stream // "stream-a"
+allStreamsStatistics[1].Stream // "stream-b"
+```
+
+The `RedisStreamStatistics` type contains the following fields:
+
+```go
+RedisStreamStatistics {
+	Stream             string // name of the stream
+	RedisPool          string // redis pool name
+	Len                uint64 // number of events in stream
+	OldestEventSeconds int // how old (in seconds) in the oldest event in a stream
+	Groups             []*beeorm.RedisStreamGroupStatistics // stream groups statistics
+}
+```
+
+To get statistics for a specific stream, use the `GetStreamStatistics()` method:
+
+```go
+streamAStatistics := engine.GetEventBroker().GetStreamStatistics("stream-a")
+```
+
+To get stream group statistics, use the `GetStreamGroupStatistics()` method, which returns a `*beeorm.RedisStreamGroupStatistics` type:
+
+```go
+streamAGroupMyConsumerStatistics := engine.GetEventBroker().GetStreamGroupStatistics("stream-a", "my-consumer")
+```
+
+The `RedisStreamGroupStatistics` type contains the following fields:
+
+```go
+type RedisStreamGroupStatistics struct {
+	Group                 string // group name
+	Lag                   int64 // number of entries in the stream waiting to be delivered to the group's consumers
+	Pending               uint64 // number of events still pending acknowledgement
+	LastDeliveredID       string // ID of the last delivered event
+	LastDeliveredDuration time.Duration // time of the last delivered event
+	LowerID               string // ID of the oldest event in this group
+	LowerDuration         time.Duration // time of the oldest event
+	Consumers             []*RedisStreamConsumerStatistics // all consumer statistics
+}
+
+```
+
+:::tip
+It is important to check the value of `RedisStreamStatistics.OldestEventSeconds`. This value should be as low as possible (close to zero). If it is high and increasing, it means that your consumers are unable to process incoming events in a timely manner. One solution is to run another consumer or optimize the code used in the consumer.
+:::
