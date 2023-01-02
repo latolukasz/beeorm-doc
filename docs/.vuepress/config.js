@@ -54,7 +54,6 @@ module.exports = {
             'local_cache',
             'redis_operations',
             'event_broker',
-            'dirty_channel',
             'log_tables',
             'queries_log',
             'tools'
