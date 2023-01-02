@@ -7,6 +7,7 @@
 
 ## Planned in near feature
 
+ * implement EngineMock <Badge text="new feature"/>
  * redis keys sharding <Badge text="new feature"/>  
  * field increments and decrement in OnDuplicateKeyUpdate <Badge text="new feature"/>
  * using redis stream to sync local cache between applications
