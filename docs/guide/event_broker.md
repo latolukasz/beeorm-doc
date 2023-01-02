@@ -1,4 +1,4 @@
-# Event Broker Using Redis Streams
+# Event Broker
 
 [Redis Streams](https://redis.io/topics/streams-intro) is a powerful event broker system that utilizes the concept of consumer groups to allow for the publishing and consumption of events in a distributed system. Here's how it works:
 
