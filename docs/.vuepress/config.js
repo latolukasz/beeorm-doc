@@ -57,7 +57,6 @@ module.exports = {
             'event_broker',
             'log_tables',
             'queries_log',
-            'tools'
           ]
         }
       ],

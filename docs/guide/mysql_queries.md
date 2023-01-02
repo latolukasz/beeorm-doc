@@ -76,6 +76,7 @@ UPDATE Cities SET Name = ? WHERE ID = ?;
 db.Exec(queries, "London", 13) // panics
 ```
 
+
 :::tip
 Avoid running modification queries that change entities which are using the caching layer, as it will result in the entity data in the cache not being updated with the latest changes in MySQL. Instead, you should always use `Flush()` or `FlashLazy()`. Alternatively, after running a modification query with `Exec()`, you should clear the entity cache by, for example, clearing the Redis database. This will ensure that the cache reflects the most recent changes made to the data in MySQL.
 :::
