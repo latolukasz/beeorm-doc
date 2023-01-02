@@ -1,28 +1,25 @@
-# Event broker
+# Event Broker Using Redis Streams
 
-Redis introduced an amazing feature called [Redis Streams](https://redis.io/topics/streams-intro)
-that is following the concept of **consumer groups**. The idea is simple yet very powerful:
+[Redis Streams](https://redis.io/topics/streams-intro) is a powerful event broker system that utilizes the concept of consumer groups to allow for the publishing and consumption of events in a distributed system. Here's how it works:
 
- * basic functional block is a **stream** which can be described as an event holder,
- place where you send (publish) and store events. Each stream has a name.
- * next functional block is **consumer group** that has a name and reads (consumes) events from
-one or more **streams**.
- * when all  **consumer groups** read an event from a **stream** then this event is removed from
-stream.
-   
+ * A stream is a basic functional block that acts as an event holder, where events can be published and stored. Each stream has a name.
+ * A consumer group is another functional block that reads (consumes) events from one or more streams. It has a name and can consume events from multiple streams.
+ * Once all the consumer groups in a stream have read an event, it is removed from the stream.
 
-## Registering streams
+With Redis Streams, you can easily implement an event broker to publish and consume events in your distributed system. To do so, you will need to create a stream and one or more consumer groups, and then publish and consume events as needed.
 
-Good example is better than a thousand words. Let's define three streams:
+## Registering Streams
+
+It's easier to understand with an example, so let's define three streams:
  * `stream-a` located in `default` redis pool
  * `stream-b` located in `default` redis pool
  * `stream-c` located in `second` redis pool
 
 and three consumer groups:
 
- * `read-group-a` that reads events from `stream-a` stream   
- * `read-group-ab` that reads events from `stream-a` and `stream-b` streams
- * `read-group-c` that reads events from `stream-c` stream
+ * `read-group-a` that reads events from the `stream-a`   
+ * `read-group-ab` that reads events from the `stream-a` and `stream-b`
+ * `read-group-c` that reads events from  the `stream-c`
 
 <code-group>
 <code-block title="code">
@@ -57,9 +54,10 @@ second:
 </code-block>
 </code-group>
 
-:::warning
-Stream names must be unique even if streams are defined 
-in separate redis pools. Below code returns error:
+:::info
+Stream names must be unique, even when they are defined in separate Redis pools.
+
+The following code will return an error:
 ```go{3,5}
 registry := beeorm.NewRegistry()
 registry.RegisterRedis("localhost:6379", 0)
@@ -73,7 +71,7 @@ fmt.Print(err) // "stream with name stream-a aleady exists"
    
 ## Publishing  events
 
-Now we are ready to publish our first event:
+To publish your first event, you can use the following code:
 
 ```go{3-4}
 engine := validatedRegistry.CreateEngine()
@@ -82,23 +80,23 @@ eventBroker := engine.GetEventBroker()
 eventBroker.Publish("stream-a", "hello")
 ```
 
-That's it. Our first event is published to `stream-a` stream.
+This will publish the event "hello" to the stream-a stream.
 
-In next example we will send event as a struct into `stream-b` stream:
+You can also publish a struct as an event, like this:
 
 ```go{9}
 engine := validatedRegistry.CreateEngine()
 
-type testStructEvent struct {
+type TestStructEvent struct {
     Color string
     Price  float32
 }
 
 eventBroker := engine.GetEventBroker()
-eventBroker.Publish("stream-b", testStructEvent{Color: "red", Price: 12.34})
+eventBroker.Publish("stream-b", TestStructEvent{Color: "red", Price: 12.34})
 ```
 
-If you need to publish more than one event use `EventFlusher`:
+If you need to publish more than one event, it is recommended to use the `EventFlusher`:
 
 ```go{3-6}
 engine := validatedRegistry.CreateEngine()
@@ -106,30 +104,24 @@ engine := validatedRegistry.CreateEngine()
 eventFlusher := engine.GetEventBroker().NewFlusher()
 eventFlusher.Publish("stream-a", "hello")
 eventFlusher.Publish("stream-b", testStructEvent{Color: "red", Price: 12.34})
-eventFlusher.Flush() // now both events are published to redis streams
+eventFlusher.Flush() // both events will be published to the Redis streams
 ```
 
 :::tip
-Always use `EventFlusher` when more than one event must be flushed.
-BeeORM uses redis pipeline behind the scene that's why `EventFlusher.Flush()` 
-is much faster than publishing event one by one.
+Using the `EventFlusher` is much faster than publishing events one by one, as it uses Redis pipelines behind the scenes.
 :::
 
 ## Consuming events
 
-Now, when we have few events pushed to our streams it's time
-to consume them. First you need to create `EventsConsumer` object
-that will be used later to read events:
+To consume events, you will need to create an `EventsConsumer` object:
 
 ```go
 eventConsumer := engine.GetEventBroker().Consumer("read-group-ab")
 ```
 
-Our event consumer is connected to redis consumer group `read-group-ab`. 
-According to our [streams configuration](/guide/event_broker.html#registering-streams)
-`read-group-ab` reads events from two streams: `stream-a` and `stream-b`.
+This eventConsumer is connected to the Redis consumer group `read-group-ab`, which is configured to read events from the streams `stream-a` and `stream-b` (as per the [streams configuration](/guide/event_broker.html#registering-streams)).
 
-Now we can start consuming our events:
+To start consuming events, you can use the following code:
 
 <code-group>
 <code-block title="code">
@@ -164,10 +156,9 @@ EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 </code-block>
 </code-group>
 
-`eventConsumer.Consume()` requires as a first argument
-limit of events that should be read from streams in every iteration. In above example
-we allow max `5` events, that's why we received `2`. Now let's see how it works 
-when this limit is set to `1` (see difference in bash tab): 
+The `eventConsumer.Consume()` function takes a parameter called limit, which specifies the maximum number of events that should be read from the streams in each iteration. In the example above, the limit is set to 5, so we received 2 events. If we set the limit to 1, we will see a difference in the output (as shown in the bash tab).
+
+For example:
 
 <code-group>
 <code-block title="code">
@@ -194,16 +185,15 @@ EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 </code-block>
 </code-group>
 
-Did you notice that above examples never print `FINISHED` to console?
-It's because by default `eventConsumer.Consume()` works in blocking mode - it waits
-for new events to come. You can disable this mode with `eventConsumer.DisableLoop()` 
-method. In non-blocking mode consumer reads all events from streams and finish: 
+In the examples above, you may have noticed that the message "Consuming finished" is never printed to the console. This is because `eventConsumer.DisableBlockMode()` operates in blocking mode by default, meaning that it waits for new events to arrive. To disable this behavior, you can use the `eventConsumer.DisableLoop()` method. In non-blocking mode, the consumer reads all available events from the streams and then finishes.
+
+For example:
 
 
 <code-group>
 <code-block title="code">
 ```go{1}
-eventConsumer.DisableLoop()
+eventConsumer.DisableBlockMode()
 eventConsumer.Consume(context.Background(), 10, func(events []beeorm.Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
 })
@@ -219,13 +209,9 @@ FINISHED
 </code-block>
 </code-group>
 
-## Consumers scaling
+## Scaling consumers
 
-By default, you can run only one `EventsConsumer.Consume()` at the same time.
-BeeORM creates consumer with name `consumer-1`.
-With this approach all events are consumed in the same order events
-are published (first in - first out). `Consume()` method returns false if you
-are trying to run consumer that is already running. 
+By default, you can only run one `EventsConsumer.Consume()` function at a time. BeeORM creates a consumer with the name `consumer-1`. In this approach, all events are consumed in the order they were published (first-in, first-out). If you try to run a consumer that is already running, the `Consume()` method will return false.
 
 ```go
 go func() {
@@ -238,14 +224,9 @@ go func() {
 }()
 ```
 
-Behind the scene BeeORM creates [redis lock](/guide/redis_operations.html#distributed-lock)
-to prevent running two consumers at the same time. If consumer is working in blocking 
-mode (default approach) and developer flushed redis and removed redis lock then `Consume()`
-will stop and return false.
+Behind the scenes, BeeORM creates a [Redis lock](/guide/redis_operations.html#distributed-lock) to prevent multiple consumers from running at the same time. If the consumer is working in blocking mode (the default behavior) and the developer flushes Redis and removes the Redis lock, the `Consume()` method will stop and return false.
 
-In many scenarios you may need to run more than one consumer at once. 
-BeeORM provides `EventsConsumer.ConsumeMany(ctx context.Context, nr, count int, handler EventConsumerHandler) bool` method that require one additional paramater
-`nr` - unique number of consumer:
+In some cases, you may need to run more than one consumer at the same time. BeeORM provides the `EventsConsumer.ConsumeMany()` method, which takes an additional parameter nr – a unique number for the consumer:
 
 ```go
 go func() {
@@ -258,8 +239,6 @@ go func() {
 }()
 ````
 
-In above example we successfully run two consumers: `consumer-1` and `consumer-2`.
-
 Upscaling is easy - simply run another `Consumer()` with higher number (`3` in our example).
 Problem starts when you want to downscale your consumers. In above example we are running two consumers.
 Now imagine we want to run only one `consumer-1`. Of course first you should stop `consumer-2`.
@@ -267,16 +246,18 @@ But there is a chance `consumer-2` has still some `pending` events that are not 
 You must move these events to another active consumer. In our case we should move events from
 `consumer-2` to `consumer-1`. You can do it with `EventsConsumer.Claim()` method:
 
+Scaling up consumers is easy – simply run another `Consumer()` with a higher number (e.g. 3 in our example). However, scaling down can be more challenging. For instance, if you are currently running two consumers (`consumer-1` and `consumer-2`) and want to reduce this number to one (`consumer-1`), you will need to stop `consumer-2` first. There is a chance that `consumer-2` still has some pending events that have not been [acknowledged](https://redis.io/commands/XACK). In this case, you must move these events to another active consumer (e.g. `consumer-1`). You can do this using the `EventsConsumer.Claim()` method:
+
 ```go{2}
 eventConsumer := eventBroker.Consumer("read-group-ab")
 eventConsumer.Claim(2, 1)
 ````
 
+This will move all pending events from `consumer-2` to `consumer-1`. You can then stop `consumer-2` and continue processing events with `consumer-1`.
+
 ## Event metadata
 
-`Publish()` method accepts optional parameters `meta` which can be used
-to assign metadata to event. Simply provide meta string key followed by meta string value.
-Below example demonstrates one scenario when it's useful to use meta:
+You can assign metadata to events using the optional `meta` parameter in the `Publish()` method. Simply provide a string key and a string value for the metadata. For example:
 
 ```go{14,15,20}
 eventBroker := engine.GetEventBroker()
@@ -310,10 +291,9 @@ eventConsumer.Consume(context.Background(), 5, func(events []Event) {
 })
 ```
 
-You can also publish and consume events that have only `meta` values and 
-body is omitted (set to `nil`). No data serialisation is needed, that's why 
-publishing and consuming such events is a bit faster, but you can
-use only simple key-value string values:
+You can also publish events with only metadata and an empty body. This can be useful if you want to publish simple key-value pairs without the need for data serialization. In this case, the body of the event can be set to nil. This can make publishing and consuming such events slightly faster, but keep in mind that you can only use simple string key-value pairs for the metadata.
+
+Here is an example of how to publish and consume events with metadata and an empty body:
 
 ```go{2}
 eventBroker := engine.GetEventBroker()
@@ -328,14 +308,8 @@ eventConsumer.Consume(context.Background(), 100, func(events []Event) {
 })
 ```
 
-## Garbage collector
+## Stream Garbage Collector
 
-All acknowledged events are not removed from stream. You should
-check that all consumer groups connected to stream acknowledged this event and then
-this event should be removed from stream with [XDEL](https://redis.io/commands/xdel). 
-Lucky you BeeORM does it for you. Simply run at least one [background consumer](/guide/background_consumer.html)
-and this consumer will automatically remove all acknowledged events from every registered stream.
-So if you see that your streams length is growing and all events are acknowledged it means you forgot
-to run [background consumer](/guide/background_consumer.html).
+By default, acknowledged events are not removed from streams. You need to check that all consumer groups connected to the stream have acknowledged the event before it can be removed from the stream using the [XDEL](https://redis.io/commands/xdel) command. Fortunately, BeeORM takes care of this for you by running at least one [background consumer](/guide/background_consumer.html). This consumer will automatically remove all acknowledged events from every registered stream. If you notice that the length of your streams is increasing and all events are being acknowledged, it means you forgot to run a [background consumer](/guide/background_consumer.html).
 
 ## Stream Statistics
