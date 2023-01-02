@@ -1,10 +1,8 @@
-# Local cache
+# Local Cache
 
-In this section you will learn how to use local cache.
-Local means that data is stored in application memory.
-First we need to configure data pools and engine. In our example
-we will create two pools - one with name `default` that can hold max 1000 elements
-and another with name `test` with max 100 elements:
+In this section, you will learn how to use the local cache to store data in the application's memory.
+
+First, we need to configure the data pools and engine. In this example, we will create two pools: `default`, which can hold up to 1000 elements, and `test`, which can hold up to 100 elements:
 
 ```go
 registry := beeorm.NewRegistry()
@@ -17,21 +15,25 @@ if err != nil {
 engine := validatedRegistry.CreateEngine()
 ```
 
-## Local cache data pool
+## Accessing the Local Cache Data Pool
 
-Now we are ready to get local cache data pool that is used to execute all queries.
-This pool also provides few useful methods:
+Now we are ready to use the local cache data pool to execute queries. This pool also provides a few useful methods:
 
 ```go
-db := engine.GetLocalCache()
-config := db.GetPoolConfig()
+cache := engine.GetLocalCache()
+config := cache.GetPoolConfig()
 config.GetCode() // "default"
 config.GetLimit() // 1000
+
+cache = engine.GetLocalCache("test")
+config = cache.GetPoolConfig()
+config.GetCode() // "test"
+config.GetLimit() // 100
 ```
 
-## Getting one value
+## Retrieving a Single Value
 
-Use ``Get()`` method to load one value from local cache:
+Use the `Get()` method to retrieve a single value from the local cache:
 
 ```go{2}
 cache := engine.GetLocalCache()
@@ -43,9 +45,9 @@ if found {
 }
 ```
 
-## Getting many values
+## Retrieving Multiple Values
 
-Use ``MGet()`` method to load many values from local cache:
+Use the `MGet()` method to retrieve multiple values from the local cache:
 
 ```go{2}
 cache := engine.GetLocalCache("test")
@@ -59,9 +61,9 @@ for _, value := range values {
 }
 ```
 
-## Setting one value
+## Storing a Single Value
 
-Use ``Set()`` method to add one value to local cache:
+Use the `Set()` method to store a single value in the local cache:
 
 ```go{2,4}
 cache := engine.GetLocalCache()
@@ -70,21 +72,20 @@ cache = engine.GetLocalCache("test")
 cache.Set("another-key", SomeStruct{Field: "hello"})
 ```
 
-## Setting many values
+## Storing Multiple Values
 
-Use ``MSet()`` method to add many values to local cache:
+Use the `MSet()` method to store multiple values in the local cache:
 
 ```go{2,4}
 cache := engine.GetLocalCache()
 cache.MSet("key-1", "ValueForKey1", "key-2", "ValueForKey2")
 ```
 
-## Getter with setter
+## Getter with Setter
 
-Local cache has very useful method `GetSet()` that
-simplifies your code. 
+The local cache has a very useful method called `GetSet()` that simplifies the process of retrieving and storing values.
 
-Instead of:
+Instead of writing code like this:
 
 ```go
 val, found := cache.Get("key")
@@ -95,7 +96,7 @@ if !found {
 return val
 ```
 
-you can do it like this:
+You can use `GetSet()` like this:
 
 ```go
 // cache value for 30 seconds
@@ -104,42 +105,20 @@ val := cache.GetSet("key", time.Second * 30, func() {
 })
 ```
 
-As you can see in above example, you can also define Time to Live (TTL). 
-Our value will be cached for 30 seconds and after this period it's evicted.
+As shown in the example above, you can also specify a Time to Live (TTL) for the value. In this case, the value will be cached for 30 seconds before it is evicted.
 
+## Removing Stored Values
 
-## Hashes
-
-Local cache provides methods used to get and set hashes, similar
-to [redis hashes](https://redis.io/topics/data-types#hashes) concept:
-
-```go{2,4,9,10}
-cache := engine.GetLocalCache("test")
-cache.HMSet("some-key", map[string]interface{}{"firstName": "Tom", "lastName": "Malcovic"})
-
-values := cache.HMGet("some-key", "firstName", "lastName", "age")
-values["firstName"] // "Tom"
-values["lastName"] // "Malcovic"
-values["age"] // nil
-
-cache.HMSet("some-key", map[string]interface{}{"age": 18})
-values = cache.HMGet("some-key", "firstName", "age")
-values["firstName"] // "Tom"
-values["age"] // 18
-```
-
-## Removing values
-
-Use ``Remove()`` method to remove values from local cache:
+Use the `Remove()` method to remove one or more values from the local cache:
 
 ```go
 cache.Remove("key1", "key2")
 ```
 
 
-## Removing all values
+## Clearing the Cache
 
-Use ``Clear()`` method to remove all values from local cache:
+Use the `Clear()` method to remove all values from the local cache:
 
 ```go
 cache.Clear()
