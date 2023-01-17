@@ -1,13 +1,6 @@
 # Roadmap
 
-## Planned in next release
+## New V2 is coming
 
- * add method to get local cache size and hit rate <Badge text="new feature"/>
- * replace `dirty` with CRUD interface <Badge text="new feature"/>
+ * more details soon...
 
-## Planned in near feature
-
- * implement EngineMock <Badge text="new feature"/>
- * redis keys sharding <Badge text="new feature"/>  
- * field increments and decrement in OnDuplicateKeyUpdate <Badge text="new feature"/>
- * using redis stream to sync local cache between applications
