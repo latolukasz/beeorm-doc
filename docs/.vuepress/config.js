@@ -20,14 +20,6 @@ module.exports = {
         text: 'Guide',
         link: '/guide/',
       },
-      {
-        text: 'Roadmap',
-        link: '/roadmap/'
-      },
-      {
-        text: 'V1',
-        link: '/v1/'
-      },
     ],
     sidebar: {
       '/guide/': [
