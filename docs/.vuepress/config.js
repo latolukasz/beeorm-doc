@@ -21,12 +21,12 @@ module.exports = {
         link: '/guide/',
       },
       {
-        text: 'Benchmarks',
-        link: '/benchmarks/'
-      },
-      {
         text: 'Roadmap',
         link: '/roadmap/'
+      },
+      {
+        text: 'V1',
+        link: '/v1/'
       },
     ],
     sidebar: {
