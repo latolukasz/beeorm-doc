@@ -10,11 +10,10 @@ To create a ValidatedRegistry, you first need to create a `beeorm.Registry` obje
 ```go{17}
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type UserEntity struct {
 	beeorm.ORM `orm:"mysql=sales"`
-	ID   uint
 }
 
 func main() {
@@ -56,20 +55,19 @@ validatedRegistry, err = registry.Validate()
 ## Getting Entity Settings
 
 The `ValidatedRegistry` object provides useful getters for accessing information about registered entities. In the following example, we register two entities and an enum:
+
 ```go
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type CarEntity struct {
 	beeorm.ORM
-	ID    uint
 	Color string `orm:"enum=colors;required"` 
 	Owner *PersonEntity
 }
 type PersonEntity struct {
 	beeorm.ORM
-	ID    uint
 	Name  string
 }
 
