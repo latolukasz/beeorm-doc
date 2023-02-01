@@ -9,7 +9,7 @@ To create an `beeorm.Engine` object, you can call the `CreateEngine()` method on
 ```go{13}
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 func main() {
     registry := beeorm.NewRegistry()
