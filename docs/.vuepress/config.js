@@ -23,6 +23,7 @@ export default defineUserConfig({
     docsRepo: 'https://github.com/latolukasz/beeorm-doc',
     docsBranch: 'v2',
     docsDir: 'docs',
+    contributors: false,
     navbar: [
       {
         text: 'Guide',

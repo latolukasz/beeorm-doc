@@ -3,19 +3,15 @@
 In BeeORM, an Entity is a struct that represents data stored in a database. In this section, you will learn how to define golang structs as Entity types.
 
 ## Defining an Entity
-To define an Entity struct, you must follow these two rules:
-
- * The first field of the struct should be an anonymous field with a type of beeorm.ORM.
- * The second field should have the name "ID" and be of type uint, uint8, uint16, uint32, or uint64.
+To define an Entity struct, you must follow one rule - the first field of the struct should be an anonymous field with a type of beeorm.ORM.
 
 Here is an example of a simple Entity struct:
 
 ```go
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type SimpleEntity struct {
 	beeorm.ORM
-	ID   uint
 }
 ```
 
@@ -39,11 +35,10 @@ for `beeorm.ORM` field:
 ```go{6}
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type OrderEntity struct {
 	beeorm.ORM `orm:"mysql=sales"`
-	ID   uint
 }
 
 func main() {
@@ -64,16 +59,14 @@ Here is an example in Go code:
 ```go{6,11}
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type UserEntity struct {
 	beeorm.ORM `orm:"redisCache"`
-	ID   uint
 }
 
 type OrderEntity struct {
 	beeorm.ORM `orm:"redisCache=sales"`
-	ID   uint
 }
 
 func main() {
@@ -100,16 +93,14 @@ To cache Entity data in memory locally, you can use the setting localCache=pool_
 ```go{6,11}
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type CategoryEntity struct {
 	beeorm.ORM `orm:"localCache"`
-	ID   uint
 }
 
 type BrandEntity struct {
 	beeorm.ORM `orm:"localCache=settings"`
-	ID   uint
 }
 
 func main() {
@@ -130,15 +121,13 @@ It is important to note that the local cache is not shared across all servers. I
 
 It is possible to cache an Entity in both a local cache and Redis using BeeORM. To do so, you can use the following syntax:
 
-```go{2,7}
+```go{2,6}
 type CategoryEntity struct {
 	beeorm.ORM `orm:"localCache;redisCache"`
-	ID   uint
 }
 
 type BrandEntity struct {
 	beeorm.ORM `orm:"localCache=settings;redisCache=settings"`
-	ID   uint
 }
 ```
 
@@ -160,7 +149,6 @@ By default, BeeORM will use the name of the Entity struct as the name of the cor
 ```go{2}
 type UserEntity struct {
 	beeorm.ORM `orm:"table=users"`
-	ID   uint
 }
 ```
 
