@@ -20,6 +20,10 @@ module.exports = {
         text: 'Guide',
         link: '/guide/',
       },
+      {
+        text: 'V@',
+        link: 'https://beeorm.io',
+      },
     ],
     sidebar: {
       '/guide/': [
