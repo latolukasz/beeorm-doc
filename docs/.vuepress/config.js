@@ -44,6 +44,10 @@ export default defineUserConfig({
         {
           title: 'Guide',
           children: [
+            {
+              text: 'Introduction',
+              link: '/guide/'
+            },
             'registry',
             'data_pools',
             'entities',
