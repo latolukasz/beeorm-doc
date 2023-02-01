@@ -1,37 +1,48 @@
-module.exports = {
+import { defineUserConfig } from 'vuepress'
+import { defaultTheme } from 'vuepress'
+import { googleAnalyticsPlugin } from '@vuepress/plugin-google-analytics'
+import { searchPlugin } from '@vuepress/plugin-search'
+
+export default defineUserConfig({
+  lang: 'en-US',
   title: 'BeeORM: A Golang ORM for MySQL and Redis',
   description: 'BeeORM is a Golang ORM designed for high-traffic applications that require optimal performance and scalability. Our ORM allows developers to easily build and maintain applications that can handle large amounts of data and traffic, using the power and simplicity of Golang, along with the reliability and speed of MySQL and Redis',
   head: [
-    ['meta', { name: 'theme-color', content: '#D7A318' }],
-    ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
-    ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }]
+    ['link', { rel: 'icon', href: '/favicon.ico' }]
   ],
-  themeConfig: {
+  plugins: [
+    googleAnalyticsPlugin({
+      id: 'UA-195751907-1',
+    }),
+    searchPlugin({})
+  ],
+  theme: defaultTheme({
+    logo: '/logo-small.svg',
+    logoDark: '/logo-small-dark.svg',
     repo: 'https://github.com/latolukasz/beeorm',
     docsRepo: 'https://github.com/latolukasz/beeorm-doc',
-    logo: '/logo-small.svg',
-    editLinks: true,
+    docsBranch: 'v2',
     docsDir: 'docs',
-    editLinkText: '',
-    lastUpdated: true,
-    smoothScroll: true,
-    nav: [
+    navbar: [
       {
         text: 'Guide',
         link: '/guide/',
       },
       {
-        text: 'V1',
-        link: 'https://v1.beeorm.io/'
+        text: 'V2',
+        children: [
+          {
+            text: 'V1',
+            link: 'https://v1.beeorm.io/',
+          },
+        ],
       },
     ],
     sidebar: {
       '/guide/': [
         {
           title: 'Guide',
-          collapsable: false,
           children: [
-            '',
             'registry',
             'data_pools',
             'entities',
@@ -54,22 +65,7 @@ module.exports = {
             'log_tables',
             'queries_log',
           ]
-        }
-      ],
-    },
-  },
-  plugins: [
-    '@vuepress/plugin-back-to-top',
-    '@vuepress/plugin-medium-zoom',
-    [
-      'vuepress-plugin-sitemap',
-      {hostname: 'https://beeorm.io'}
-    ],
-    [
-      '@vuepress/google-analytics',
-      {
-        'ga': 'UA-195751907-1'
-      }
-    ]
-  ]
-}
+        }]
+    }
+  })
+})
