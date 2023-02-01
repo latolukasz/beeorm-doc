@@ -10,10 +10,9 @@ In BeeORM, you can easily add each field to a MySQL index using special tags:
 
 For example, the following Go code defines a PersonEntity struct with three indexes:
 
-```go{5-6}
+```go{4-5}
 type PersonEntity struct {
     beeorm.ORM
-    ID      uint
     Name    string
     Age     uint8 `orm:"index=age"` 
     Email   string `orm:"unique=email;required"` 
@@ -37,10 +36,9 @@ Sometimes you may need to add more than one field to a single index. In BeeORM, 
 
 For example, the following Go code defines a ShoeEntity struct with a single unique index spanning three fields:
 
-```go{4-6}
+```go{3-5}
 type ShoeEntity struct {
     beeorm.ORM
-    ID       uint
     Name     string `orm:"unique=model"`
     Color    string `orm:"unique=model:2"`
     Size     uint8 `orm:"unique=model:3"`
@@ -57,10 +55,9 @@ This will create the following unique index in the MySQL table:
 
 If you need to add a single field to multiple indexes, you can do so by separating the index names with a comma in the BeeORM tag. For example:
 
-```go{5-6}
+```go{4-5}
 type PersonEntity struct {
     beeorm.ORM
-    ID          uint
     FirstName   string `orm:"index=name:2"`
     LastName    string `orm:"index=name,occupation:2;unique=lastname"`
     Occupation  string `orm:"index=occupation"`
@@ -92,7 +89,6 @@ struct Address {
 
 type UserEntity struct {
     beeorm.ORM
-    ID             uint
     HomeAddress    Address
     WorkAddress    Address
 }
@@ -105,7 +101,7 @@ KEY `homeStreet` (`HomeAddressStreet`),
 KEY `workAddress` (`WorkAddressCity`, `WorkAddressStreet`),
 ```
 
-To define these indexes in BeeORM, you can use tag attributes on the `orm.ORM` field:
+To define these indexes in BeeORM, you can use tag attributes on the `beeorm.ORM` field:
 
 ```go{2}
 type UserEntity struct {
