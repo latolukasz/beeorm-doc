@@ -5,7 +5,7 @@ beeorm.Registry object using the beeorm.NewRegistry() method, as shown in the fo
 ```go
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 func main() {
     // Initialize a new Registry
@@ -24,7 +24,7 @@ Alternatively, you can configure the beeorm.Registry object using data from a YA
 package main
 
 import (
-    "github.com/latolukasz/beeorm"
+    "github.com/latolukasz/beeorm/v2"
     "io/ioutil"
     "gopkg.in/yaml.v2"
 )

@@ -88,7 +88,7 @@ Here is an example of how to use the `engine.Search()` method:
 ```go{25}
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type UserEntity struct {
     beeorm.ORM

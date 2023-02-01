@@ -5,7 +5,7 @@ Many operations in BeeORM, which will be explained in later pages, require async
 ```go{21-28}
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 func main() {
    registry := beeorm.NewRegistry()
