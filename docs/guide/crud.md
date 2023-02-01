@@ -783,6 +783,24 @@ err := flusher.FlushWithCheck()
 err := flusher.FlushWithFullCheck()
 ```
 
+The `beeorm.Flusher` allows you to track entities for updates and deletions, but it does remove them from the tracker after they are flushed to the database.
+
+For example:
+
+```go{7}
+category := &CategoryEntity{Name: "New category"}
+flusher := engine.NewFlusher()
+flusher.Track(category)
+flusher.Flush() // insert category into MySQL table
+category.Name = "New name"
+flusher.Flush() // updates category in MySQL table
+flusher.Clear()
+category.Name = "Another name"
+flusher.Flush() // does nothing, category is not tracked
+```
+
+This code will insert the category entity into the database, then update it with a new name. However, after the `flusher.Clear()` method is called, any further updates to the category entity will not be tracked and will not be applied to the database when the `Flush()` method is called.
+
 ## Clearing Entity Cache
 
 In BeeORM, you can use the `beeorm.ClearCacheByIDs()` method to manually clear cached entity data. This can be useful if you need to update the cache after making changes to an entity in the database.
