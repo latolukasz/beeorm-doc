@@ -21,7 +21,7 @@ module.exports = {
         link: '/guide/',
       },
       {
-        text: 'V@',
+        text: 'V2',
         link: 'https://beeorm.io',
       },
     ],
