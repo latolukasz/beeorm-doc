@@ -7,11 +7,10 @@ The following examples build upon the following code base:
 ```go
 package main
 
-import "github.com/latolukasz/beeorm"
+import "github.com/latolukasz/beeorm/v2"
 
 type CategoryEntity struct {
 	beeorm.ORM  `orm:"redisCache"`
-	ID          uint
 	Code        string `orm:"required;length=10;unique=code"`
 	Name        string `orm:"required;length=100"`
 	FakeDelete  bool
@@ -19,20 +18,17 @@ type CategoryEntity struct {
 
 type ImageEntity struct {
 	beeorm.ORM `orm:"redisCache"`
-	ID   uint
 	Url string `orm:"required"`
 }
 
 type BrandEntity struct {
 	beeorm.ORM `orm:"redisCache"`
-	ID   uint
 	Name string `orm:"required;length=100"`
 	Logo *ImageEntity
 }
 
 type ProductEntity struct {
 	beeorm.ORM `orm:"redisCache"`
-	ID       uint
 	Name     string `orm:"required;length=100"`
 	Category *CategoryEntity `orm:"required"`
 	Brand    *BrandEntity
@@ -99,25 +95,21 @@ Note that `Flush()` only generates two SQL queries, as BeeORM's query optimizer 
 Every time a new entity is saved to MySQL, BeeORM automatically sets the inserted primary key value in the ID field of the entity. Each entity provides a `GetID()` method that is useful if you pass the `beeorm.Entity` type in your code:
 
 ```go
-func printID(entity beeorm.Entity) uint64 {
-   fmt.Printf("ID: %d\n", entity.GetID())
-}
-
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
-categoryCars.ID // 0
+categoryCars.GetID() // 0
 engine.Flush(categoryCars)
-categoryCars.ID // 1
-printID(categoryCars) // "ID: 1"
+categoryCars.GetID() // 1
 ```
 
-If needed, you can define the ID for new entities by setting the ID field before flushing the entity:
+If needed, you can define the ID for new entities by setting the ID field with `SetID()` before flushing the entity:
 
 <code-group>
 <code-block title="code">
 ```go{1}
-categoryCars := &CategoryEntity{ID: 10, Code: "cars", Name: "Cars"}
+categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
+categoryCars.SetID(10)
 engine.Flush(categoryCars)
-categoryCars.ID // 10
+categoryCars.GetID() // 10
 ```
 </code-block>
 
@@ -176,7 +168,7 @@ For example, consider the following code:
 category := &CategoryEntity{Code: "cars", Name: "Cars V2"}
 category.SetOnDuplicateKeyUpdate(beeorm.Bind{"Name": "Cars V3"})
 engine.Flush(categoryCars) // no panic
-category.ID // 10
+category.GetID() // 10
 category.Name // "Cars V3"
 ```
 </code-block>
@@ -200,7 +192,7 @@ For example, consider the following code:
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
 category.SetOnDuplicateKeyUpdate(nil)
 engine.Flush(category) // No panic
-fmt.Println(category.ID) // 10
+fmt.Println(category.GetID()) // 10
 ```
 </code-block>
 
@@ -226,11 +218,11 @@ bmw1 := &ProductEntity{Name: "BMW 1", Category: categoryCars}
 fordFocus := &ProductEntity{Name: "Ford focus", Category: categoryCars}
 cockerSpaniel := &ProductEntity{Name: "Cocker spaniel", Category: categoryDogs}
 engine.Flush(bmw1, fordFocus) // we are flushing only products
-bmw1.Category.ID // 1
-fordFocus.Category.ID // 1
-cockerSpaniel.Category.ID // 2
-categoryCars.ID // 1
-categoryDogs.ID // 2
+bmw1.Category.GetID() // 1
+fordFocus.Category.GetID() // 1
+cockerSpaniel.Category.GetID() // 2
+categoryCars.GetID() // 1
+categoryDogs.GetID() // 2
 ```
 </code-block>
 
@@ -244,12 +236,14 @@ REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1, CacheForPro
 </code-group>
 
 
-Sometimes you may need to define a referenced entity, but you only know its `ID` value. In this case, you can assign it as a new entity with the `ID` field set to the correct value:
+Sometimes you may need to define a referenced entity, but you only know its `ID` value. In this case, you can assign it as a new entity with the `ID` set to the correct value:
 
 <code-group>
 <code-block title="code">
-```go{1}
-product := &ProductEntity{Name: "Ford focus", Category: &CategoryEntity{ID: 7}}
+```go{2}
+category := &CategoryEntity{}
+category.SetID(7)
+product := &ProductEntity{Name: "Ford focus", Category: category}
 engine.Flush()
 ```
 </code-block>
@@ -309,7 +303,8 @@ You can use the `engine.Load()` method:
 <code-group>
 <code-block title="code">
 ```go{2}
-product := &ProductEntity{ID: 1} // provide ID
+product := &ProductEntity{}
+product.SetID(1)// provide ID
 found := engine.Load(product) // true
 ```
 </code-block>
@@ -362,8 +357,8 @@ If you need to load more than one entity, you can use `engine.LoadByIDs()`:
 var products []*ProductEntity{}
 engine.LoadByIDs([]uint64{1, 2}, &products)
 len(products) == 2 // true
-products[0].ID // 1
-products[1].ID // 2
+products[0].GetID() // 1
+products[1].GetID() // 2
 ```
 </code-block>
 
@@ -389,8 +384,8 @@ If an entity is not found, it will be returned as `nil`:
 var products []*ProductEntity{}
 engine.LoadByIDs([]uint64{1, 2, 3}, &products)
 len(products) == 3 // true
-products[0].ID // 1
-products[1].ID // 2
+products[0].GetID() // 1
+products[1].GetID() // 2
 products[2] == nil // true
 ```
 
@@ -398,8 +393,9 @@ products[2] == nil // true
 
 Every entity stores internally the data that is stored in the corresponding MySQL table. This allows BeeORM to track changes and determine if an entity is "dirty" and needs to be flushed (saved) to the database. This data is stored in the entity every time a new entity is flushed or loaded from the database. You can use the `entity.IsLoaded()` method to determine if an entity has this data and can track changes:
 
-```go{2,4,7,9,12,14}
-category := &CategoryEntity{ID: 22, Code: "cars", Name: "Cars"}
+```go
+category := &CategoryEntity{Code: "cars", Name: "Cars"}
+category.SetID(22)
 category.IsLoaded() // false, entity needs to be inserted in MySQL table
 engine.FLush(category)
 category.IsLoaded() // true, entity data is saved in database
@@ -409,7 +405,8 @@ product.IsLoaded() // false
 engine.LoadByID(1, product)
 product.IsLoaded() // true, entity data is loaded from database
 
-product2 := &ProductEntity{ID: 2}
+product2 := &ProductEntity{}
+product2.SetID(2)
 product2.IsLoaded() // false
 product.Load(product2)
 product2.IsLoaded() // true
@@ -435,8 +432,8 @@ Often when loading an entity, you also need data from the connected referenced e
 product := &ProductEntity{}
 engine.LoadByID(1, product)
 product.Name // returns "Ford focus"
-product.Category.ID // returns 1
-product.Brand.ID // returns 1
+product.Category.GetID() // returns 1
+product.Brand.GetID() // returns 1
 product.Category.Name // returns an empty string because the entity data is not Loaded
 product.Brand.Name // returns an empty string because the entity data is not Loaded
 product.Brand.Logo // returns nil because the entity data is not Loaded
@@ -444,7 +441,7 @@ engine.Load(product.Category)
 engine.Load(product.Brand)
 product.Category.Name // returns "Cars"
 product.Brand.Name // returns "Ford"
-product.Brand.Logo.ID // returns 1
+product.Brand.Logo.GetID() // returns 1
 product.Brand.Logo.Name // returns an empty string because the entity data is not Loaded
 engine.Load(product.Brand.Logo)
 product.Brand.Logo.Url // returns "/images/ford.png"
@@ -785,24 +782,6 @@ err := flusher.FlushWithCheck()
 // returns error instead of panicing 
 err := flusher.FlushWithFullCheck()
 ```
-
-The `beeorm.Flusher` allows you to track entities for updates and deletions, but it does not remove them from the tracker after they are flushed to the database. To stop tracking an entity, you can use the `flusher.Clear()` method.
-
-For example:
-
-```go{7}
-category := &CategoryEntity{Name: "New category"}
-flusher := engine.NewFlusher()
-flusher.Track(category)
-flusher.Flush() // insert category into MySQL table
-category.Name = "New name"
-flusher.Flush() // updates category in MySQL table
-flusher.Clear()
-category.Name = "Another name"
-flusher.Flush() // does nothing, category is not tracked
-```
-
-This code will insert the category entity into the database, then update it with a new name. However, after the `flusher.Clear()` method is called, any further updates to the category entity will not be tracked and will not be applied to the database when the `Flush()` method is called.
 
 ## Clearing Entity Cache
 
