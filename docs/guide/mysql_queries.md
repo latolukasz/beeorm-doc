@@ -50,37 +50,6 @@ result.LastInsertId() // 0
 result.RowsAffected() // 0
 ```
 
-
-
-BeeORM's `Exec()` method supports [multi-statements](https://github.com/go-sql-driver/mysql#multistatements), but keep in mind that you can only define attributes (`?`) in the first query. See the following example:
-
-```go
-db := engine.GetMysql()
-queries := `
-UPDATE Cities SET Name = 'Paris' WHERE ID = 12;
-UPDATE Cities SET Name = 'London' WHERE ID = 13;
-DELETE FROM Cities WHERE ID > 100;
-`
-db.Exec(queries) // works
-
-queries = `
-UPDATE Cities SET Name = ? WHERE ID = ?;
-UPDATE Cities SET Name = 'London' WHERE ID = 13;
-`
-db.Exec(queries, "Paris", 12) // works
-
-queries = `
-UPDATE Cities SET Name = "Paris" WHERE ID = 12;
-UPDATE Cities SET Name = ? WHERE ID = ?;
-`
-db.Exec(queries, "London", 13) // panics
-```
-
-
-:::tip
-Avoid running modification queries that change entities which are using the caching layer, as it will result in the entity data in the cache not being updated with the latest changes in MySQL. Instead, you should always use `Flush()` or `FlashLazy()`. Alternatively, after running a modification query with `Exec()`, you should clear the entity cache by, for example, clearing the Redis database. This will ensure that the cache reflects the most recent changes made to the data in MySQL.
-:::
-
 ## Querying a Single Row
 
 To run a query that returns only one row, use the `QueryRow()` method:
@@ -102,12 +71,16 @@ db := engine.GetMysql()
 var id uint64
 var name string
 results, close := db.Query("SELECT ID, Name FROM Cities WHERE ID > ? LIMIT 100", 20)
+defer close()
 results.Columns() // []string{"ID", "Name"}
 for results.Next() {
     results.Scan(&id, &name)
 }
-close() // never forget to close query when finished
 ```
+
+:::warning
+Remember to include a `defer close()` after every `db.Query()` call. Failing to do so will result in the inability to run queries to MySQL, as all open database connections will be occupied.
+:::
 
 ## Transactions
 
@@ -130,7 +103,6 @@ func() {
 Always put `defer db.Rollback()` after `db.Begin()`.
 :::
 
-:::warning
 When using transactions, remember to use one instance of the engine for every transaction.
 You can use `engine.Clone()`:
 
@@ -150,16 +122,3 @@ go func() {
     db.Commit()
 }()
 ```
-:::
-
-## Setting a Query Execution Time Limit
-
-By default, all MySQL queries have no time limitation. If a query takes 2 minutes, the `Query()` function will take 2 minutes to execute. You can define a time limit for all queries run from a single engine instance using the `SetQueryTimeLimit()` method:
-
-```go
-engine := .....
-engine.SetQueryTimeLimit(5) //limit set to 5 seconds
-engine.SetQueryTimeLimit(0) //limit removed (default value)
-```
-
-If a query takes longer than the specified time limit, BeeORM will panic with the message `query exceeded limit of X seconds`.
