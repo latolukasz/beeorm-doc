@@ -11,7 +11,6 @@ Let's assume we have a `UserEntity` struct:
 ```go
 type UserEntity struct {
 	beeorm.ORM
-	ID         uint
     Email      string `orm:"unique=email;required"` 
     Supervisor *UserEntity
 }
@@ -19,27 +18,20 @@ type UserEntity struct {
 
 In our application, we often search for a user using their email:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 user := &UserEntity{}
 found := engine.SearchOne(beeorm.NewWhere("Email = ?", "bee@beeorm.io"), user)
 ```
-</code-block>
 
-<code-block title="queries">
 ```sql
 SELECT `ID`,`FirstName`,`LastName`,`Email` FROM `UserEntity` WHERE Email = "bee@beeorm.io" LIMIT 1
 ```
-</code-block>
-</code-group>
 
 To cache this query, we first need to define the cache layer that will be used to store the data. In this example, we will use Redis.
 
 ```go{2}
 type UserEntity struct {
 	beeorm.ORM `orm:"redisCache"`
-	ID         uint
     Email      string `orm:"unique=email;required"` 
     Supervisor *UserEntity
 }
@@ -47,10 +39,9 @@ type UserEntity struct {
 
 Next, we need to add an extra field of type `*beeorm.CachedQuery` with the `queryOne` tag:
 
-```go{6}
+```go{5}
 type UserEntity struct {
 	beeorm.ORM       `orm:"redisCache"`
-	ID               uint
     Email            string `orm:"unique=email;required"` 
     Supervisor       *UserEntity
     CachedQueryEmail *beeorm.CachedQuery `queryOne:":Email = ?"`
@@ -61,28 +52,20 @@ This enables us to cache search queries for the `UserEntity` struct. The `queryO
 
 We can now run a cached search query using `engine.CachedSearchOne()`:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 var user *UserEntity
 found := engine.CachedSearchOne(user, "CachedQueryEmail", "bee@beeorm.io")
 ```
-</code-block>
 
-<code-block title="queries hit">
-```sql
-REDIS GET query_cache_key
+```redis
+GET query_cache_key
 ```
-</code-block>
 
-<code-block title="queries miss">
 ```sql
 REDIS GET query_cache_key
 SELECT `ID`,`FirstName`,`LastName`,`Email` FROM `UserEntity` WHERE Email = "bee@beeorm.io" LIMIT 1
 REDIS SET cache_key ID_OF_ENTITY
 ```
-</code-block>
-</code-group>
 
 `engine.CachedSearchOne()` requires the name of the entity field used to define the cached query and a list of parameters required in the SQL query condition defined in the queryOne tag.
 
@@ -113,10 +96,9 @@ found == true // false
 
 We can also search for multiple entities using a cached query. To do so, we first need to define another cached query in our `UserEntity` struct:
 
-```go{6-8,10}
+```go{5-7,9}
 type UserEntity struct {
 	beeorm.ORM        `orm:"redisCache"`
-	ID                uint
     Email             string `orm:"unique=email;required"` 
     Supervisor        *UserEntity
     Admin             bool
@@ -129,31 +111,22 @@ type UserEntity struct {
 
 Note that we added another field of type `*beeorm.CachedQuery`, but this time with the query tag instead of queryOne. You can also use the `ORDER BY` syntax in your cached query SQL condition. Remember to prefix all fields with `:`, or else the cache data will not be updated when the entity field changes.
 
-
 We can now run our search using `engine.CachedSearch()`:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 var users []*UserEntity
 totalRows := engine.CachedSearch(&users, "CachedQueryAdmins", orm.NewPager(1, 100), true, 18)
 ```
-</code-block>
 
-<code-block title="queries hit">
-```sql
+```queries hits
 REDIS GET query_cache_key
 ```
-</code-block>
 
-<code-block title="queries miss">
-```sql
+```queries misses
 REDIS GET query_cache_key
 SELECT `ID`,`FirstName`,`LastName`,`Email` FROM `UserEntity` WHERE Admin = 1 AND Age >= 18 ORDER BY CreatedAt DESC LIMIT 1,100
 REDIS SET cache_key ID_OF_ENTITY
 ```
-</code-block>
-</code-group>
 
 You can also request a different page, but keep in mind that BeeORM only allows caching a maximum of 50,000 rows. If you skip the pager, all rows will be returned, but no more than 50,000.
 
