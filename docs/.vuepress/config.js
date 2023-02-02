@@ -64,6 +64,7 @@ export default defineUserConfig({
             'mysql_queries',
             'local_cache',
             'redis_operations',
+            'flusher_cache_setters',
             'distributed_lock',
             'event_broker',
             'log_tables',
