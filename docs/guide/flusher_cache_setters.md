@@ -1,10 +1,8 @@
 # Flusher Cache Setters
 
-In previous sections you have learned how to use [Flusher](/guide/crud.html#using-the-flusher) to 
-execute many MySQL and cache queries at once. Flusher is always trying to minimize number of queries to
-MySQL and Redis. In some scenarios you want to run additional queries to cache when `Flusher` is executed.
+You have learned in the previous section how to use the [Flusher](/guide/crud.html#using-the-flusher) to execute multiple MySQL and cache queries in one go, with a goal to minimize the number of queries to MySQL and Redis. However, in certain scenarios, you may want to run additional cache queries when the Flusher is executed.
 
-Look at below example:
+For instance, consider the following code:
 
 ```go
 type CategoryEntity struct {
@@ -20,7 +18,7 @@ flusher.Flush()
 engine.GetRedis().Del("total_categories")
 ```
 
-Above code works correctly. But look at the queries executed to MySQL and Redis:
+The code works as intended, but it results in two queries to Redis: one when `flusher.Flush()` is executed and another when `engine.GetRedis().Del("total_categories")` is executed.
 
 ```sql
 INSERT INTO CategoryEntity(Name) VALUES("Cars");
@@ -31,13 +29,9 @@ DEL hdkfusd:3 // entity data in cache
 DEL total_categories
 ```
 
-As you can see two queries to redis are executed. One when `flusher.Flush()` is executed, another one
-when `engine.GetRedis().Del("total_categories")` is executed.
+To solve this problem, Flusher provides two methods - `GetLocalCacheSetter()` and `GetRedisCacheSetter()` - that allow you to define Redis and local cache queries that should be executed when `flusher.Flush()` is called.
 
-That's why `Flusher` provides two methods - `GetLocalCacheSetter()` and `GetRedisCacheSetter()` which allows you define Redis and local cache queries that should be
-run when `flusher.Flush()` is executed.
-
-Below you can see how we can improve our example:
+Consider the following improved example:
 
 ```go{4}
 flusher := engine.NewFlusher()
@@ -51,14 +45,13 @@ flusher.Flush()
 INSERT INTO CategoryEntity(Name) VALUES("Cars");
 ```
 
+This results in only one request to Redis:
+
 ```redis
 DEL hdkfusd:3 total_categories
 ```
 
-As you can see only one request is send to Redis - both keys are removed at once.
-
-You can use flush cache setters to group many changes in cached and execute them in the most optimal way.
-For example:
+Using the `Flusher` cache setters allows you to group multiple changes to the cache and execute them in an optimal way. For example:
 
 ```go
 flusher := engine.NewFlusher()
@@ -68,6 +61,7 @@ flusher.GetRedisCacheSetter().Set("key4", "value", time.Minute)
 flusher.GetRedisCacheSetter().Del("key5")
 flusher.Flush()
 ```
+This results in the following operations:
 
 ```local cache
 DEL key1 key2
