@@ -9,8 +9,6 @@ Make sure to choose a clear and descriptive name for each connection pool to avo
 
 To connect to a MySQL database, you can use the RegisterMySQLPool method, which takes a MySQL golang sql driver [data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name) as an argument. The method is defined as follows:
 
-<code-group>
-<code-block title="in go">
 ```go
 registry := beeorm.NewRegistry()
 //MySQL pool with name "default":
@@ -20,17 +18,13 @@ registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db", "default")
 //pool with name "logs":
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/logs", "logs")
 ```
-</code-block>
 
-<code-block title="yaml">
 ```yml
 default:
   mysql: user:password@tcp(localhost:3306)/db
 logs:
   mysql: user:password@tcp(localhost:3306)/logs
 ```
-</code-block>
-</code-group>
 
 
 By default, BeeORM allows up to 100 simultaneous client connections in one MySQL pool. However, this limit cannot exceed 90% of the value of 
@@ -63,23 +57,17 @@ It is recommended to carefully monitor the performance of your application and M
 
 By default, BeeORM uses the utf8mb4 character set and 0900_ai_ci collation for all tables. You can change this default behavior using the SetDefaultEncoding and SetDefaultCollate methods, as shown in the following example:
 
-<code-group>
-<code-block title="in go">
 ```go{2}
 registry := beeorm.NewRegistry()
 registry.SetDefaultEncoding("latin2")
 registry.SetDefaultCollate("0900_ai_ci")
 ```
-</code-block>
 
-<code-block title="yaml">
 ```yml
 default:
   mysqlEncoding: latin2
   mysqlCollate: 0900_ai_ci
 ```
-</code-block>
-</code-group>
 
 ## Local cache pool
 
@@ -87,25 +75,19 @@ BeeORM offers a simple and extremely fast in-memory key-value cache for storing 
 
 To use the cache, you simply need to specify the pool name and the maximum number of cached keys:
 
-<code-group>
-<code-block title="in go">
 ```go
 // default pool with max 100 000 values
 registry.RegisterLocalCache(100000)
 // pool "last_searches" with max 1000 values
 registry.RegisterLocalCache(1000, "last_searches")
 ```
-</code-block>
 
-<code-block title="yaml">
 ```yml
 default:
   local_cache: 100000
 last_searches:
   local_cache: 1000
 ```
-</code-block>
-</code-group>
 
 ::: tip
 When using BeeORM's in-memory key-value cache, it's important to carefully consider the cache size. If the cache is too small, data will be evicted frequently, resulting in a low hit rate. On the other hand, if the cache is too large, it will use up a lot of memory and may contain data that is no longer needed.
@@ -119,8 +101,6 @@ BeeORM allows you to connect to a single Redis server using the RegisterRedis me
 
 Here are some examples of how to use the RegisterRedis method:
 
-<code-group>
-<code-block title="in go">
 ```go
 // pool with name "default", empty keys namespace, pointing to Redis database #0:
 registry.RegisterRedis("localhost:6379", "", 0)
@@ -134,9 +114,7 @@ registry.RegisterRedis("198.112.22.21:6379", "", 1, "products")
 // pool with credentials
 registry.RegisterRedisWithCredentials("198.112.22.21:6379", "", "user", "password"," 1, "products")
 ```
-</code-block>
 
-<code-block title="yaml">
 ```yml
 default:
   redis:localhost:6379:0
@@ -145,17 +123,12 @@ users:
 products:
   198.112.22.21:6379:1?user=user&password=pass
 ```
-</code-block>
-</code-group>
 
 ## Redis sentinel pool
 
 You can define a Redis pool connected to a [Redis Sentinel](https://redis.io/topics/sentinel) group using the RegisterRedisSentinel method. 
 This method requires the master name, a list of addresses to the Sentinel daemons, and the Redis database number.
 
-
-<code-group>
-<code-block title="in go">
 ```go
 // Define a pool with the name "default" pointing to Redis database #0: 
 poolDefault := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
@@ -165,9 +138,7 @@ registry.RegisterRedisSentinel("master", "", 0, poolDefault)
 poolProducts := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
 registry.RegisterRedisSentinel("master", "global", 1, poolProducts, "products")
 ```
-</code-block>
 
-<code-block title="yaml">
 ```yml
 default:
   sentinel:
@@ -182,8 +153,6 @@ products:
       - 192.156.23.24:26379
       - 192.156.23.25:26379
 ```
-</code-block>
-</code-group>
 
 Redis Sentinel provides high availability for Redis by allowing multiple Sentinel instances to monitor the master and its slaves. When the master fails, one of the slaves is promoted to master automatically and the Sentinels update the client connections to use the new master. By using a Redis Sentinel pool, you can ensure that your applications can continue to access Redis even if the master fails.
 
@@ -193,15 +162,11 @@ We strongly recommend using Redis Sentinel pools instead of a single server pool
 
 To provide Redis credentials, you can use the RegisterRedisSentinelWithCredentials method in Go:
 
-<code-group>
-<code-block title="in go">
 ```go
 poolDefault := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
 registry.RegisterRedisSentinelWithCredentials("master", "", "user", "password", 0, poolDefault)
 ```
-</code-block>
 
-<code-block title="yaml">
 ```yml
 default:
   sentinel:
@@ -210,8 +175,6 @@ default:
       - 192.156.23.11:26379
       - 192.156.23.12:26379
 ```
-</code-block>
-</code-group>
 
 Providing Redis credentials is optional, but it can improve the security of your Redis instance by requiring clients to authenticate before they can access the data stored in Redis.
 

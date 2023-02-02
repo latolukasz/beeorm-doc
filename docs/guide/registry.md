@@ -18,8 +18,6 @@ func main() {
 
 Alternatively, you can configure the beeorm.Registry object using data from a YAML file, as shown in the following example:
 
-<code-group>
-<code-block title="go">
 ```go{20}
 package main
 
@@ -43,12 +41,8 @@ func main() {
     registry.InitByYaml(parsedYaml)
 }
 ```
-</code-block>
 
-<code-block title="config.yaml">
 ```yml
 default:
   mysql: user:password@tcp(localhost:3306)/db
 ```
-</code-block>
-</code-group>

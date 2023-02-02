@@ -87,23 +87,12 @@ func main() {
 
 To get a list of registered entities, you can use the `GetEntities` method:
 
-<code-group>
-<code-block title="code">
 ```go
 // returns map[string]reflect.Type
 for name, type := range := validatedRegistry.GetEntities() {
     fmt.Printf("%s = %s\n", name, type.Name())
 }
 ```
-</code-block>
-
-<code-block title="output">
-```
-main.CarEntity = CarEntity
-main.PersonEntity = PersonEntity
-```
-</code-block>
-</code-group>
 
 The GetEntities method returns a map with the names of the entities as keys and their types as values. You can use this information to retrieve additional details about the entities and their fields.
 
@@ -187,8 +176,6 @@ tableSchema := validatedRegistry.GetTableSchemaForCachePrefix("f3b2d")
 
 To retrieve a list of registered MySQL pools, you can use the `GetMySQLPools()` method:
 
-<code-group>
-<code-block title="code">
 ```go
 for code, pool := range := validatedRegistry.GetMySQLPools() {
     fmt.Printf("Pool '%s':\n", code)
@@ -197,24 +184,11 @@ for code, pool := range := validatedRegistry.GetMySQLPools() {
     fmt.Printf("Version: %d\n", pool.GetVersion()) // 5 or 8
 }
 ```
-</code-block>
-
-<code-block title="output">
-```
-Pool 'default':
-Database: my_db
-URI: user:password@tcp(localhost:3306)/my_db
-Version: 8
-```
-</code-block>
-</code-group>
 
 ## Getting Redis pools
 
 To retrieve a list of registered Redis pools, you can use the `GetRedisPools()` method:
 
-<code-group>
-<code-block title="code">
 ```go
 for code, pool := range := validatedRegistry.GetRedisPools() {
     fmt.Printf("Pool '%s':\n", code)
@@ -222,35 +196,14 @@ for code, pool := range := validatedRegistry.GetRedisPools() {
     fmt.Printf("Address: %s\n", pool.GetAddress())
 }
 ```
-</code-block>
-
-<code-block title="output">
-```
-Pool 'default':
-DB: 0
-Address: localhost:6379
-```
-</code-block>
-</code-group>
 
 ## Getting local cache pools
 
 To retrieve a list of registered local cache pools, you can use the GetLocalCachePools() method:
 
-<code-group>
-<code-block title="code">
 ```go
 for code, pool := range := validatedRegistry.GetLocalCachePools() {
     fmt.Printf("Pool '%s':\n", code)
     fmt.Printf("Limit: %d\n", pool.GetLimit())
 }
 ```
-</code-block>
-
-<code-block title="output">
-```
-Pool 'my_storage':
-Limit: 1000
-```
-</code-block>
-</code-group>

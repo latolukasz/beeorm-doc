@@ -83,16 +83,13 @@ The `engine.Search()` method is used to search for entities using a SQL query co
 
 Here is an example of how to use the `engine.Search()` method:
 
-<code-group>
-<code-block title="code">
-```go{25}
+```go{24}
 package main
 
 import "github.com/latolukasz/beeorm/v2"
 
 type UserEntity struct {
     beeorm.ORM
-    ID         uint
     FirstName  string `orm:"required"`
     LastName   string `orm:"required"`
     Email      string `orm:"required"`
@@ -115,93 +112,36 @@ func main() {
     users[0].Email // "bee@beeorm.io"
 }
 ```
-</code-block>
-
-<code-block title="sql">
-```sql
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE Age >= 18 LIMIT 0,100
-```
-</code-block>
-</code-group>
-
 
 The Pager object is optional. If you provide nil, BeeORM will still limit the results to **50 000** rows.
 
-<code-group>
-<code-block title="code">
 ```go
 engine.Search(beeorm.NewWhere("1 ORDER BY ID DESC"), nil, &users)
 ```
-</code-block>
-
-<code-block title="sql">
-```sql
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 1 ORDER BY ID DESC LIMIT 0,50000
-```
-</code-block>
-</code-group>
 
 You can also provide optional parameters to define which references should be loaded. You can read more about this feature on the [CRUD/loading references](/guide/crud.html#loading-references) page.
 
-<code-group>
-<code-block title="code">
 ```go
 engine.Search(beeorm.NewWhere("1"), beeorm.NewPager(1, 10), &users, "Supervisor")
 ```
-</code-block>
-
-<code-block title="sql">
-```sql
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE 1 LIMIT 0,10
-// loading supervisors
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE ID IN (7,10)
-```
-</code-block>
-</code-group>
 
 If you need the total number of found rows, you can use the `engine.SearchWithCount()` method, which works exactly the same as `engine.Search()`, with the only difference being that it returns the total number of found rows as an int.
 
-<code-group>
-<code-block title="code">
 ```go
 total := engine.SearchWithCount(beeorm.NewWhere("FirstName = ?", "Adam"), beeorm.NewPager(1, 10), &users)
 ```
-</code-block>
-
-<code-block title="sql">
-```sql
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
-SELECT COUNT(1) FROM `UserEntity` WHERE FirstName = "Adam"
-```
-</code-block>
-</code-group>
 
 ## Searching for a Single Entity
 
 If you need to search for a single entity, you can use the `engine.SearchOne()` method:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 user := &UserEntity{}
 found := engine.SearchOne(beeorm.NewWhere("Email = ?", "bee@beeorm.io"), user)
 if found {
   fmt.Printf("Found user with ID %d and Email\n", user.ID, user.Email)
 }
-
-//with references
-found = engine.SearchOne(beeorm.NewWhere("ID > ? ORDER BY Age DESC", 12), user, "Supervisor")
 ```
-</code-block>
-
-<code-block title="sql">
-```sql
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE Email = "bee@beeorm.io" LIMIT 1
-SELECT `ID`,`FirstName`,`LastName`,`Email`,`Supervisor` FROM `UserEntity` WHERE ID > 12 ORDER BY Age DESC LIMIT 1
-
-```
-</code-block>
-</code-group>
 
 ::: tip
 This method always adds `LIMIT 1` to the SQL query, so if your query selects more than one row from the database, only the first row will be returned.
@@ -211,8 +151,6 @@ This method always adds `LIMIT 1` to the SQL query, so if your query selects mor
 
 You can use the `engine.SearchIDs()` method to search for the primary keys of an entity:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 var user *UserEntity
 ids := engine.SearchIDs(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10), user)
@@ -220,12 +158,3 @@ for _, id := range ids {
     fmt.Printf("ID: %d\n", id)
 }
 ```
-</code-block>
-
-<code-block title="sql">
-```sql
-SELECT `ID` FROM `UserEntity` WHERE FirstName = "Adam" LIMIT 0,10
-```
-</code-block>
-</code-group>
-

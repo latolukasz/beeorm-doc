@@ -51,42 +51,19 @@ func main() {
 
 There are various ways to store a new entity in a database using BeeORM. The simplest method is to use the `engine.Flush()` method, which inserts the entity into the database and updates its ID field with the primary key value:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
 engine.Flush(category)
 ```
-</code-block>
-
-<code-block title="queries">
-```queries
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
-REDIS DELETE CacheForCategory1
-```
-</code-block>
-</code-group>
 
 You can save multiple entities at once:
 
-<code-group>
-<code-block title="code">
 ```go{4}
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
 categoryBikes := &CategoryEntity{Code: "bikes", Name: "Bikes"}
 product := &ProductEntity{Name: "BMW 1", Category: categoryCars}
 engine.Flush(categoryCars, categoryBikes, product)
 ```
-</code-block>
-
-<code-block title="sql">
-```queries
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?, ?)
-INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, ?)
-REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1
-```
-</code-block>
-</code-group>
 
 ::: tip
 Note that `Flush()` only generates two SQL queries, as BeeORM's query optimizer groups all queries to MySQL and Redis to minimize the number of queries. It is always more efficient to use `FlushMany()` to save multiple entities at once, rather than calling `Flush()` multiple times.
@@ -103,23 +80,12 @@ categoryCars.GetID() // 1
 
 If needed, you can define the ID for new entities by setting the ID field with `SetID()` before flushing the entity:
 
-<code-group>
-<code-block title="code">
 ```go{1}
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
 categoryCars.SetID(10)
 engine.Flush(categoryCars)
 categoryCars.GetID() // 10
 ```
-</code-block>
-
-<code-block title="sql">
-```queries
-INSERT INTO `CategoryEntity`(`ID`, `Code`, `Name`) VALUES(10, ?, ?)
-REDIS DELETE CacheForCategory10
-```
-</code-block>
-</code-group>
 
 By default, the `Flush()` method of BeeORM does not return any errors. Instead, it will panic if an error occurs. This approach is preferred in actions that connect to external services such as databases, as it ensures that any issues are immediately addressed. However, in some cases, you may want to handle specific errors that may occur when saving an entity. For example, you may want to catch errors related to duplicate or invalid values in MySQL indexes.
 
@@ -127,8 +93,6 @@ To handle these specific errors, you can use the `engine.FlushWithCheck()` metho
 
 Here is an example of using `engine.FlushWithCheck()` to handle specific errors:
 
-<code-group>
-<code-block title="code">
 ```go{3}
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
 categoryCarsDuplicated := &CategoryEntity{ Code: "cars", Name: "Cars"}
@@ -145,15 +109,6 @@ if err != nil {
     }
 }
 ```
-</code-block>
-
-<code-block title="sql">
-```queries
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?, ?)
-REDIS DELETE CacheForCategory1, CacheForCategory2
-```
-</code-block>
-</code-group>
 
 ### On duplicate key update
 
@@ -161,8 +116,6 @@ MySQL has a useful feature called [INSERT ON DUPLICATE KEY UPDATE](https://dev.m
 
 For example, consider the following code:
 
-<code-group>
-<code-block title="code">
 ```go{3}
  // let's assume we have category in database with `Code` = cars and `ID` = 10:
 category := &CategoryEntity{Code: "cars", Name: "Cars V2"}
@@ -171,22 +124,11 @@ engine.Flush(categoryCars) // no panic
 category.GetID() // 10
 category.Name // "Cars V3"
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `Name` = ?
-REDIS DELETE CacheForCategory10
-```
-</code-block>
-</code-group>
 
 In some cases, you may not want to update any fields if the entity you are trying to insert has a duplicate key in the database. In this case, you can simply provide `nil` as the bind parameter when calling the `SetOnDuplicateKeyUpdate()` method.
 
 For example, consider the following code:
 
-<code-group>
-<code-block title="code">
 ```go{3}
 // Let's assume we have a category in the database with Code = "cars" and ID = 10:
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
@@ -194,14 +136,6 @@ category.SetOnDuplicateKeyUpdate(nil)
 engine.Flush(category) // No panic
 fmt.Println(category.GetID()) // 10
 ```
-</code-block>
-
-<code-block title="sql">
-```queries
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `ID` = `ID`
-```
-</code-block>
-</code-group>
 
 As you can see, the Flush() method does not panic and the ID field of the category entity is set to 10. The ON DUPLICATE KEY UPDATE clause ensures that no fields are updated if a duplicate key is detected.
 
@@ -209,8 +143,6 @@ As you can see, the Flush() method does not panic and the ID field of the catego
 
 BeeORM automatically flushes all new entities (entities with an ID of 0) that are assigned as references in a flushed entity. For example:
 
-<code-group>
-<code-block title="code">
 ```go
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
 categoryDogs := &CategoryEntity{Code: "dogs", Name: "Dogs"}
@@ -224,37 +156,16 @@ cockerSpaniel.Category.GetID() // 2
 categoryCars.GetID() // 1
 categoryDogs.GetID() // 2
 ```
-</code-block>
-
-<code-block title="sql">
-```queries
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?),(?,?)
-INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, ?)(?,?)
-REDIS DELETE CacheForCategory1, CacheForCategory2, CacheForProduct1, CacheForProduct2
-```
-</code-block>
-</code-group>
 
 
 Sometimes you may need to define a referenced entity, but you only know its `ID` value. In this case, you can assign it as a new entity with the `ID` set to the correct value:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 category := &CategoryEntity{}
 category.SetID(7)
 product := &ProductEntity{Name: "Ford focus", Category: category}
 engine.Flush()
 ```
-</code-block>
-
-<code-block title="sql">
-```queries
-INSERT INTO `ProductEntity`(`Name`, `Category`) VALUES(?, 7)
-REDIS DELETE CacheForProduct1
-```
-</code-block>
-</code-group>
 
 Note that the CategoryEntity with an ID of 7 will not be inserted into the database, as it is being referenced rather than created as a new entity.
 
@@ -300,59 +211,21 @@ There are several ways to load entities from the database when you know the prim
 
 You can use the `engine.Load()` method:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 product := &ProductEntity{}
 product.SetID(1)// provide ID
 found := engine.Load(product) // true
 ```
-</code-block>
-
-<code-block title="queries hit">
-```sql
-[HIT] REDIS GET cacheKeyForProduct1
-```
-</code-block>
-
-<code-block title="queries miss">
-```sql
-[MISS] REDIS GET cacheKeyForProduct1
-SELECT `ID`, `Name`, `Category` FROM `Products` WHERE `ID` = 1 
-REDIS SET cacheKeyForProduct1 "entity data"
-```
-</code-block>
-</code-group>
 
 Another option is to use `engine.LoadByID()`:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 product := &ProductEntity{}
 found := engine.LoadByID(1, product) // true
 ```
-</code-block>
-
-<code-block title="queries hit">
-```sql
-[HIT] REDIS GET cacheKeyForProduct1
-```
-</code-block>
-
-<code-block title="queries miss">
-```sql
-[MISS] REDIS GET cacheKeyForProduct1
-SELECT `ID`, `Name`, `Category` FROM `Products` WHERE `ID` = 1 
-REDIS SET cacheKeyForProduct1 "entity data"
-```
-</code-block>
-</code-group>
 
 If you need to load more than one entity, you can use `engine.LoadByIDs()`:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 var products []*ProductEntity{}
 engine.LoadByIDs([]uint64{1, 2}, &products)
@@ -360,22 +233,6 @@ len(products) == 2 // true
 products[0].GetID() // 1
 products[1].GetID() // 2
 ```
-</code-block>
-
-<code-block title="queries hit">
-```sql
-[HIT,HIT] REDIS MGET cacheKeyForProducts1 cacheKeyForProducts2
-```
-</code-block>
-
-<code-block title="queries miss">
-```sql
-[MISS,MISS] REDIS MGET cacheKeyForProducts1 cacheKeyForProducts2
-SELECT `ID`, `Name`, `Category` FROM `Products` WHERE `ID` IN (1, 2) 
-REDIS MSET cacheKeyForProducts1 "entity1 data" cacheKeyForProducts2 "entity2 data"
-```
-</code-block>
-</code-group>
 
 If an entity is not found, it will be returned as `nil`:
 
@@ -426,8 +283,6 @@ product.Category.Loaded() // true
 
 Often when loading an entity, you also need data from the connected referenced entities. For example, on a product page, you might need to display the product title, its category, brand, and brand logo. One way to do this is as follows:
 
-<code-group>
-<code-block title="code">
 ```go
 product := &ProductEntity{}
 engine.LoadByID(1, product)
@@ -446,39 +301,9 @@ product.Brand.Logo.Name // returns an empty string because the entity data is no
 engine.Load(product.Brand.Logo)
 product.Brand.Logo.Url // returns "/images/ford.png"
 ```
-</code-block>
-
-<code-block title="queries hit">
-```sql
-[HIT] REDIS GET cacheKeyForProduct1
-[HIT] REDIS GET cacheKeyForCategory1
-[HIT] REDIS GET cacheKeyForBrand1
-[HIT] REDIS GET cacheKeyForImage1
-```
-</code-block>
-
-<code-block title="queries miss">
-```sql
-[MISS] REDIS GET cacheKeyForProduct1
-SELECT `ID`, `Name`, `Category`, `Brand` FROM `ProductEntity` WHERE `ID`= 1 
-REDIS SET cacheKeyForProduct1 "entity data"
-[MISS] REDIS GET cacheKeyForCategory1
-SELECT `ID`, `Name` FROM `CategoryEntity` WHERE `ID`= 1 
-REDIS SET cacheKeyForCategory1 "entity data"
-[MISS] REDIS GET cacheKeyForBrand1
-SELECT `ID`, `Name` FROM `BrandEntity` WHERE `ID`= 1 
-REDIS SET cacheKeyForBrand1 "entity data"
-[MISS] REDIS GET cacheKeyForImage1
-SELECT `ID`, `Url` FROM `ImageEntity` WHERE `ID`= 1 
-REDIS SET cacheKeyForImage1 "entity data"
-```
-</code-block>
-</code-group>
 
 Is it possible to make this code simpler and faster? Every method used to load entities, such as `Load()`, `LoadByID()`, and `LoadByIDs()`, accepts optional references parameters that can be used to instruct BeeORM to load specific references together with the entity:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 product := &ProductEntity{}
 engine.LoadByID(1, product, "Category", "Brand/Logo")
@@ -487,66 +312,13 @@ product.Category.Name // "Cars"
 product.Brand.Name // "Ford"
 product.Brand.Logo.Url // "/images/ford.png"
 ```
-</code-block>
-
-<code-block title="queries hit">
-```sql
-[HIT] REDIS GET cacheKeyForProduct1
-[HIT] REDIS MGET cacheKeyForCategory1 cacheKeyForBrand1
-[HIT] REDIS GET cacheKeyForImage1
-```
-</code-block>
-
-<code-block title="queries miss">
-```sql
-[MISS] REDIS GET cacheKeyForProduct1
-SELECT `ID`, `Name`, `Category`, `Brand` FROM `ProductEntity` WHERE `ID`= 1 
-REDIS SET cacheKeyForProduct1 "entity data"
-[MISS] REDIS MGET cacheKeyForCategory1 cacheKeyForBrand1
-SELECT `ID`, `Name` FROM `CategoryEntity` WHERE `ID`= 1 
-SELECT `ID`, `Name` FROM `BrandEntity` WHERE `ID`= 1 
-REDIS MSET cacheKeyForCategory1 "entity data" cacheKeyForBrand1 "entity data"
-[MISS] REDIS GET cacheKeyForImage1
-SELECT `ID`, `Url` FROM `ImageEntity` WHERE `ID`= 1 
-REDIS SET cacheKeyForImage1 "entity data"
-```
-</code-block>
-</code-group>
 
 As you can see, the code above is not only simpler, but it also produces fewer requests to MySQL and Redis. Notice how queries are generated when you use the references feature to load multiple entities at once:
 
-<code-group>
-<code-block title="code">
 ```go{2}
 var products []*ProductEntity{}
 engine.LoadByIDs(uint64{1, 2, 3}, &products, "Category", "Brand/Logo")
 ```
-</code-block>
-
-<code-block title="queries hit">
-```sql
-[HIT] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct2 cacheKeyForProduct3
-[HIT] REDIS MGET cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory3 cacheKeyForBrand1 cacheKeyForBrand2 cacheKeyForBrand3
-[HIT] REDIS MGET cacheKeyForImage1 cacheKeyForImage2 cacheKeyForImage3
-```
-</code-block>
-
-
-<code-block title="queries miss">
-```sql
-[MISS] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct2 cacheKeyForProduct3
-SELECT `ID`, `Name`, `Category`, `Brand` FROM `ProductEntity` WHERE `ID` IN (1, 2, 3) 
-REDIS MSET cacheKeyForProduct1 "entity data" cacheKeyForProduct2 "entity data" cacheKeyForProduct3 "entity data"
-[MISS] REDIS MGET cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory4 cacheKeyForBrand1 cacheKeyForBrand2 cacheKeyForBrand3
-SELECT `ID`, `Name` FROM `CategoryEntity` WHERE `ID` IN (1, 2, 3) 
-SELECT `ID`, `Name` FROM `BrandEntity` WHERE `ID` IN (1, 2, 3) 
-REDIS MSET cacheKeyForCategory1 "entity data" cacheKeyForCategory2 "entity data" cacheKeyForCategory3 "entity data" cacheKeyForBrand1 "entity data" cacheKeyForBrand2 "entity data" cacheKeyForBrand3 "entity data"
-[MISS] REDIS MGET cacheKeyForImage1 cacheKeyForImage2 cacheKeyForImage3
-SELECT `ID`, `Url` FROM `ImageEntity` WHERE `ID` IN (1, 2, 3) 
-REDIS MSET cacheKeyForImage1 "entity data" cacheKeyForImage2 "entity data" cacheKeyForImage3 "entity data"
-```
-</code-block>
-</code-group>
 
 This code generates only three queries to Redis, making it a very efficient way to load multiple entities with their references. Isn't that cool?
 
@@ -554,50 +326,12 @@ This code generates only three queries to Redis, making it a very efficient way 
 
 Updating entities with BeeORM is straightforward. You can update entity by calling the `Flush()` method on the entities.
 
-<code-group>
-<code-block title="code">
 ```go{4}
 product := &ProductEntity{}
 engine.LoadByID(1, product)
 product.Name = "New name"
 engine.Flush(product)
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-[HIT] REDIS GET cacheKeyForProduct1
-UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
-REDIS DELETE cacheKeyForProduct1
-```
-</code-block>
-</code-group>
-
-
-<code-group>
-<code-block title="code">
-```go{8}
-var products []*ProductEntity
-engine.LoadByIDs(int64{1, 2}, &products)
-category := &CategoryEntity{}
-engine.LoadByID(1, &category)
-products[0].Name = "New name"
-products[1].Name = "Another name"
-category.Name = "New name"
-engine.Flush(category, products[0], products[1])
-```
-</code-block>
-
-<code-block title="queries">
-```sql
-[HIT] REDIS MGET cacheKeyForCategory1 cacheKeyForProduct1 cacheKeyForProduct2
-UPDATE `CategoryEntity` SET `Name` = ? WHERE `ID` = 1
-UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
-UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 2
-REDIS DELETE cacheKeyForCategory1 cacheKeyForProduct1 cacheKeyForProduct2
-```
-</code-block>
-</code-group>
 
 To update an entity, you first need to load it from the database using a method like `LoadByID()`. Then, you can modify the entity's properties and call `Flush()` to persist the changes to the database. BeeORM will automatically generate the necessary `SQL UPDATE` statement and execute it against the database, as well as invalidate any relevant cache entries to ensure that the updated data is reflected in future queries.
 
@@ -623,87 +357,39 @@ This will create a copy of the category entity, assign a new value to its Name f
 
 In BeORM, entities can be deleted from a MySQL table using the `engine.Delete()` method. For example:
 
-<code-group>
-<code-block title="code">
 ```go{3}
 product := &ProductEntity{}
 engine.LoadByID(1, product)
 engine.Delete(product)
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-[HIT] REDIS GET cacheKeyForProduct1
-DELETE FROM `ProductEntity` WHERE `ID` = 1
-REDIS SET cacheKeyForProduct1 "nil"
-```
-</code-block>
-</code-group>
 
 This will delete the `ProductEntity` with an ID of 1 from the table.
 
 To delete multiple entities at once:
 
-<code-group>
-<code-block title="code">
 ```go
 engine.Delete(product1, product1, product3)
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-[HIT] REDIS MGET cacheKeyForProduct1 cacheKeyForProduct1
-DELETE FROM `ProductEntity` WHERE `ID` IN (1, 2)
-REDIS MSET cacheKeyForProduct1 "nil" cacheKeyForProduct2 "nil"
-```
-</code-block>
-</code-group>
 
 This will delete all ProductEntity objects with an ID of 1 or 2 from the table.
 
 If the entity has a  [FakeDelete field](/guide/entity_fields.html#fake-delete), the above methods will work differently. Instead of deleting rows from the table, a special update query will be executed:
 
-<code-group>
-<code-block title="code">
 ```go{3}
 category := &CategoryEntity{}
 engine.LoadByID(3, category)
 engine.Delete(category)
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-[HIT] REDIS GET cacheKeyForCategory3
-UPDATE `CategoryEntity` SET `FakeDelete` = 3 WHERE `ID` = 3
-REDIS DELETE cacheKeyForCategory3
-```
-</code-block>
-</code-group>
 
 This will update the FakeDelete field for the CategoryEntity with an ID of 3 in the table, rather than deleting the row.
 
 To force an entity with a `FakeDelete` field to be deleted from the MySQL table, use the `engine.ForceDelete()` method:
 
-<code-group>
-<code-block title="code">
 ```go{3}
 category := &CategoryEntity{}
 engine.LoadByID(3, category)
 engine.ForceDelete(category)
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-[HIT] REDIS GET cacheKeyForCategory3
-DELETE FROM `CategoryEntity` WHERE `ID` = 3
-REDIS SET cacheKeyForCategory3 "nil"
-```
-</code-block>
-</code-group>
 
 This will delete the `CategoryEntity` with an ID of 3 from the table, even if it has a `FakeDelete` field.
 
@@ -713,8 +399,6 @@ The `beeorm.Flusher` is a useful tool in BeeORM when you need to add, update, an
 
 Here's an example of using the `Flusher`:
 
-<code-group>
-<code-block title="code">
 ```go{1,5,9,12,15}
 flusher := engine.NewFlusher()
 
@@ -732,37 +416,12 @@ categoryToDeleteFromTable := &CategoryEntity{}
 engine.LoadByID(11, categoryToDeleteFromTable)
 flusher.ForceDelete(categoryToDeleteFromTable)
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-[HIT] REDIS GET cacheKeyForProduct1
-[HIT] REDIS GET cacheKeyForCategory10
-[HIT] REDIS GET cacheKeyForCategory11
-```
-</code-block>
-</code-group>
 
 Once you have finished tracking the entities you want to update or delete, you can execute the updates and deletions by calling the `Flush()` method on the `Flusher` object:
 
-<code-group>
-<code-block title="code">
 ```go
 flusher.Flush()
 ```
-</code-block>
-
-<code-block title="queries">
-```sql
-INSERT INTO `CategoryEntity`(`Code`, `Name`) VALUES(?, ?)
-INSERT INTO `BrandEntity`(`Code`, `Name`) VALUES(?, ?)
-UPDATE `ProductEntity` SET `Name` = ? WHERE `ID` = 1
-UPDATE `CategoryEntity` SET `FakeDelete` = 10 WHERE `ID` = 10
-DELETE FROM `CategoryEntity` WHERE `ID` = 11
-REDIS DELETE cacheKeyForCategory1 cacheKeyForCategory2 cacheKeyForCategory11 cacheKeyForCategory12 cacheKeyForProduct1
-```
-</code-block>
-</code-group>
 
 This will execute all of the necessary queries to update or delete the tracked entities in the database. For example, if you tracked an entity to be inserted, updated, and deleted, the `Flush()` method will execute the appropriate INSERT, UPDATE, and DELETE queries.
 
