@@ -146,6 +146,10 @@ registry.RegisterRedis("localhost:6379", "", 0, "application_keys_namespace")
 This will help to prevent conflicts and ensure that each application can access its own `LazyFlushConsumer` lock without interference from other applications.
 :::
 
+:::warning
+Don't forget to run at least one [StreamGarbageCollectorConsumer](/guide/event_broker.html#stream-garbage-collector-consumer) in your application.
+:::
+
 ## Lazy Flush Error Resolver
 
 Using `FlushLazy()` can be tricky, as you need to ensure that your data is validated and the query can be executed in MySQL before calling the method. If a query in the lazy stream is invalid, the `NewLazyFlushConsumer` may panic while trying to execute it, blocking the stream until the invalid query is removed. For example:

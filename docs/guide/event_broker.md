@@ -21,9 +21,7 @@ and three consumer groups:
  * `read-group-ab` that reads events from the `stream-a` and `stream-b`
  * `read-group-c` that reads events from  the `stream-c`
 
-<code-group>
-<code-block title="code">
-```go{4,5,8}
+```go
 registry := beeorm.NewRegistry()
 
 registry.RegisterRedis("localhost:6379", "", 0)
@@ -33,10 +31,8 @@ registry.RegisterRedisStream("stream-b", "default", []string{"read-group-ab"})
 registry.RegisterRedis("192.168.1.20:6379", "", 3, "second")
 registry.RegisterRedisStream("stream-c", "default", []string{"read-group-c"})
 ```
-</code-block>
 
-<code-block title="yaml">
-```yml{3-8,11-13}
+```yml
 default:
     redis: localhost:6379:0
     streams:
@@ -51,10 +47,8 @@ second:
         stream-c:
           - read-group-c
 ```
-</code-block>
-</code-group>
 
-:::info
+
 Stream names must be unique, even when they are defined in separate Redis pools.
 
 The following code will return an error:
@@ -67,7 +61,6 @@ registry.RegisterRedisStream("stream-a", "default", []string{"read-group-c"})
 validatedRegistry, err := registry.Validate()
 fmt.Print(err) // "stream with name stream-a aleady exists"
 ```
-:::
    
 ## Publishing  events
 
@@ -96,19 +89,19 @@ eventBroker := engine.GetEventBroker()
 eventBroker.Publish("stream-b", TestStructEvent{Color: "red", Price: 12.34})
 ```
 
-If you need to publish more than one event, it is recommended to use the `EventFlusher`:
+If you need to publish more than one event, it is recommended to use the `Flusher` and `PublishToStream` method:
 
-```go{3-6}
+```go
 engine := validatedRegistry.CreateEngine()
 
-eventFlusher := engine.GetEventBroker().NewFlusher()
-eventFlusher.Publish("stream-a", "hello")
-eventFlusher.Publish("stream-b", testStructEvent{Color: "red", Price: 12.34})
-eventFlusher.Flush() // both events will be published to the Redis streams
+flusher := engine.GetEventBroker().NewFlusher()
+flusher.PublishToStream("stream-a", "hello")
+flusher.PublishToStream("stream-b", testStructEvent{Color: "red", Price: 12.34})
+flusher.Flush() // both events will be published to the Redis streams
 ```
 
 :::tip
-Using the `EventFlusher` is much faster than publishing events one by one, as it uses Redis pipelines behind the scenes.
+Using the `Flusher` is much faster than publishing events one by one, as it uses Redis pipelines behind the scenes.
 :::
 
 ## Consuming events
@@ -123,17 +116,14 @@ This eventConsumer is connected to the Redis consumer group `read-group-ab`, whi
 
 To start consuming events, you can use the following code:
 
-<code-group>
-<code-block title="code">
-```go{10}
-eventBroker := engine.GetEventBroker()
-
+```go
 // publishing two events
-flusher := eventBroker.NewFlusher()
-flusher.Publish("stream-a", "a")
-flusher.Publish("stream-b", "b")
+flusher := engine.NewFlusher()
+flusher.PublishToStream("stream-a", "a")
+flusher.PublishToStream("stream-b", "b")
 flusher.Flush()
 
+eventBroker := engine.GetEventBroker()
 eventConsumer := eventBroker.Consumer("read-group-ab")
 eventConsumer.Consume(context.Background(), 5, func(events []Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
@@ -145,23 +135,17 @@ eventConsumer.Consume(context.Background(), 5, func(events []Event) {
 })
 fmt.Println("FINISHED")
 ```
-</code-block>
 
-<code-block title="bash">
-```
+```bash
 GOT 2 EVENTS
 EVENT a WITH ID 1518951480106-0 FROM STREAM stream-a
 EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 ```
-</code-block>
-</code-group>
 
-The `eventConsumer.Consume()` function takes a parameter called limit, which specifies the maximum number of events that should be read from the streams in each iteration. In the example above, the limit is set to 5, so we received 2 events. If we set the limit to 1, we will see a difference in the output (as shown in the bash tab).
+The `eventConsumer.Consume()` function takes a parameter called limit, which specifies the maximum number of events that should be read from the streams in each iteration. In the example above, the limit is set to 5, so we received 2 events. If we set the limit to 1, we will see a difference in the output.
 
 For example:
 
-<code-group>
-<code-block title="code">
 ```go{1}
 eventConsumer.Consume(context.Background(), 1, func(events []Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
@@ -173,41 +157,30 @@ eventConsumer.Consume(context.Background(), 1, func(events []Event) {
 })
 fmt.Println("FINISHED")
 ```
-</code-block>
 
-<code-block title="bash">
-```
+```bash
 GOT 1 EVENTS
 EVENT a WITH ID 1518951480106-0 FROM STREAM stream-a
 GOT 1 EVENTS
 EVENT b WITH ID 1518951480106-1 FROM STREAM stream-b
 ```
-</code-block>
-</code-group>
 
-In the examples above, you may have noticed that the message "Consuming finished" is never printed to the console. This is because `eventConsumer.DisableBlockMode()` operates in blocking mode by default, meaning that it waits for new events to arrive. To disable this behavior, you can use the `eventConsumer.DisableLoop()` method. In non-blocking mode, the consumer reads all available events from the streams and then finishes.
+In the examples above, you may have noticed that the message "Consuming finished" is never printed to the console. This is because `eventConsumer` operates in blocking mode by default, meaning that it waits for new events to arrive. To disable this behavior, you can use the `eventConsumer..SetBlockTime()` method and set block time to zero seconds. In non-blocking mode, the consumer reads all available events from the streams and then finishes.
 
 For example:
 
-
-<code-group>
-<code-block title="code">
 ```go{1}
-eventConsumer.DisableBlockMode()
+eventConsumer.SetBlockTime(0)
 eventConsumer.Consume(context.Background(), 10, func(events []beeorm.Event) {
     fmt.Printf("GOT %d EVENTS\n", len(events))
 })
 fmt.Println("FINISHED")
 ```
-</code-block>
 
-<code-block title="bash">
-```
+```bash
 GOT 2 EVENTS
 FINISHED
 ```
-</code-block>
-</code-group>
 
 ## Scaling consumers
 
@@ -308,9 +281,15 @@ eventConsumer.Consume(context.Background(), 100, func(events []Event) {
 })
 ```
 
-## Stream Garbage Collector
+## Stream Garbage Collector Consumer
 
-By default, acknowledged events are not removed from streams. You need to check that all consumer groups connected to the stream have acknowledged the event before it can be removed from the stream using the [XDEL](https://redis.io/commands/xdel) command. Fortunately, BeeORM takes care of this for you by running at least one [background consumer](/guide/background_consumer.html). This consumer will automatically remove all acknowledged events from every registered stream. If you notice that the length of your streams is increasing and all events are being acknowledged, it means you forgot to run a [background consumer](/guide/background_consumer.html).
+By default, acknowledged events are not removed from streams. You need to check that all consumer groups connected to the stream have acknowledged the event before it can be removed from the stream using the [XDEL](https://redis.io/commands/xdel) command. 
+Fortunately, BeeORM takes care of this for you by running at least one `StreamGarbageCollectorConsumer`. This consumer will automatically remove all acknowledged events from every registered stream. If you notice that the length of your streams is increasing and all events are being acknowledged, it means you forgot to run a it in your application.
+
+```go
+cosumer := beeorm.NewStreamGarbageCollectorConsumer(engine)
+garbageConsumer.Digest(context.Background())
+```
 
 ## Stream Statistics
 
