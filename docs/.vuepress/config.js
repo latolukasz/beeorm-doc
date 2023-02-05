@@ -4,7 +4,8 @@ module.exports = {
   head: [
     ['meta', { name: 'theme-color', content: '#D7A318' }],
     ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
-    ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }]
+    ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }],
+    ['meta', { name: 'robots', content: 'noindex' }],
   ],
   themeConfig: {
     repo: 'https://github.com/latolukasz/beeorm',
