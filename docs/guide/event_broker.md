@@ -25,11 +25,16 @@ and three consumer groups:
 registry := beeorm.NewRegistry()
 
 registry.RegisterRedis("localhost:6379", "", 0)
-registry.RegisterRedisStream("stream-a", "default", []string{"read-group-a", "read-group-ab"})
+
+registry.RegisterRedisStream("stream-a", "default")
+registry.RegisterRedisStreamConsumerGroups("stream-a", "read-group-a", "read-group-ab")
+
 registry.RegisterRedisStream("stream-b", "default", []string{"read-group-ab"})
+registry.RegisterRedisStreamConsumerGroups("stream-b", "read-group-ab")
 
 registry.RegisterRedis("192.168.1.20:6379", "", 3, "second")
-registry.RegisterRedisStream("stream-c", "default", []string{"read-group-c"})
+registry.RegisterRedisStream("stream-c", "default")
+registry.RegisterRedisStreamConsumerGroups("stream-c", "read-group-c")
 ```
 
 ```yml
@@ -47,21 +52,7 @@ second:
         stream-c:
           - read-group-c
 ```
-
-
-Stream names must be unique, even when they are defined in separate Redis pools.
-
-The following code will return an error:
-```go{3,5}
-registry := beeorm.NewRegistry()
-registry.RegisterRedis("localhost:6379", 0)
-registry.RegisterRedisStream("stream-a", "default", []string{"read-group-a", "read-group-ab"})
-registry.RegisterRedis("192.168.1.20:6379", 3, "second")
-registry.RegisterRedisStream("stream-a", "default", []string{"read-group-c"})
-validatedRegistry, err := registry.Validate()
-fmt.Print(err) // "stream with name stream-a aleady exists"
-```
-   
+ 
 ## Publishing  events
 
 To publish your first event, you can use the following code:
@@ -70,7 +61,7 @@ To publish your first event, you can use the following code:
 engine := validatedRegistry.CreateEngine()
 
 eventBroker := engine.GetEventBroker()
-eventBroker.Publish("stream-a", "hello")
+eventBroker.Publish("stream-a", "hello", nil)
 ```
 
 This will publish the event "hello" to the stream-a stream.
@@ -86,7 +77,7 @@ type TestStructEvent struct {
 }
 
 eventBroker := engine.GetEventBroker()
-eventBroker.Publish("stream-b", TestStructEvent{Color: "red", Price: 12.34})
+eventBroker.Publish("stream-b", TestStructEvent{Color: "red", Price: 12.34}, nil)
 ```
 
 If you need to publish more than one event, it is recommended to use the `Flusher` and `PublishToStream` method:
@@ -95,8 +86,8 @@ If you need to publish more than one event, it is recommended to use the `Flushe
 engine := validatedRegistry.CreateEngine()
 
 flusher := engine.GetEventBroker().NewFlusher()
-flusher.PublishToStream("stream-a", "hello")
-flusher.PublishToStream("stream-b", testStructEvent{Color: "red", Price: 12.34})
+flusher.PublishToStream("stream-a", "hello", nil)
+flusher.PublishToStream("stream-b", testStructEvent{Color: "red", Price: 12.34}, nil)
 flusher.Flush() // both events will be published to the Redis streams
 ```
 
@@ -119,8 +110,8 @@ To start consuming events, you can use the following code:
 ```go
 // publishing two events
 flusher := engine.NewFlusher()
-flusher.PublishToStream("stream-a", "a")
-flusher.PublishToStream("stream-b", "b")
+flusher.PublishToStream("stream-a", "a", nil)
+flusher.PublishToStream("stream-b", "b", nil)
 flusher.Flush()
 
 eventBroker := engine.GetEventBroker()
@@ -246,13 +237,14 @@ type Event_V2 struct {
     Discount int
 }
 
-eventBroker.Publish("stream-a", Event_V1{Color: "red", Price: 12.23}, "version", "1")
-eventBroker.Publish("stream-a", Event_V2{Color: "blue", Price: 120.50}, "version", "2")
+eventBroker.Publish("stream-a", Event_V1{Color: "red", Price: 12.23}, beeorm.Bind("version": "1"))
+eventBroker.Publish("stream-a", Event_V2{Color: "blue", Price: 120.50}, beeorm.Bind("version": "2"))
 
 eventConsumer := eventBroker.Consumer("read-group-a")
 eventConsumer.Consume(context.Background(), 5, func(events []Event) {
     for _, event := range events {
-        switch event.Tag("version") {
+        version := event.Meta()["version"]
+        switch version {
             case "1":
                 val := &Event_V1{}
                 event.Unserialize(val)
@@ -270,13 +262,12 @@ Here is an example of how to publish and consume events with metadata and an emp
 
 ```go{2}
 eventBroker := engine.GetEventBroker()
-eventBroker.Publish("stream-page-views", nil, "url", "/about-us/", "ip", "232.12.24.11")
+eventBroker.Publish("stream-page-views", nil, beeorm.Bind{"url": "/about-us/", "ip": "232.12.24.11"})
 
 eventConsumer.Consume(context.Background(), 100, func(events []Event) {
     for _, event := range events {
-        event.Tag("url") // "/about-us/"
-        event.Tag("ip") // "232.12.24.11"
-        event.Tag("missing-key") // ""
+        event.Meta()["url"] // "/about-us/"
+        event.Meta()["ip"] // "232.12.24.11"
     }
 })
 ```

@@ -56,6 +56,10 @@ defined [here](https://github.com/latolukasz/beeorm/blob/v2/plugin.go).
 
 We will describe each of them below.
 
+### PluginInterfaceInitRegistry
+
+TODO
+
 ### PluginInterfaceInitTableSchema
 
 TODO

@@ -52,10 +52,11 @@ user.GetID() // panics
 
 By default, BeeORM creates a stream in the `default` [Redis data pool](/guide/data_pools.html#redis-server-pool). You can specify a different pool name by registering the stream `beeorm.LazyChannelName` together with the `beeorm.BackgroundConsumerGroupName` consumer group name and your Redis pool name, as shown in the following example:
 
-```go{3}
+```go{3,4}
 registry := beeorm.NewRegistry()
 registry.RegisterRedis("192.123.11.12:6379", "", 0, "lazy")
-registry.RegisterRedisStream(beeorm.LazyFlushChannelName, "lazy", []string{beeorm.LazyFlushGroupName})
+registry.RegisterRedisStream(beeorm.LazyFlushChannelName, "lazy")
+registry.RegisterRedisStreamConsumerGroups(beeorm.LazyFlushChannelName, beeorm.LazyFlushGroupName)
 ```
 
 ```yml{4,5}
