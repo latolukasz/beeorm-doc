@@ -116,60 +116,83 @@ The `GetFields()` method returns a slice of strings containing the names of the 
 
 ## Entity Schema
 
-The `ValidatedRegistry` object holds information about every registered entity in the form of a `beeorm.TableSchema` object. There are two ways to get the table schema for an entity:
+The `ValidatedRegistry` object holds information about every registered entity in the form of a `beeorm.EntitySchema` object. There are two ways to get the entity schema for an entity:
 
 Using the entity name:
 
 ```go
 // remember to use full entity name including package name
-tableSchema := validatedRegistry.GetTableSchema("main.CarEntity")
+entitySchema := validatedRegistry.GetEntitySchema("main.CarEntity")
 ```
 
 Using the entity itself:
 
 ```go
 var carEntity *CarEntity
-tableSchema := validatedRegistry.GetTableSchemaForEntity(carEntity)
+entitySchema := validatedRegistry.GetEntitySchema(carEntity)
 ```
 
-If the entity is not registered in the `beeorm.Registry`, the `GetTableSchema()` and `GetTableSchemaForEntity()` methods will return nil.
+If the entity is not registered in the `beeorm.Registry`, the `GetEntitySchema()` and `GetEntitySchemaForEntity()` methods will return nil.
 
-Once you have the `beeorm.TableSchema` object, you can use the following methods to get useful information about the entity:
+### Entity Schema Getters
+
+Once you have the `beeorm.EntitySchema` object, you can use the following methods to get useful information about the entity:
 
 ```go
-tableSchema := validatedRegistry.GetTableSchema("main.CarEntity")
-tableSchema.GetTableName() // "CarEntity"
-tableSchema.GetType() // Returns the reflect.Type of the CarEntity
-tableSchema.GetColumns() // []string{"ID", "Color", "Owner"}
-tableSchema.GetReferences() // []string{"Owner"} // Returns the names of one-to-one
-
+entitySchema := validatedRegistry.GetEntitySchema("main.CarEntity")
+entitySchema.GetTableName() // "CarEntity"
+entitySchema.GetType() // Returns the reflect.Type of the CarEntity
+entitySchema.GetColumns() // []string{"ID", "Color", "Owner"}
+entitySchema.GetReferences() // []string{"Owner"} // Returns the names of one-to-one
 ```
 
-`beeorm.TableSchema` provides a special method called `GetUsage()` that returns a map of types and field names where the entity is used as a one-to-one or one-to-many reference. The map has a key of type reflect.Type and a value of a slice of field names where the entity is used. Here's an example of how to use it:
+### Entity Schema Usage
+
+`beeorm.EntitySchema` provides a special method called `GetUsage()` that returns a map of types and field names where the entity is used as a one-to-one or one-to-many reference. The map has a key of type reflect.Type and a value of a slice of field names where the entity is used. Here's an example of how to use it:
 
 ```go{2}
-tableSchema := validatedRegistry.GetTableSchema("main.PersonEntity")
-for type, fields := range tableSchema.GetUsage(validatedRegistry) {
+entitySchema := validatedRegistry.GetEntitySchema("main.PersonEntity")
+for type, fields := range entitySchema.GetUsage(validatedRegistry) {
     fmt.Println(type.Name()) // "CarEntity"
     fmt.Printf("%v", fields) // ["Owner"]
 }
 ```
 
+### New Entity Instance
+
 You can use the `NewEntity()` method to create a new instance of the entity. For example:
 
 ```go{2}
-tableSchema := validatedRegistry.GetTableSchema("main.PersonEntity")
-carEntity := tableSchema.NewEntity().(*CarEntity)
+entitySchema := validatedRegistry.GetEntitySchema("main.PersonEntity")
+carEntity := entitySchema.NewEntity().(*CarEntity)
 ```
 
-You can also retrieve the `beeorm.TableSchema` from the entity cache key. For example, if you see the following query in Redis:
+You can also retrieve the `beeorm.EntitySchema` from the entity cache key. For example, if you see the following query in Redis:
 
 ```GET f3b2d:123```
 
-You can retrieve the table schema with:
+You can retrieve the entity schema with:
 
 ```go
-tableSchema := validatedRegistry.GetTableSchemaForCachePrefix("f3b2d")
+entitySchema := validatedRegistry.GetEntitySchemaForCachePrefix("f3b2d")
+```
+
+### Accessing Entity Tags
+
+`EntitySchema` provides methods that helps you read beeorm struct tags:
+
+```go
+type CarEntity struct {
+	beeorm.ORM `orm:"my-tag-1=value-1"` 
+	Color string `orm:"my-tag-2=value-2;my-tag-3"` 
+}
+entitySchema := validatedRegistry.GetEntitySchema("main.CarEntity")
+
+entitySchema.GetTag("ORM", "my-tag-1", "", "") // value-1
+entitySchema.GetTag("Color", "my-tag-2", "", "") // value-2
+entitySchema.GetTag("Color", "my-tag-3", "yes", "") // yes
+entitySchema.GetTag("Color", "missing-tag", "", "") // ""
+entitySchema.GetTag("Color", "missing-tag", "", "default value") // default value
 ```
 
 ## Getting MySQL pools

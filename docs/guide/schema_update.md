@@ -57,11 +57,11 @@ BeeORM generates `DROP TABLE ...` queries for all tables in the registered MySQL
 
 ## Updating Entity Schema
 
-You can also use the `beeorm.TableSchema` object of an entity to update its database schema. Here is an example:
+You can also use the `beeorm.EntitySchema` object of an entity to update its database schema. Here is an example:
 
 ```go{2}
-tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
-alters, has := tableSchema.GetSchemaChanges(engine)
+entitySchema := validatedRegistry.GetEntitySchemaForEntity(&CategoryEntity{})
+alters, has := entitySchema.GetSchemaChanges(engine)
 if has {
     for _, alter := range alters {
       alter.SQL // "CREATE TABLE `CategoryEntity` ..."
@@ -75,15 +75,15 @@ if has {
 For convenience, you can use the following short versions to execute all the necessary alters:
 
 ```go{2-3}
-tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
-tableSchema.UpdateSchema(engine) // executes all alters
-tableSchema.UpdateSchemaAndTruncateTable(engine) // truncates table and executes all alters
+entitySchema := validatedRegistry.GetEntitySchemaForEntity(&CategoryEntity{})
+entitySchema.UpdateSchema(engine) // executes all alters
+entitySchema.UpdateSchemaAndTruncateTable(engine) // truncates table and executes all alters
 ```
 
-The beeorm.TableSchema object also provides several useful methods for managing the entity table:
+The `beeorm.EntitySchema` object also provides several useful methods for managing the entity table:
 
 ```go
-tableSchema := validatedRegistry.GetTableSchemaForEntity(&CategoryEntity{})
-tableSchema.DropTable(engine) // drops the entire table
-tableSchema.TruncateTable(engine) // truncates the table
+entitySchema := validatedRegistry.GetEntitySchemaForEntity(&CategoryEntity{})
+entitySchema.DropTable(engine) // drops the entire table
+entitySchema.TruncateTable(engine) // truncates the table
 ```

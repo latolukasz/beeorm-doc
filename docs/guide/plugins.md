@@ -58,15 +58,64 @@ We will describe each of them below.
 
 ### PluginInterfaceInitRegistry
 
-TODO
+```go
+type PluginInterfaceInitRegistry interface {
+	PluginInterfaceInitRegistry(registry *beeorm.Registry)
+}
+```
 
-### PluginInterfaceInitTableSchema
+This interface is executed when plugin is registered in beeorm.Registry.
 
-TODO
+:::tip
+Plugins code is executed in the same order plugins were registered in BeeORM.
+:::
+
+### PluginInterfaceInitEntitySchema
+
+```go
+type PluginInterfaceInitEntitySchema interface {
+	InterfaceInitEntitySchema(schema SettableEntitySchema, registry *Registry) error
+}
+```
+
+This interface is executed for every Entity when [registry.Validate()](/guide/validated_registry.html#validating-the-registry) 
+is executed. You have access to `beeorm.Registry` and special object `beeorm.SettableEntitySchema` which allows you to save additional
+settings in [Entity Schema](/guide/validated_registry.html#entity-schema) using `SetOption()` method:
+
+```go{12-13}
+package my_debugger
+
+const PluginCode = "github.com/me/my_project/my_debugger"
+
+type MyDebuggerPlugin struct{}
+
+func (p *MyDebuggerPlugin) GetCode() string {
+	return PluginCode
+}
+
+func (p *MyDebuggerPlugin) InterfaceInitEntitySchema(schema beeorm.SettableEntitySchema, _ *beeorm.Registry) error {
+	schema.SetOption(PluginCode, "my-option-1", 200)
+	schema.SetOption(PluginCode, "my-option-2", "Hello")
+	return nil
+}
+```
+`schema.SetOption` requires plugin code name as a first argument so you will not override options with the same name
+from another plugins. Entity Schema options can be easily accessed by `GetOption...` methods:
+
+```go
+entitySchema := validatedRegistry.GetEntitySchema(carEntity)
+entitySchema.GetOption(PluginCode, "my-option-1") // int(200)
+entitySchema.GetOption(PluginCode, "my-option-2") // "Hello"
+entitySchema.GetOption(PluginCode, "missing-key") // nil
+// if you know opton value is an string:
+entitySchema.GetOptionString(PluginCode, "my-option-2") // "Hello"
+```
 
 ### PluginInterfaceSchemaCheck
 
 TODO
+
+
 
 ### PluginInterfaceEntityFlushed
 
