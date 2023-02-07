@@ -243,7 +243,7 @@ eventBroker.Publish("stream-a", Event_V2{Color: "blue", Price: 120.50}, beeorm.B
 eventConsumer := eventBroker.Consumer("read-group-a")
 eventConsumer.Consume(context.Background(), 5, func(events []Event) {
     for _, event := range events {
-        version := event.Meta()["version"]
+        version := event.Meta().Get("version")
         switch version {
             case "1":
                 val := &Event_V1{}
@@ -266,8 +266,8 @@ eventBroker.Publish("stream-page-views", nil, beeorm.Bind{"url": "/about-us/", "
 
 eventConsumer.Consume(context.Background(), 100, func(events []Event) {
     for _, event := range events {
-        event.Meta()["url"] // "/about-us/"
-        event.Meta()["ip"] // "232.12.24.11"
+        event.Meta().Get("url") // "/about-us/"
+        event.Meta().Get("ip") // "232.12.24.11"
     }
 })
 ```

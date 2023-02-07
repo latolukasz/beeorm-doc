@@ -64,10 +64,6 @@ TODO
 
 TODO
 
-### PluginInterfaceRegistryValidate
-
-TODO
-
 ### PluginInterfaceSchemaCheck
 
 TODO
