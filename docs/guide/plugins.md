@@ -60,7 +60,7 @@ We will describe each of them below.
 
 ```go
 type PluginInterfaceInitRegistry interface {
-	PluginInterfaceInitRegistry(registry *beeorm.Registry)
+	PluginInterfaceInitRegistry(registry *Registry)
 }
 ```
 
@@ -99,6 +99,7 @@ func (p *MyDebuggerPlugin) InterfaceInitEntitySchema(schema beeorm.SettableEntit
 	return nil
 }
 ```
+
 `schema.SetOption` requires plugin code name as a first argument so you will not override options with the same name
 from another plugins. Entity Schema options can be easily accessed by `GetOption...` methods:
 
@@ -113,8 +114,42 @@ entitySchema.GetOptionString(PluginCode, "my-option-2") // "Hello"
 
 ### PluginInterfaceSchemaCheck
 
-TODO
+```go
+type PluginInterfaceSchemaCheck interface {
+	PluginInterfaceSchemaCheck(engine Engine, schema EntitySchema) (alters []Alter, keepTables map[string][]string)
+}
+```
 
+This code is executed during [schema update](/guide/schema_update.html#schema-update). You can return extra database alters
+that should be executed:
+
+```go{11-16}
+package my_debugger
+
+const PluginCode = "github.com/me/my_project/my_debugger"
+
+type MyDebuggerPlugin struct{}
+
+func (p *MyDebuggerPlugin) GetCode() string {
+	return PluginCode
+}
+
+func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ beeorm.Engine, schema EntitySchema) (alters []beeorm.Alter, keepTables map[string][]string) {
+    if schema.GetTag("ORM", "truncate-on-init", "true", "") == "true" {
+        alter := beeorm.Alter{SQL: fmt.Sprintf( "TRUNCATE TABLE `%s`", schema.GetTableName()), Safe: false, Pool: schema.GetMysqlPool()}
+        return []beeorm.Alter{alter}, nil
+    }
+}
+```
+
+Second returned argument is a map of table names in specific pool name that shouldn't be dropped by BeeORM (for instance when a table is not registered as Entity):
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ beeorm.Engine, schema EntitySchema) (alters []beeorm.Alter, keepTables map[string][]string) {
+    // do not drop table `debug_table`
+    return nil, map[string][]string{"default": {"debug_table"}}
+}
+```
 
 
 ### PluginInterfaceEntityFlushed
