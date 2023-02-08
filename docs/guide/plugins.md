@@ -209,3 +209,14 @@ event.Before() // {"Name": "BMW", "Year": "2007"}
 event.After() // nil
 ```
 
+Last argument `FlusherCacheSetter` is used to inject extra queries to Redis or Local Cache that should be executed after
+Entity is updated in database. BeeORM execute all queries in most optimised way by grouping all cache queries into pipelines.
+
+Check below example:
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushQueryExecuted, cacheFlusher FlusherCacheSetter) {
+    cacheFlusher.GetRedisCacheSetter("default").Del("my-key")
+    cacheFlusher.PublishToStream("my-stream", "hello")
+}
+```
