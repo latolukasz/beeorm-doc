@@ -185,12 +185,12 @@ To solve the scenario described above, you can register the following two functi
 ```go
 consumer := beeorm.NewLazyFlushConsumer(engine)
 
-consumer.RegisterLazyFlushQueryErrorResolver(func(_ Engine, _ *DB, sql string, queryError *mysql.MySQLError) error {
+consumer.RegisterLazyFlushQueryErrorResolver(func(_ beeorm.Engine, _ beeorm.EventEntityFlushQueryExecuted, queryError *mysql.MySQLError) error {
    errorLogService.LogEror("lazy flush query [%s] faild with error %s", queryError.Error())
    return queryError
 })
 
-consumer.RegisterLazyFlushQueryErrorResolver(func(_ Engine, _ *DB, sql string, queryError *mysql.MySQLError) error {
+consumer.RegisterLazyFlushQueryErrorResolver(func(_ beeorm.Engine, _ beeorm.EventEntityFlushQueryExecuted, queryError *mysql.MySQLError) error {
    errorLogService.LogEror("lazy flush query [%s] faild with error %s", queryError.Error())
    if queryError.Number == 1062 { //Duplicate entry
      return nil

@@ -80,7 +80,7 @@ type PluginInterfaceInitEntitySchema interface {
 
 This interface is executed for every Entity when [registry.Validate()](/guide/validated_registry.html#validating-the-registry) 
 is executed. You have access to `beeorm.Registry` and special object `beeorm.SettableEntitySchema` which allows you to save additional
-settings in [Entity Schema](/guide/validated_registry.html#entity-schema) using `SetOption()` method:
+settings in [Entity Schema](/guide/validated_registry.html#entity-schema) using `SetPluginOption()` method:
 
 ```go{12-13}
 package my_debugger
@@ -93,23 +93,21 @@ func (p *MyDebuggerPlugin) GetCode() string {
 	return PluginCode
 }
 
-func (p *MyDebuggerPlugin) InterfaceInitEntitySchema(schema beeorm.SettableEntitySchema, _ *beeorm.Registry) error {
-	schema.SetOption(PluginCode, "my-option-1", 200)
-	schema.SetOption(PluginCode, "my-option-2", "Hello")
+func (p *MyDebuggerPlugin) InterfaceInitEntitySchema(schema SettableEntitySchema, _ *Registry) error {
+	schema.SetPluginOption(PluginCode, "my-option-1", 200)
+	schema.SePlugintOption(PluginCode, "my-option-2", "Hello")
 	return nil
 }
 ```
 
-`schema.SetOption` requires plugin code name as a first argument so you will not override options with the same name
-from another plugins. Entity Schema options can be easily accessed by `GetOption...` methods:
+`schema.SetPluginOption` requires plugin code name as a first argument so you will not override options with the same name
+from another plugins. Entity Schema options can be easily accessed by `GetPluginOption...` methods:
 
 ```go
 entitySchema := validatedRegistry.GetEntitySchema(carEntity)
-entitySchema.GetOption(PluginCode, "my-option-1") // int(200)
-entitySchema.GetOption(PluginCode, "my-option-2") // "Hello"
-entitySchema.GetOption(PluginCode, "missing-key") // nil
-// if you know opton value is an string:
-entitySchema.GetOptionString(PluginCode, "my-option-2") // "Hello"
+entitySchema.GetPluginOption(PluginCode, "my-option-1") // int(200)
+entitySchema.GetPluginOption(PluginCode, "my-option-2") // "Hello"
+entitySchema.GetPluginOption(PluginCode, "missing-key") // nil
 ```
 
 ### PluginInterfaceSchemaCheck
@@ -134,10 +132,10 @@ func (p *MyDebuggerPlugin) GetCode() string {
 	return PluginCode
 }
 
-func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ beeorm.Engine, schema EntitySchema) (alters []beeorm.Alter, keepTables map[string][]string) {
+func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ Engine, schema EntitySchema) (alters []Alter, keepTables map[string][]string) {
     if schema.GetTag("ORM", "truncate-on-init", "true", "") == "true" {
-        alter := beeorm.Alter{SQL: fmt.Sprintf( "TRUNCATE TABLE `%s`", schema.GetTableName()), Safe: false, Pool: schema.GetMysqlPool()}
-        return []beeorm.Alter{alter}, nil
+        alter := Alter{SQL: fmt.Sprintf( "TRUNCATE TABLE `%s`", schema.GetTableName()), Safe: false, Pool: schema.GetMysqlPool()}
+        return []Alter{alter}, nil
     }
 }
 ```
@@ -145,13 +143,69 @@ func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ beeorm.Engine, schema En
 Second returned argument is a map of table names in specific pool name that shouldn't be dropped by BeeORM (for instance when a table is not registered as Entity):
 
 ```go
-func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ beeorm.Engine, schema EntitySchema) (alters []beeorm.Alter, keepTables map[string][]string) {
+func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ Engine, schema EntitySchema) (alters []Alter, keepTables map[string][]string) {
     // do not drop table `debug_table`
     return nil, map[string][]string{"default": {"debug_table"}}
 }
 ```
 
+### PluginInterfaceEntityFlushing
+
+TODO
 
 ### PluginInterfaceEntityFlushed
 
-TODO
+```go
+type PluginInterfaceEntityFlushed interface {
+	PluginInterfaceEntityFlushed(engine Engine, data *EntitySQLFlush, cacheFlusher FlusherCacheSetter)
+}
+```
+
+This interface is executed every time `Entity` is flushed and SQL query is executed in MySQL database but before
+all required queries to cache are executed (for instance deleting Entity cache in Redis).
+
+Object `EventEntityFlushQueryExecuted` holds whole information about changes:
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushQueryExecuted, cacheFlusher FlusherCacheSetter) {
+    event.Type() // beeorm.Insert or beeorm.Update or beeorm.Delete
+    event.EntityName() // flushed entity name, for instance "package.CarEntity"
+    event.EntityID() // flushed entity ID
+    event.Before() // map of changed fields values before SQL query. nil when Action is "beeorm.Insert"
+    event.After() // map of changed fields values after SQL query. nil when Action is "beeorm.Delete"
+    event.MetaData() // meta data set in `PluginInterfaceEntityFlushing`
+}
+```
+
+It's easier to understand it by example:
+
+```go
+package my_package
+
+car := &CarEntity{Name: "BMW", Year: 2006}
+engine.FLush(car)
+// then
+event.Type() // beeorm.Insert
+event.EntityName() // my_package.CarEntity
+event.EntityID() // 1
+event.Before() // nil
+event.After() // {"Name": "Bmw", "Year": "2006"}
+
+car.Year = 2007
+engine.Flush(car)
+// then
+event.Type() // beeorm.Update
+event.EntityName() // my_package.CarEntity
+event.EntityID() // 1
+event.Before() // {"Year": "2006"}
+event.After() // {""Year": "2007"}
+
+engine.Delete(car)
+engine// then
+event.Type() // beeorm.Delete
+event.EntityName() // my_package.CarEntity
+event.EntityID() // 1
+event.Before() // {"Name": "BMW", "Year": "2007"}
+event.After() // nil
+```
+
