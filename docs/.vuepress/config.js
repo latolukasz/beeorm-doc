@@ -87,7 +87,9 @@ export default defineUserConfig({
               text: 'Introduction',
               link: '/plugins/'
             },
-            'log_tables',
+            'crud_stream',
+            'log_table',
+            'fake_delete',
           ]
         }]
     }

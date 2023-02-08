@@ -1,3 +1,3 @@
-# Introduction
+# Log table
 
 Documentation in progress...
