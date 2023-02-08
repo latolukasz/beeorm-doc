@@ -1,6 +1,9 @@
 # Plugins
 
 BeeORM can be easily extended with new features by plugins. 
+Currently plugins implementation allows to extend only part of BeeORM features.
+In in next releases we are planning to implement code that will allow anyone to extend 100% of
+BeeORM functionalities.
 
 ## Using plugins
 
@@ -151,23 +154,51 @@ func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ Engine, schema EntitySch
 
 ### PluginInterfaceEntityFlushing
 
-TODO
+```go
+type PluginInterfaceEntityFlushing interface {
+	PluginInterfaceEntityFlushing(engine Engine, event EventEntityFlushing)
+}
+```
+
+This interface is executed every time `Entity` is flushed **before** SQL query is executed in MySQL database.
+
+Object `EventEntityFlushed` holds whole information about changes:
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushing(engine Engine, event EventEntityFlushing) {
+    event.Type() // beeorm.Insert or beeorm.Update or beeorm.Delete
+    event.EntityName() // flushed entity name, for instance "package.CarEntity"
+    event.EntityID() // flushed entity ID, zero when  event.Type() is beeorm.Insert
+    event.Before() // map of changed fields values before SQL query. nil when Action is "beeorm.Insert"
+    event.After() // map of changed fields values after SQL query. nil when Action is "beeorm.Delete"
+}
+```
+
+`EventEntityFlushing` provides method `SetMetaData()` which you can use to store extra parameters in flush entity event,
+which can be used alter in your, in next plugin interfaces, for instance [PluginInterfaceEntityFlushed](/guide/plugins.html#plugininterfaceentityflushed):
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushing(engine Engine, event EventEntityFlushing) {
+    event.SetMetaData()
+}
+```
+
 
 ### PluginInterfaceEntityFlushed
 
 ```go
 type PluginInterfaceEntityFlushed interface {
-	PluginInterfaceEntityFlushed(engine Engine, data *EntitySQLFlush, cacheFlusher FlusherCacheSetter)
+	PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter)
 }
 ```
 
-This interface is executed every time `Entity` is flushed and SQL query is executed in MySQL database but before
+This interface is executed every time `Entity` is flushed **after** SQL query is executed in MySQL database but before
 all required queries to cache are executed (for instance deleting Entity cache in Redis).
 
-Object `EventEntityFlushQueryExecuted` holds whole information about changes:
+Object `EventEntityFlushed` holds whole information about changes:
 
 ```go
-func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushQueryExecuted, cacheFlusher FlusherCacheSetter) {
+func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter) {
     event.Type() // beeorm.Insert or beeorm.Update or beeorm.Delete
     event.EntityName() // flushed entity name, for instance "package.CarEntity"
     event.EntityID() // flushed entity ID
@@ -215,8 +246,17 @@ Entity is updated in database. BeeORM execute all queries in most optimised way 
 Check below example:
 
 ```go
-func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushQueryExecuted, cacheFlusher FlusherCacheSetter) {
+func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter) {
     cacheFlusher.GetRedisCacheSetter("default").Del("my-key")
     cacheFlusher.PublishToStream("my-stream", "hello")
 }
+```
+
+## Engine Plugin Options
+
+You can store and retrieve extra options in `beeorm.Engine` using dedicated `SetPluginOption()` and `GetPluginOption()` methods:
+
+```go
+engine.SetPluginOption(PluginCode, "option-1", "value")
+val := engine.GetPluginOption(PluginCode, "options-1") // "value"
 ```
