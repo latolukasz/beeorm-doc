@@ -22,10 +22,9 @@ func main() {
 
 BeeORM offers several built-in plugins that can be found in the [Plugins](/plugins/) section.
 
-## Writing plugin
+## Creating a BeeORM Plugin
 
-You can create your own BeeORM plugin. The simplest plugin (that does nothing:) is just a struct which implements
-this interface:
+You can create your own custom BeeORM plugin by implementing the following interface:
 
 ```go
 type Plugin interface {
@@ -33,11 +32,9 @@ type Plugin interface {
 }
 ```
 
-Code is a unique name that identifies your plugin. It's recommended to include go module name in plugin name, for 
-instance `github.com/latolukasz/beeorm/plugin_name` so your plugin name will never collide with another plugin created by
-another developer.
+The GetCode function returns a unique name that identifies your plugin. It is recommended to include the go module name in the plugin name, such as `github.com/latolukasz/beeorm/my_debugger`, to prevent collisions with other plugins created by other developers.
 
-So let's create our first plugin called `my_debugger`:
+Here's an example of a basic plugin called `my_debugger`:
 
 ```go
 package my_debugger
@@ -51,10 +48,7 @@ func (p *MyDebuggerPlugin) GetCode() string {
 }
 ```
 
-As mentioned before this plugin does nothing. Now we must to implement one or many BeeORM plugin interfaces
-defined [here](https://github.com/latolukasz/beeorm/blob/v2/plugin.go).
-
-We will describe each of them below.
+Once you have created a basic plugin, you can implement one or many of the BeeORM plugin interfaces defined [here](https://github.com/latolukasz/beeorm/blob/v2/plugin.go) to add custom functionality.
 
 ### PluginInterfaceInitRegistry
 
@@ -64,10 +58,10 @@ type PluginInterfaceInitRegistry interface {
 }
 ```
 
-This interface is executed when plugin is registered in beeorm.Registry.
+The `PluginInterfaceInitRegistry` interface is executed when the plugin is registered in the BeeORM Registry.
 
 :::tip
-Plugins code is executed in the same order plugins were registered in BeeORM.
+The code for plugins is executed in the same order in which they were registered in BeeORM.
 :::
 
 ### PluginInterfaceInitEntitySchema
@@ -78,9 +72,9 @@ type PluginInterfaceInitEntitySchema interface {
 }
 ```
 
-This interface is executed for every Entity when [registry.Validate()](/guide/validated_registry.html#validating-the-registry) 
-is executed. You have access to `beeorm.Registry` and special object `beeorm.SettableEntitySchema` which allows you to save additional
-settings in [Entity Schema](/guide/validated_registry.html#entity-schema) using `SetPluginOption()` method:
+The `PluginInterfaceInitEntitySchema` interface is executed for every Entity when the [registry.Validate()](/guide/validated_registry.html#validating-the-registry)  method is called. You have access to the `beeorm.Registry` and the `beeorm.SettableEntitySchema` object, which allows you to save additional settings in the [Entity Schema](/guide/validated_registry.html#entity-schema) using the ``SetPluginOption()` method.
+
+For example:
 
 ```go{12-13}
 package my_debugger
@@ -100,8 +94,9 @@ func (p *MyDebuggerPlugin) InterfaceInitEntitySchema(schema SettableEntitySchema
 }
 ```
 
-`schema.SetPluginOption` requires plugin code name as a first argument so you will not override options with the same name
-from another plugins. Entity Schema options can be easily accessed by `GetPluginOption...` methods:
+Note that the `schema.SetPluginOption` method requires the plugin code name as its first argument, to prevent overrides of options with the same name from other plugins. The Entity Schema options can be easily accessed through the `GetPluginOption...` methods.
+
+For example:
 
 ```go
 entitySchema := validatedRegistry.GetEntitySchema(carEntity)
@@ -118,8 +113,9 @@ type PluginInterfaceSchemaCheck interface {
 }
 ```
 
-This code is executed during [schema update](/guide/schema_update.html#schema-update). You can return extra database alters
-that should be executed:
+The PluginInterfaceSchemaCheck interface is executed during [schema update](/guide/schema_update.html#schema-update) and allows you to return any additional database alters to be executed.
+
+For example, you can use this to truncate a table if the `truncate-on-init` ORM tag is set to "true"
 
 ```go{11-16}
 package my_debugger
@@ -140,7 +136,7 @@ func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ Engine, schema EntitySch
 }
 ```
 
-Second returned argument is a map of table names in specific pool name that shouldn't be dropped by BeeORM (for instance when a table is not registered as Entity):
+Additionally, you can return a map of table names to keep by pool name, in case they should not be dropped. For instance, if you have a table that is not registered as an Entity:
 
 ```go
 func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ Engine, schema EntitySchema) (alters []Alter, keepTables map[string][]string) {
@@ -157,9 +153,9 @@ type PluginInterfaceEntityFlushing interface {
 }
 ```
 
-This interface is executed every time `Entity` is flushed **before** SQL query is executed in MySQL database.
+The `PluginInterfaceEntityFlushing` interface is called every time an Entity is flushed prior to the execution of the SQL query in the MySQL database. The `EventEntityFlushing` object contains information about the changes, such as the type of action (Insert, Update, or Delete), the entity name, ID, and the values of the fields before and after the SQL query.
 
-Object `EventEntityFlushed` holds whole information about changes:
+Additionally, the EventEntityFlushing object provides a method `SetMetaData()` which allows you to store extra parameters in the flush entity event that can be used in subsequent plugin interfaces, such as [PluginInterfaceEntityFlushed](/guide/plugins.html#plugininterfaceentityflushed).
 
 ```go
 func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushing(engine Engine, event EventEntityFlushing) {
@@ -168,18 +164,9 @@ func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushing(engine Engine, event Ev
     event.EntityID() // flushed entity ID, zero when  event.Type() is beeorm.Insert
     event.Before() // map of changed fields values before SQL query. nil when Action is "beeorm.Insert"
     event.After() // map of changed fields values after SQL query. nil when Action is "beeorm.Delete"
+    event.SetMetaData("meta-1", "value")
 }
 ```
-
-`EventEntityFlushing` provides method `SetMetaData()` which you can use to store extra parameters in flush entity event,
-which can be used alter in your, in next plugin interfaces, for instance [PluginInterfaceEntityFlushed](/guide/plugins.html#plugininterfaceentityflushed):
-
-```go
-func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushing(engine Engine, event EventEntityFlushing) {
-    event.SetMetaData()
-}
-```
-
 
 ### PluginInterfaceEntityFlushed
 
@@ -189,10 +176,9 @@ type PluginInterfaceEntityFlushed interface {
 }
 ```
 
-This interface is executed every time `Entity` is flushed **after** SQL query is executed in MySQL database but before
-all required queries to cache are executed (for instance deleting Entity cache in Redis).
+This interface is executed every time an Entity is flushed in the MySQL database after the SQL query has been executed but before any cache-related operations (e.g. deleting the Entity cache in Redis) are carried out.
 
-Object `EventEntityFlushed` holds whole information about changes:
+The `EventEntityFlushed` object holds all information about the changes made to the Entity.
 
 ```go
 func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter) {
@@ -205,7 +191,7 @@ func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event Eve
 }
 ```
 
-It's easier to understand it by example:
+For example:
 
 ```go
 package my_package
@@ -237,10 +223,9 @@ event.Before() // {"Name": "BMW", "Year": "2007"}
 event.After() // nil
 ```
 
-Last argument `FlusherCacheSetter` is used to inject extra queries to Redis or Local Cache that should be executed after
-Entity is updated in database. BeeORM execute all queries in most optimised way by grouping all cache queries into pipelines.
+The last argument, `FlusherCacheSetter`, is used to add extra cache operations to Redis or the local cache that should be executed after the Entity is updated in the database. BeeORM groups all cache operations in an optimized way by using pipelines.
 
-Check below example:
+For example:
 
 ```go
 func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter) {
@@ -251,7 +236,9 @@ func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event Eve
 
 ## Engine Plugin Options
 
-You can store and retrieve extra options in `beeorm.Engine` using dedicated `SetPluginOption()` and `GetPluginOption()` methods:
+The `SetPluginOption` and `GetPluginOption` methods of the `beeorm.Engine` allow you to store and retrieve extra options in the engine.
+
+Here's an example of how you can use these methods:
 
 ```go
 engine.SetPluginOption(PluginCode, "option-1", "value")
