@@ -1,13 +1,10 @@
 # Plugins
 
-BeeORM can be easily extended with new features by plugins. 
-Currently plugins implementation allows to extend only part of BeeORM features.
-In in next releases we are planning to implement code that will allow anyone to extend 100% of
-BeeORM functionalities.
+BeeORM can be enhanced with new functionality through the use of plugins. Currently, these plugins only allow for partial extension of BeeORM's features, but in upcoming releases, it will be possible to extend all of BeeORM's functionalities.
 
-## Using plugins
+## Enabling Plugins
 
-Enabling plugin in BeeORM is very simple. You just need to register plugin with `RegisterPlugin()` method:
+Activating plugins in BeeORM is straightforward. Simply register the plugin using the `RegisterPlugin()` method:
 
 ```go{10}
 package main
@@ -23,7 +20,7 @@ func main() {
 }
 ```
 
-BeeORM provides few plugins by default. You can find them in [Plugins](/plugins/) section.
+BeeORM offers several built-in plugins that can be found in the [Plugins](/plugins/) section.
 
 ## Writing plugin
 
