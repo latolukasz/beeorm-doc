@@ -1,9 +1,9 @@
 # CRUD Stream
 
-This plugin creates a specials Redis channel called `beeorm-crud-stream` and sends event to it 
-every time Entity is added, updated or deleted.
+The CRUD Stream plugin creates a special Redis channel called `beeorm-crud-stream` and sends an event to it
+every time an Entity is added, updated, or deleted.
 
-## Enabling Plugin
+## Activating the Plugin
 
 ```go{7}
 package main
@@ -16,10 +16,9 @@ func main() {
 } 
 ```
 
-## Enabling CRUD event
+## Enabling CRUD Event Tracking
 
-Registering plugin is a first step. Next you need to specify which entities should be tracked for any changes with
-special tag `crud-stream`:
+The first step in enabling CRUD event tracking is to register the plugin. After that, you need to specify which entities you want to track for changes by adding the special tag `crud-stream` to them:
 
 ```go{2}
 type CarEntity struct {
@@ -28,9 +27,9 @@ type CarEntity struct {
 }
 ```
 
-Starting from now every time `CarEntity` is added, updated or deleted special event is send to `beeorm-crud-stream` stream.
+From this point forward, every time a CarEntity is added, updated, or deleted, a special event will be sent to the `beeorm-crud-stream` stream.
 
-You can change tag name with plugin options:
+You can also change the tag name using plugin options:
 
 ```go{1,5}
 pluginOptions := &crud_stream.Options{TagName: "enable-crud-plugin"}
@@ -42,8 +41,7 @@ type CarEntity struct {
 }
 ```
 
-By default this plugin creates stream event if at least one entity field (that is stored in database) is changed.
-You can configure plugin to skip some fields with special tag `skip-crud-stream`:
+By default, the plugin will send an event to the `beeorm-crud-stream` stream if any entity field stored in the database has changed. However, you can configure the plugin to skip certain fields by adding the special tag `skip-crud-stream` to them:
 
 ```go{4}
 type UserEntity struct {
@@ -53,19 +51,17 @@ type UserEntity struct {
 }
 ```
 
-Staring from now if `UserEntity` is updated and the only field is changed is `LastLoggedAt` then
-plugin do not send any event to `beeorm-crud-stream` stream.
+If a UserEntity is updated and the only changed field is LastLoggedAt, the plugin will not send an event to the `beeorm-crud-stream` stream.
 
-By default `beeorm-crud-stream` is created in `default` Redis data pool. You can change it using plugin options:
-
+By default, the `beeorm-crud-stream` is created in the default Redis data pool. You can change this using the plugin options:
 ```go
 pluginOptions := &crud_stream.Options{DefaultRedisPool: "streams-pool"}
 registry.RegisterPlugin(crud_stream.Init(pluginOptions)) 
 ```
 
-## Reading CRUD events
+## Reading CRUD Events
 
-TO read CRUD events from this `beeorm-crud-stream` first you need to register group consumer:
+In order to read CRUD events from the `beeorm-crud-stream`, you must first register a group consumer. This can be done as follows:
 
 ```go{8}
 package main
@@ -79,10 +75,9 @@ func main() {
 } 
 ```
 
-`RegisterRedisStreamConsumerGroups()` must be executed after plugin is registered in registry (as showed above).
-Otherwise error is thrown.
+It's important to note that the `RegisterRedisStreamConsumerGroups()` method must be called after the plugin is registered in the registry, otherwise an error will be thrown.
 
-Now we are ready to consume events:
+Once the group consumer is registered, we can now consume events:
 
 ```go
 
@@ -95,11 +90,11 @@ consumer.Consume(context.Background(), 100, func(events []beeorm.Event) {
 })
 ```
 
-As you can see CRUD event is represented as `crud_stream.CrudEvent`. It holds information about entity changes:
+The CRUD event is represented as `crud_stream.CrudEvent`, which holds information about changes made to entities. For example, consider the following code:
 
 ```go
 carEntity := &CarEntity{Name: "BMW"}
-engined.Flush(carEntity)
+engine.Flush(carEntity)
 
 // then crudEvent has these values:
 event.EntityName // "main.CarEntity"
@@ -110,7 +105,7 @@ event.Changes // {"Name": "BMW"}
 event.Updated // time when query was executed
 
 carEntity.Name = "Mazda"
-engined.Flush(carEntity) 
+engine.Flush(carEntity) 
 
 // then crudEvent has these values:
 event.EntityName // "main.CarEntity"
@@ -131,6 +126,21 @@ event.Changes // nil
 event.Updated // time when query was executed
 ```
 
-## CRUD event metadata
+In this example, when the CarEntity is inserted, the crudEvent will contain information about the new entity, such as its ID and name. When the entity is updated, the crudEvent will show the changes made to the entity, including the updated name. Finally, when the entity is deleted, the crudEvent will show that the entity was deleted and will not contain any information about its previous state.
 
-TODO
+## Storing Additional Metadata in CRUD Events
+
+In some cases, you may want to include additional information about a CRUD event, such as the user IP or ID of the person who made the change. This plugin allows you to store this extra information, referred to as "metadata", in the event.
+
+Here is an example:
+
+```go
+crud_stream.SetMetaData(engine, "user_ip", "132.12.23.43")
+crud_stream.SetMetaData(engine, "user_id", "114")
+
+carEntity := &CarEntity{Name: "BMW"}
+engine.Flush(carEntity)
+
+// then crudEvent has these values:
+event.MetaData // {"user_ip": 132.12.23.43", "user_id": "114"}
+```
