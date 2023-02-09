@@ -90,6 +90,7 @@ export default defineUserConfig({
             'crud_stream',
             'log_table',
             'fake_delete',
+            'cached_query',
           ]
         }]
     }

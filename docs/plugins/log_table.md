@@ -1,9 +1,10 @@
 # Log table
 
-This plugin extends [CRUD stream](/plugins/crud_stream.html) plugin by adding special MySQL tables
-that stores tracked entities changes and allows you to easily retrieve them.
+The Log Table plugin enhances the functionality of the CRUD stream](/plugins/crud_stream.html) by adding specialized MySQL tables to track changes to entities and simplify data retrieval.
 
 ## Activating the Plugin
+
+The following code demonstrates how to activate the Log Table plugin in your project.
 
 ```go{10,11}
 package main
@@ -22,7 +23,7 @@ func main() {
 
 ## Enabling Log Event Tracking
 
-You need to specify which entities you want to store in log tables by adding the special tag `log-table` to them:
+To store entities in log tables, you need to specify which entities to track by adding the special tag `log-table` to them. Here's an example:
 
 ```go{2}
 type CarEntity struct {
@@ -32,11 +33,10 @@ type CarEntity struct {
 ```
 
 :::tip
-As you can see you must also add `crud-stream` tag which instruct [CRUD stream](/plugins/crud_stream.html) plugin
-to track entity changes as events in `beeorm-crud-stream` stream.
+In addition to the `log-table` tag, it's also necessary to add the `crud-stream` tag. This informs the [CRUD stream](/plugins/crud_stream.html) plugin to track changes to the entity as events in the `beeorm-crud-stream` stream.
 :::
 
-You can also change the tag name using plugin options:
+You can also customize the tag name using the `TagName` option in the plugin options:
 
 ```go{1,5}
 pluginOptions := &log_table.Options{TagName: "enable-log-plugin"}
@@ -48,14 +48,13 @@ type CarEntity struct {
 }
 ```
 
-By default log tables are created in "default" MySQL pool name. You can also change it using plugin options:
-
+By default, log tables are created in the "default" MySQL pool. You can change this by using the `DefaultMySQLPool` option in the plugin options:
 ```go
 pluginOptions := &log_table.Options{DefaultMySQLPool: "logs"}
 registry.RegisterPlugin(log_table.Init(pluginOptions)) 
 ```
 
-It's also possible to define MySQL pool name using tag:
+It's also possible to specify the MySQL pool name using the tag:
 
 ```go{2}
 type CarEntity struct {
@@ -64,10 +63,9 @@ type CarEntity struct {
 }
 ```
 
-## Creating log tables
+## Generating Log Tables
 
-Now hen plugin is registered and entities are marked as tracked with tags it's time to create tables using
-BeeORM [schema update](/guide/schema_update.html#schema-update):
+Once the plugin is registered and the entities are marked as tracked with the appropriate tags, it's time to generate the log tables using BeeORM's [schema update](/guide/schema_update.html#schema-update) feature:
 
 ```go
 for _, alter := range engine.GetAlters() {
@@ -75,20 +73,20 @@ for _, alter := range engine.GetAlters() {
 }
 ```
 
-## Running consumer
+## Implementing the Consumer
 
-To store CRUD events in log MySQL tables at least one `log_table.ConsumerGroupName` must be run in your application:
+In order to store CRUD events in the log MySQL tables, at least one instance of `log_table.ConsumerGroupName` must be running in your application:
 
 ```go
 consumer := engine.GetEventBroker().Consumer(log_table.ConsumerGroupName)
 consumer.Consume(context.Background(), 100, log_table.NewEventHandler(engine))
 ```
 
-Above consumer reads events from `beeorm-crud-stream` stream and stores them in special MySQL log tables.
+The consumer reads events from the `beeorm-crud-stream` stream and stores them in the designated log MySQL tables.
 
-Log table name is build as a `_log_[LOG_POOL_NAME]_[ENTITY_NAME]`. 
+The name of the log table is constructed as `_log_[LOG_POOL_NAME]_[ENTITY_NAME]`.
 
-For example below entity creates table `log_logs_CarEntity`:
+For example, if you have the following entity definition:
 
 ```go
 type CarEntity struct {
@@ -97,10 +95,15 @@ type CarEntity struct {
 }
 ```
 
-## Reading logs
+The log table created would be `_log_logs_CarEntity`.
 
-You can read log events directly from MySQL log tables. Table structure is very simple and easy to understand.
-But also you can use `GetEntityLogs()` table to retrieve events in your code, as described in below example:
+## Reading Logs
+
+You have multiple options for reading log events from the MySQL log tables:
+
+ * Direct access to the log tables - The table structure is simple and straightforward, making it easy for you to directly access the logs.
+
+ * Use `GetEntityLogs()` - This function allows you to retrieve log events within your code. Here's an example:
 
 ```go
 schema := engine.GetRegistry().GetEntitySchema("main.CarEntity")
@@ -113,13 +116,12 @@ for _ log := range log_table.GetEntityLogs(engine, schema, 1, nil, nil) {
 }
 ```
 
-Log event has also field `MetaData` which hols [crud event metadata](/plugins/crud_stream.html#storing-additional-metadata-in-crud-events).
+Note that each log event also has a MetaData field that holds the [crud event metadata](/plugins/crud_stream.html#storing-additional-metadata-in-crud-events).
 
-`GetEntityLogs()` accepts also `beeorm.Pager` and `beeorm.Where`  parameters that can be sued to filter results:
+`GetEntityLogs()` also accepts `beeorm.Pager` and `beeorm.Where` parameters that you can use to filter the results:
 
 ```go
 pager := beeorm.NewPager(1, 100)
 where := beeorm.NewWhere("added_at > 20022-01-02")
 logs := log_table.GetEntityLogs(engine, schema, 1, pager, nil)
 ```
-
