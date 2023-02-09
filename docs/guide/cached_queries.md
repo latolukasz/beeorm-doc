@@ -96,7 +96,7 @@ found == true // false
 
 We can also search for multiple entities using a cached query. To do so, we first need to define another cached query in our `UserEntity` struct:
 
-```go{5-7,9}
+```go{9}
 type UserEntity struct {
 	beeorm.ORM        `orm:"redisCache"`
     Email             string `orm:"unique=email;required"` 
