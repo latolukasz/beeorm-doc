@@ -67,7 +67,6 @@ export default defineUserConfig({
             'crud',
             'search',
             'lazy_flush',
-            'uuid',
             'cached_queries',
             'mysql_queries',
             'local_cache',
@@ -89,8 +88,7 @@ export default defineUserConfig({
             },
             'crud_stream',
             'log_table',
-            'fake_delete',
-            'cached_query',
+            'uuid',
           ]
         }]
     }
