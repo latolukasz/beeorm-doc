@@ -40,10 +40,6 @@ export default defineUserConfig({
             text: 'V1',
             link: 'https://v1.beeorm.io/',
           },
-          {
-            text: 'Migration from V1',
-            link: '/migration/v1/',
-          },
         ],
       },
     ],
