@@ -145,6 +145,35 @@ func (p *MyDebuggerPlugin) PluginInterfaceSchemaCheck(_ Engine, schema EntitySch
 }
 ```
 
+### PluginInterfaceSchemaStructCheck
+
+```go
+type PluginInterfaceSchemaStructCheck interface {
+	PluginInterfaceSchemaStructCheck(engine Engine, schema EntitySchema, columns []*ColumnSchemaDefinition,
+		t reflect.Type, subField *reflect.StructField, subFieldPrefix string) []*ColumnSchemaDefinition
+}
+```
+
+Allows to define MySQL table columns based on a Entity structure.
+
+For example this code adds column "ModifiedAt" at the end of table if field does not exist:
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceSchemaStructCheck(_ Engine, _ EntitySchema, columns []*ColumnSchemaDefinition,
+		t reflect.Type, subField *reflect.StructField, _ string) []*ColumnSchemaDefinition {
+    if subField != nil { // not in Entity root level
+        return
+    }
+    field, has := t.FieldByName("ModifiedAt")
+    if has { 
+        return
+    }
+    newColumn := &beeorm.ColumnSchemaDefinition{"ModifiedAt", "`ModifiedAt` datetime NOT NULL"}
+    columns = append(columns, newColumn)
+    return columns
+}
+```
+
 ### PluginInterfaceEntityFlushing
 
 ```go
