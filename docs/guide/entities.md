@@ -153,3 +153,22 @@ type UserEntity struct {
 ```
 
 This allows you to specify a table name that may be more descriptive or follow a naming convention that you have established for your database tables.
+
+
+### Customizing the Entity ID column
+
+By default, BeeORM will use `bigint` mysql type for column `ID`. You can change it using `id` tag:
+
+
+```go{2}
+type UserEntity struct {
+	beeorm.ORM `orm:"id=tinyint"`
+}
+```
+
+Possible values are:
+
+ * tinyint
+ * smallint
+ * mediumint
+ * int
