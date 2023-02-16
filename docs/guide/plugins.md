@@ -72,7 +72,7 @@ type PluginInterfaceInitEntitySchema interface {
 }
 ```
 
-The `PluginInterfaceInitEntitySchema` interface is executed for every Entity when the [registry.Validate()](/guide/validated_registry.html#validating-the-registry)  method is called. You have access to the `beeorm.Registry` and the `beeorm.SettableEntitySchema` object, which allows you to save additional settings in the [Entity Schema](/guide/validated_registry.html#entity-schema) using the ``SetPluginOption()` method.
+The `PluginInterfaceInitEntitySchema` interface is executed for every Entity when the [registry.Validate()](/guide/validated_registry.html#validating-the-registry)  method is called. You have access to the `beeorm.Registry` and the `beeorm.SettableEntitySchema` object, which allows you to save additional settings in the [Entity Schema](/guide/validated_registry.html#entity-schema) using the `SetPluginOption()` method.
 
 For example:
 
@@ -105,7 +105,56 @@ entitySchema.GetPluginOption(PluginCode, "my-option-2") // "Hello"
 entitySchema.GetPluginOption(PluginCode, "missing-key") // nil
 ```
 
-### PluginInterfaceEntityFlushing
+### PluginInterfaceTableSQLSchemaDefinition
+
+```go
+type PluginInterfaceTableSQLSchemaDefinition interface {
+	PluginInterfaceTableSQLSchemaDefinition(engine Engine, sqlSchema *TableSQLSchemaDefinition) error
+}
+```
+
+
+This interface is executed during Entity MySQL [schema update](/guide/schema_update.html). When this interface is called, you have access to the `TableSQLSchemaDefinition` object, which provides information about the Entity schema definition and the current MySQL table schema (if the table already exists in the database):
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceTableSQLSchemaDefinition(_ beeorm.Engine, sqlSchema *beeorm.TableSQLSchemaDefinition) error {
+    sqlSchema.EntitySchema // entity schema that is currently under validation
+    sqlSchema.EntityColumns // Entity columns SQL definitions
+    sqlSchema.EntityIndexes // Entity SQL indexes definitions
+    sqlSchema.DBTableColumns // columns SQL definitions from current table
+    sqlSchema.DBIndexes // SQL index definitions from current table
+    sqlSchema.DBCreateSchema // SQL `CREATE TABLE..` definition from current table
+    sqlSchema.DBEncoding // encoding from current table
+    sqlSchema.PreAlters // alters that should be executed at the beginning of schema update
+    sqlSchema.PostAlters // alters that should be executed at the end of schema update
+```
+
+Here's an example that demonstrates how to implement a plugin that adds a `IP VARCHAR(15)` column to every table:
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceTableSQLSchemaDefinition(_ beeorm.Engine, sqlSchema *beeorm.TableSQLSchemaDefinition) error {
+ hasIPColumn := false 
+ name := "IP"
+ definition := "`+name+` VARCHAR(15)"
+ for _, column := range sqlSchema.EntityColumns {
+    if column.ColumnName == name {
+        if column.Definition != definition {
+            return fmt.Errorf("column %s  with wrong definition `%s` already exist", name, definition)
+        }
+        hasIPColumn = true
+        break
+    }
+ }
+ if !hasIPColumn {
+    ipColumnDefinition := &beeorm.ColumnSchemaDefinition{ColumnName: name, Definition: definition}
+    sqlSchema.EntityColumns = append(sqlSchema.EntityColumns, ipColumnDefinition)
+ }
+}
+```
+
+In the example above, the `PluginInterfaceTableSQLSchemaDefinition` method first checks if the IP column with the correct definition already exists. If it does not, the method adds the IP column definition to the `TableSQLSchemaDefinition` object's EntityColumns field. This effectively adds the IP column to the MySQL table when the schema update is executed.
+
+### PluginInterfaceEntityFlushing 
 
 ```go
 type PluginInterfaceEntityFlushing interface {
