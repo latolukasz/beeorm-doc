@@ -48,6 +48,20 @@ func main() {
 }  
 ```
 
+### Registering external MySQL tables
+
+By default, BeeORM removes any tables that are not registered using the `RegisterEntity()` method. However, if you need to keep specific tables in your MySQL databases, you can use the `RegisterMySQLTable()` method to register them.
+
+```{3-4}
+registry := beeorm.NewRegistry()
+registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data") 
+registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/sales") 
+registry.RegisterMySQLTable("default", "LogTable") 
+registry.RegisterMySQLTable("sales", "LogTable") 
+```
+
+With the above code, the `LogTable` table will be kept in both the `data` and `sales` MySQL databases.
+
 ### Redis pool
 
 To protect MySQL from unnecessary queries, entities can be automatically cached in Redis. To enable Redis cache for an entity, use the setting redisCache=pool_name in the orm tag of the beeorm.ORM field. This specifies which Redis server or Sentinel pool should be used to store the data.
