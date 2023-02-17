@@ -51,7 +51,7 @@ default:
 
 By default, BeeORM uses the utf8mb4 character set and 0900_ai_ci collation for all tables. You can change this default behavior using the SetDefaultEncoding and SetDefaultCollate methods, as shown in the following example:
 
-```go{2}
+```go
 registry := beeorm.NewRegistry()
 registry.SetDefaultEncoding("latin2")
 registry.SetDefaultCollate("0900_ai_ci")

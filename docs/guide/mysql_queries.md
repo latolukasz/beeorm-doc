@@ -122,3 +122,40 @@ go func() {
     db.Commit()
 }()
 ```
+
+## Prepared statements
+
+Using MySQL prepared statements  with BeeORM is straightforward:
+
+```go
+db := engine.GetMysql()
+preparedStatement, close := db.Prepare("INSERT INTO `UserEntity(`Name`, `Age`)` VALUES(?,?)")
+defer close()
+res := preparedStatement.Exec("Tom", 12)
+res.LastInsertId() // 1
+res = preparedStatement.Exec("Ivona", 33)
+res.LastInsertId() // 2
+```
+
+```go
+db := engine.GetMysql()
+preparedStatement, close := db.Prepare("SELECT `ID`, `Name` FROM `UserEntity WHERE `ID` = ?")
+defer close()
+id := 0
+name := "
+preparedStatement.QueryRow([]interface{}{1}, &id, &name)
+preparedStatement.QueryRow([]interface{}{2}, &id, &name)
+```
+
+```go
+db := engine.GetMysql()
+preparedStatement, close := db.Prepare("SELECT `ID`, `Name` FROM `UserEntity WHERE `ID` > ?")
+defer close()
+id := 0
+name := "
+results, queryClose := preparedStatement.Query(2)
+defer queryClose()
+for results.Next() {
+    results.Scan(&id, &name)
+}
+```
