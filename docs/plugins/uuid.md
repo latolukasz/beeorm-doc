@@ -37,6 +37,7 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterPlugin(uuid.Init(nil)) 
 } 
+```
 
 ```go{2}
 type PersonEntity struct {

@@ -85,6 +85,7 @@ export default defineUserConfig({
             'crud_stream',
             'log_table',
             'uuid',
+            'foreign_keys',
           ]
         }]
     }
