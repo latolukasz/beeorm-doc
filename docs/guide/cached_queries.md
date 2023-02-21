@@ -158,7 +158,3 @@ for _, id := range ids {
     fmt.Printf("ID: %d\n", id) 
 }
 ```
-
-:::tip
-If your entity has the [FakeDelete](/guide/entity_fields.html#fake-delete) field, you do not need to include `WHERE FakeDelete = 0` in your cached query condition. BeeORM will automatically filter out rows with `FakeDelete = 1` when executing a search.
-:::

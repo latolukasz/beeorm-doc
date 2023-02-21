@@ -243,6 +243,29 @@ func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event Eve
 }
 ```
 
+### PluginInterfaceEntitySearch
+
+```go
+type PluginInterfaceEntitySearch interface {
+	PluginInterfaceEntitySearch(engine Engine, schema EntitySchema, where *Where) *Where
+}
+```
+
+The PluginInterfaceEntitySearch interface is executed every time a user searches for entities using BeeORM's [search feature](/guide/search.html). It allows you to modify the search query by returning a new `beeorm.Where` object.
+
+Here is an example implementation of this interface:
+
+```go
+func (p *MyDebuggerPlugin) PluginInterfaceEntitySearch(engine Engine, schema EntitySchema, where *Where) *Where {
+    if schema.GetEntityName() == "myproject.UserEntity" {
+        return beeorm.NewWhere("`Active` == 1 AND " + where.String(), where.GetParameters()...)
+    }
+    return where
+}
+```
+
+In this example, the `PluginInterfaceEntitySearch` method checks if the entity being searched for is a UserEntity. If it is, the method returns a new Where object that includes an additional condition to filter out inactive users. If the entity being searched for is not a UserEntity, the original `Where` object is returned unmodified.
+
 ## Engine Plugin Options
 
 The `SetPluginOption` and `GetPluginOption` methods of the `beeorm.Engine` allow you to store and retrieve extra options in the engine.

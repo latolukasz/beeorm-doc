@@ -86,6 +86,7 @@ export default defineUserConfig({
             'log_table',
             'uuid',
             'foreign_keys',
+            'fake_delete',
           ]
         }]
     }

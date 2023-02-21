@@ -13,7 +13,6 @@ type CategoryEntity struct {
 	beeorm.ORM  `orm:"redisCache"`
 	Code        string `orm:"required;length=10;unique=code"`
 	Name        string `orm:"required;length=100"`
-	FakeDelete  bool
 }
 
 type ImageEntity struct {
@@ -372,26 +371,6 @@ engine.Delete(product1, product1, product3)
 ```
 
 This will delete all ProductEntity objects with an ID of 1 or 2 from the table.
-
-If the entity has a  [FakeDelete field](/guide/entity_fields.html#fake-delete), the above methods will work differently. Instead of deleting rows from the table, a special update query will be executed:
-
-```go{3}
-category := &CategoryEntity{}
-engine.LoadByID(3, category)
-engine.Delete(category)
-```
-
-This will update the FakeDelete field for the CategoryEntity with an ID of 3 in the table, rather than deleting the row.
-
-To force an entity with a `FakeDelete` field to be deleted from the MySQL table, use the `engine.ForceDelete()` method:
-
-```go{3}
-category := &CategoryEntity{}
-engine.LoadByID(3, category)
-engine.ForceDelete(category)
-```
-
-This will delete the `CategoryEntity` with an ID of 3 from the table, even if it has a `FakeDelete` field.
 
 ## Using the Flusher
 

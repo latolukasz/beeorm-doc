@@ -67,16 +67,6 @@ where.String() // WHERE Age IN (?,?,?)
 where.GetParameters() // []interface{}{18, 20, 30}
 ```
 
-If Entity has [FakeDelete](/guide/entity_fields.html#fake-delete) field BeeORM adds
- `WHERE FakeDelete = 0` in your query. You can remove this condition with `ShowFakeDeleted()` method:
-
-```go{3}
-where := beeorm.NewWhere("Age >= >", [18)
-where.String() // WHERE Age >= ?
-where.ShowFakeDeleted()
-where.String() // WHERE Age >= ? AND FakeDelete = 0
-```
-
 ## Searching for Entities
 
 The `engine.Search()` method is used to search for entities using a SQL query condition. It requires a `beeorm.Where` object, a `beeorm.Pager` object, and a reference to a slice of entities.

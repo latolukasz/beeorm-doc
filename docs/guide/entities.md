@@ -186,3 +186,50 @@ Possible values are:
  * smallint
  * mediumint
  * int
+ * 
+
+### Entity Methods
+
+Each Entity in BeeORM provides several useful methods:
+
+#### GetID()
+
+This method returns the Primary Key of the Entity. For new entities that have not yet been saved to the database, this method returns zero.
+
+```go{2,4}
+user := &UserEntity{Name: "John"}
+user.GetID() // 0
+engine.Flush(user) // saves entity in database
+user.GetID() // 1
+```
+
+#### SetID()
+
+This method allows you to manually set the Primary Key of the Entity.
+
+```go{2}
+user := &UserEntity{Name: "John"}
+user.SetID(23)
+engine.Flush(user) // saves entity in database with ID = 23
+```
+
+#### SetField()
+
+This method sets the value of an Entity field. It automatically attempts to convert the provided value to the correct field type. For example, if an Entity field is defined as uint and the user provides a value of "242" as a string, this method will convert the string "243" to the uint value 243.
+
+```go{2}
+user := &UserEntity{}
+err := user.SetField("Name", "John")
+```
+
+#### SetMetaData() and GetMetaData()
+
+These methods allow you to store additional information within the Entity that is not stored in the database.
+
+```go
+user := &UserEntity{}
+user.SetMetaData("source", "login_form")
+user.GetMetaData() // {"source": login_form}
+user.SetMetaData("source", "") //removes it from meta data
+user.GetMetaData() // nil
+```
