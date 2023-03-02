@@ -22,6 +22,16 @@ func main() {
 }  
 ```
 
+## Engine Meta Data
+
+You can use Engine to store extra parameters using `SetMetadata` and `GetMetaData` methods:
+
+```go
+engine.SetMetaData("source": "cron_A")
+engine.GetMetaData() // {"source": "cron_A"}
+```
+
+
 ## Request Cache
 
 If you are building an `HTTP API`, it may be beneficial to enable a temporary cache for entity data loaded during a single HTTP request. You can do this by calling the `EnableRequestCache()` method on the `beeorm.Engine` object:

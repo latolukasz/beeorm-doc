@@ -130,13 +130,14 @@ In this example, when the CarEntity is inserted, the crudEvent will contain info
 
 ## Storing Additional Metadata in CRUD Events
 
-In some cases, you may want to include additional information about a CRUD event, such as the user IP or ID of the person who made the change. This plugin allows you to store this extra information, referred to as "metadata", in the event.
+In some cases, you may want to include additional information, such as the user IP or ID of the person who made the change.
+You can use [Engine Meta Data](/guide/engine.html#engine-meta-data) to assign this information in CRUD event.
 
 Here is an example:
 
 ```go
-crud_stream.SetMetaData(engine, "user_ip", "132.12.23.43")
-crud_stream.SetMetaData(engine, "user_id", "114")
+engine.SetMetaData("user_ip", "132.12.23.43")
+engine.SetMetaData("user_id", "114")
 
 carEntity := &CarEntity{Name: "BMW"}
 engine.Flush(carEntity)
