@@ -87,6 +87,7 @@ export default defineUserConfig({
             'uuid',
             'foreign_keys',
             'fake_delete',
+            'simple_metrics',
           ]
         }]
     }
