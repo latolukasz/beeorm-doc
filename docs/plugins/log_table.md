@@ -6,10 +6,11 @@ The Log Table plugin enhances the functionality of the CRUD stream](/plugins/cru
 
 The following code demonstrates how to activate the Log Table plugin in your project.
 
-```go{10,11}
+```go
 package main
 
 import {
+    "github.com/latolukasz/beeorm/v2"
     "github.com/latolukasz/beeorm/v2/plugins/crud_stream"
     "github.com/latolukasz/beeorm/v2/plugins/log_table"
 }

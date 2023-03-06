@@ -13,10 +13,13 @@ Fortunately, this BeeORM plugin provides a simple solution to this problem. It p
 
 ## Enabling Plugin
 
-```go{7}
+```go
 package main
 
-import "github.com/latolukasz/beeorm/v2/plugins/fake_delete"
+import {
+    "github.com/latolukasz/beeorm/v2"
+    "github.com/latolukasz/beeorm/v2/plugins/fake_delete"
+}
 
 func main() {
     registry := beeorm.NewRegistry()

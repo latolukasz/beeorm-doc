@@ -8,10 +8,13 @@ It is highly recommended to use foreign keys in your database design.
 
 ## Enabling the Foreign Keys Plugin
 
-```go{7}
+```go
 package main
 
-import "github.com/latolukasz/beeorm/v2/plugins/foreign_keys"
+import {
+    "github.com/latolukasz/beeorm/v2"
+    "github.com/latolukasz/beeorm/v2/plugins/foreign_keys"
+}
 
 func main() {
     registry := beeorm.NewRegistry()

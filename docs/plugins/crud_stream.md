@@ -5,10 +5,13 @@ every time an Entity is added, updated, or deleted.
 
 ## Activating the Plugin
 
-```go{7}
+```go
 package main
 
-import "github.com/latolukasz/beeorm/v2/plugins/crud_stream"
+import {
+    "github.com/latolukasz/beeorm/v2"
+    "github.com/latolukasz/beeorm/v2/plugins/crud_stream"
+}
 
 func main() {
     registry := beeorm.NewRegistry()

@@ -28,10 +28,13 @@ user.GetID() //panics
 
 This plugin provides an option to use generated UUID instead of MySQL's auto-incrementing values for the ID of an entity. To do this, simply register plugin and add the `uuid` tag to the `beeorm.ORM` field:
 
-```go{7}
+```go
 package main
 
-import "github.com/latolukasz/beeorm/v2/plugins/uuid"
+import {
+    "github.com/latolukasz/beeorm/v2"
+    "github.com/latolukasz/beeorm/v2/plugins/uuid"
+}
 
 func main() {
     registry := beeorm.NewRegistry()
