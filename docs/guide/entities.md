@@ -186,7 +186,7 @@ Possible values are:
  * smallint
  * mediumint
  * int
- * 
+ * uint64 (default)
 
 ### Entity Methods
 
