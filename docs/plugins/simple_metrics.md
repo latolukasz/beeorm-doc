@@ -137,3 +137,11 @@ simpleMetrics.ClearMySQLStats()
 ```
 
 This method will clear all previously collected data, including slow query logs and grouped query statistics.
+
+## Disabling statistics
+
+You can disable statistics for all queries executed by a single `beeorm.Engine` with `DisableMetrics` method:
+
+```go
+simple_metrics.DisableMetrics(engine)
+```
