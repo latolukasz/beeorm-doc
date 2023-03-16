@@ -3,7 +3,10 @@
 In BeeORM, an Entity is a struct that represents data stored in a database. In this section, you will learn how to define golang structs as Entity types.
 
 ## Defining an Entity
-To define an Entity struct, you must follow one rule - the first field of the struct should be an anonymous field with a type of beeorm.ORM.
+
+To define an Entity struct, you must follow one rule:
+ * the first field of the struct should be an anonymous field with a type of beeorm.ORM
+ * the second field of the struct should be called `ID` and be type of uint (from 8 to 64)
 
 Here is an example of a simple Entity struct:
 
@@ -12,6 +15,7 @@ import "github.com/latolukasz/beeorm/v2"
 
 type SimpleEntity struct {
 	beeorm.ORM
+	ID uint32
 }
 ```
 
@@ -39,6 +43,7 @@ import "github.com/latolukasz/beeorm/v2"
 
 type OrderEntity struct {
 	beeorm.ORM `orm:"mysql=sales"`
+	ID  uint64
 }
 
 func main() {
@@ -52,7 +57,7 @@ func main() {
 
 By default, BeeORM removes any tables that are not registered using the `RegisterEntity()` method. However, if you need to keep specific tables in your MySQL databases, you can use the `RegisterMySQLTable()` method to register them.
 
-```{3-4}
+```
 registry := beeorm.NewRegistry()
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data") 
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/sales") 
@@ -77,10 +82,12 @@ import "github.com/latolukasz/beeorm/v2"
 
 type UserEntity struct {
 	beeorm.ORM `orm:"redisCache"`
+	ID uint8
 }
 
 type OrderEntity struct {
 	beeorm.ORM `orm:"redisCache=sales"`
+	ID uint64
 }
 
 func main() {
@@ -111,10 +118,12 @@ import "github.com/latolukasz/beeorm/v2"
 
 type CategoryEntity struct {
 	beeorm.ORM `orm:"localCache"`
+	ID uint16
 }
 
 type BrandEntity struct {
 	beeorm.ORM `orm:"localCache=settings"`
+	ID uint16
 }
 
 func main() {
@@ -135,13 +144,15 @@ It is important to note that the local cache is not shared across all servers. I
 
 It is possible to cache an Entity in both a local cache and Redis using BeeORM. To do so, you can use the following syntax:
 
-```go{2,6}
+```go{2,7}
 type CategoryEntity struct {
 	beeorm.ORM `orm:"localCache;redisCache"`
+	ID uint16
 }
 
 type BrandEntity struct {
 	beeorm.ORM `orm:"localCache=settings;redisCache=settings"`
+	ID uint16
 }
 ```
 
@@ -168,26 +179,6 @@ type UserEntity struct {
 
 This allows you to specify a table name that may be more descriptive or follow a naming convention that you have established for your database tables.
 
-
-### Customizing the Entity ID column
-
-By default, BeeORM will use `bigint` mysql type for column `ID`. You can change it using `id` tag:
-
-
-```go{2}
-type UserEntity struct {
-	beeorm.ORM `orm:"id=tinyint"`
-}
-```
-
-Possible values are:
-
- * tinyint
- * smallint
- * mediumint
- * int
- * uint64 (default)
-
 ### Entity Methods
 
 Each Entity in BeeORM provides several useful methods:
@@ -201,16 +192,6 @@ user := &UserEntity{Name: "John"}
 user.GetID() // 0
 engine.Flush(user) // saves entity in database
 user.GetID() // 1
-```
-
-#### SetID()
-
-This method allows you to manually set the Primary Key of the Entity.
-
-```go{2}
-user := &UserEntity{Name: "John"}
-user.SetID(23)
-engine.Flush(user) // saves entity in database with ID = 23
 ```
 
 #### SetField()

@@ -29,6 +29,7 @@ To store entities in log tables, you need to specify which entities to track by 
 ```go{2}
 type CarEntity struct {
     beeorm.ORM `orm:"crud-stream;log-table"`
+    ID         uint16
     Name       string
 }
 ```
@@ -45,6 +46,7 @@ registry.RegisterPlugin(log_table.Init(pluginOptions))
 
 type CarEntity struct {
     beeorm.ORM `orm:"crud-stream;enable-log-plugin"`
+    ID         uint16
     Name       string
 }
 ```
@@ -60,6 +62,7 @@ It's also possible to specify the MySQL pool name using the tag:
 ```go{2}
 type CarEntity struct {
     beeorm.ORM `orm:"crud-stream;log-table=logs"`
+    ID         uint16
     Name       string
 }
 ```
@@ -92,6 +95,7 @@ For example, if you have the following entity definition:
 ```go
 type CarEntity struct {
     beeorm.ORM `orm:"crud-stream;log-table=logs"`
+    ID         uint16
     Name       string
 }
 ```

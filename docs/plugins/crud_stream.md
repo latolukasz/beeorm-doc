@@ -26,6 +26,7 @@ The first step in enabling CRUD event tracking is to register the plugin. After 
 ```go{2}
 type CarEntity struct {
     beeorm.ORM `orm:"crud-stream"`
+    ID         uint16
     Name       string
 }
 ```
@@ -40,15 +41,17 @@ registry.RegisterPlugin(crud_stream.Init(pluginOptions))
 
 type CarEntity struct {
     beeorm.ORM `orm:"enable-crud-plugin"`
+    ID         uint16
     Name       string
 }
 ```
 
 By default, the plugin will send an event to the `beeorm-crud-stream` stream if any entity field stored in the database has changed. However, you can configure the plugin to skip certain fields by adding the special tag `skip-crud-stream` to them:
 
-```go{4}
+```go{5}
 type UserEntity struct {
     beeorm.ORM `orm:"crud-stream"`
+    ID         uint32
     Name       string
     LastLoggedAt time.Time `orm:"skip-crud-stream"`
 }

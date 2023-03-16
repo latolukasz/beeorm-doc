@@ -11,6 +11,7 @@ Let's assume we have a `UserEntity` struct:
 ```go
 type UserEntity struct {
 	beeorm.ORM
+	ID         uint32
     Email      string `orm:"unique=email;required"` 
     Supervisor *UserEntity
 }
@@ -32,6 +33,7 @@ To cache this query, we first need to define the cache layer that will be used t
 ```go{2}
 type UserEntity struct {
 	beeorm.ORM `orm:"redisCache"`
+	ID         uint32
     Email      string `orm:"unique=email;required"` 
     Supervisor *UserEntity
 }
@@ -39,9 +41,10 @@ type UserEntity struct {
 
 Next, we need to add an extra field of type `*beeorm.CachedQuery` with the `queryOne` tag:
 
-```go{5}
+```go{6}
 type UserEntity struct {
 	beeorm.ORM       `orm:"redisCache"`
+	ID               uint32
     Email            string `orm:"unique=email;required"` 
     Supervisor       *UserEntity
     CachedQueryEmail *beeorm.CachedQuery `queryOne:":Email = ?"`
@@ -96,9 +99,10 @@ found == true // false
 
 We can also search for multiple entities using a cached query. To do so, we first need to define another cached query in our `UserEntity` struct:
 
-```go{9}
+```go{10}
 type UserEntity struct {
 	beeorm.ORM        `orm:"redisCache"`
+	ID                uint32
     Email             string `orm:"unique=email;required"` 
     Supervisor        *UserEntity
     Admin             bool

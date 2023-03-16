@@ -45,6 +45,7 @@ func main() {
 ```go{2}
 type PersonEntity struct {
 	beeorm.ORM  `orm:"uuid"`
+	ID   uint64 // must be uint64
 	Name string `orm:"required"`
 	Father *PersonEntity
 }
@@ -71,6 +72,7 @@ registry.RegisterPlugin(uuid.Init(pluginOptions))
 
 type CarEntity struct {
     beeorm.ORM `orm:"enable-uuid"`
+    ID         uint64
     Name       string
 }
 ```

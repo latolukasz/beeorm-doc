@@ -7,6 +7,7 @@ For instance, consider the following code:
 ```go
 type CategoryEntity struct {
 	beeorm.ORM `orm:"redisCache"` // entity is cached in Redis
+	ID uint16
 }
 
 flusher := engine.NewFlusher()

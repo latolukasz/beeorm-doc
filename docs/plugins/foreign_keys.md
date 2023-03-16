@@ -26,19 +26,22 @@ func main() {
 
 You can instruct the plugin to enable foreign keys in all Entity One-to-One references by providing the `fk` tag for the `beeorm.ORM` field, as shown in the example below:
 
-```go{12}
+```go{14}
 type CountryEntity struct {
 	beeorm.ORM
+	ID   uint16
 	Name string `orm:"required"`
 }
 
 type CityEntity struct {
 	beeorm.ORM
+	ID   uint32
 	Name string `orm:"required"`
 }
 
 type AddressEntity struct {
 	beeorm.ORM  `orm:"fk"`
+	ID     uint32
 	Street string `orm:"required"`
 	Country *CountryEntity
 	City *CityEntity
@@ -58,6 +61,7 @@ registry.RegisterPlugin(foreign_keys.Init(pluginOptions))
 
 type CarEntity struct {
     beeorm.ORM `orm:"enable-fk"`
+    ID         uint32
     Name       string
 }
 ```
@@ -66,12 +70,13 @@ Note that you don't need to define a MySQL index for the Country and City column
 
 In some scenarios, you may need to disable foreign keys for specific fields. Simply use fk=skip to inform the plugin that a foreign key should not be created for a specific column. For example:
 
-```go{5}
+```go{6}
 type AddressEntity struct {
 	beeorm.ORM  `orm:"fk"`
-	Street string `orm:"required"`
+	ID      uint32
+	Street  string `orm:"required"`
 	Country *CountryEntity
-	City *CityEntity `orm:"fk=skip"`
+	City    *CityEntity `orm:"fk=skip"`
 }
 ```
 
@@ -81,11 +86,13 @@ In the example above, only one foreign index is created for the `Street` column.
 
 You can enable foreign keys for specific references by adding the `fk` tag to selected entity fields, as shown in the example below:
 
-```go{3}
+```go{5}
 type AddressEntity struct {
-	Street string `orm:"required"`
+    beeorm.ORM
+	ID      uint32
+	Street  string `orm:"required"`
 	Country *CountryEntity `orm:"fk"`
-	City *CityEntity
+	City    *CityEntity
 }
 ```
 

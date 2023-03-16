@@ -31,25 +31,27 @@ func main() {
 
 To enable "Fake Delete" option in an entity, you simply need to add a `bool` field called `FakeDelete` in your entity structure. For instance:
 
-```go{4}
+```go{5}
 type PersonEntity struct {
 	beeorm.ORM  `orm:"uuid"`
-	Name string `orm:"required"`
+	ID         uint32
+	Name       string `orm:"required"`
 	FakeDelete bool
 }
 ```
 
 If you prefer to use a different name for the `FakeDelete` field, you can set it using the plugin option `FieldName`. For example:
 
-```go{1,8}
+```go{1,9}
 registry.RegisterPlugin(fake_delete.Init(FieldName: "Deleted")) 
 
 type PersonEntity struct {
 	beeorm.ORM  `orm:"uuid"`
-	FisrtName string `orm:"required"`
-	LastName string `orm:"required"`
-	Email string `orm:"required;unique=Email"`
-	Deleted bool
+	ID          uint32
+	FisrtName   string `orm:"required"`
+	LastName    string `orm:"required"`
+	Email       string `orm:"required;unique=Email"`
+	Deleted     bool
 }
 ```
 

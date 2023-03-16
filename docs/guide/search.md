@@ -73,13 +73,14 @@ The `engine.Search()` method is used to search for entities using a SQL query co
 
 Here is an example of how to use the `engine.Search()` method:
 
-```go{24}
+```go{25}
 package main
 
 import "github.com/latolukasz/beeorm/v2"
 
 type UserEntity struct {
     beeorm.ORM
+    ID         uint32
     FirstName  string `orm:"required"`
     LastName   string `orm:"required"`
     Email      string `orm:"required"`

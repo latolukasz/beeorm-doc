@@ -11,23 +11,27 @@ import "github.com/latolukasz/beeorm/v2"
 
 type CategoryEntity struct {
 	beeorm.ORM  `orm:"redisCache"`
+	ID          uint16
 	Code        string `orm:"required;length=10;unique=code"`
 	Name        string `orm:"required;length=100"`
 }
 
 type ImageEntity struct {
 	beeorm.ORM `orm:"redisCache"`
+	ID  uint64
 	Url string `orm:"required"`
 }
 
 type BrandEntity struct {
 	beeorm.ORM `orm:"redisCache"`
+	ID   uint16
 	Name string `orm:"required;length=100"`
 	Logo *ImageEntity
 }
 
 type ProductEntity struct {
 	beeorm.ORM `orm:"redisCache"`
+	ID       uint32
 	Name     string `orm:"required;length=100"`
 	Category *CategoryEntity `orm:"required"`
 	Brand    *BrandEntity
@@ -68,22 +72,21 @@ engine.Flush(categoryCars, categoryBikes, product)
 Note that `Flush()` only generates two SQL queries, as BeeORM's query optimizer groups all queries to MySQL and Redis to minimize the number of queries. It is always more efficient to use `FlushMany()` to save multiple entities at once, rather than calling `Flush()` multiple times.
 :::
 
-Every time a new entity is saved to MySQL, BeeORM automatically sets the inserted primary key value in the ID field of the entity. Each entity provides a `GetID()` method that is useful if you pass the `beeorm.Entity` type in your code:
+Every time a new entity is saved to MySQL, BeeORM automatically sets the inserted primary key value in the ID field of the entity:
 
 ```go
 categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
-categoryCars.GetID() // 0
+categoryCars.ID // 0
 engine.Flush(categoryCars)
-categoryCars.GetID() // 1
+categoryCars.ID // 1
 ```
 
-If needed, you can define the ID for new entities by setting the ID field with `SetID()` before flushing the entity:
+If needed, you can define the ID for new entities by setting the ID before flushing the entity:
 
 ```go{1}
-categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
-categoryCars.SetID(10)
+categoryCars := &CategoryEntity{ID: 10, Code: "cars", Name: "Cars"}
 engine.Flush(categoryCars)
-categoryCars.GetID() // 10
+categoryCars.ID // 10
 ```
 
 By default, the `Flush()` method of BeeORM does not return any errors. Instead, it will panic if an error occurs. This approach is preferred in actions that connect to external services such as databases, as it ensures that any issues are immediately addressed. However, in some cases, you may want to handle specific errors that may occur when saving an entity. For example, you may want to catch errors related to duplicate or invalid values in MySQL indexes.
@@ -120,7 +123,7 @@ For example, consider the following code:
 category := &CategoryEntity{Code: "cars", Name: "Cars V2"}
 category.SetOnDuplicateKeyUpdate(beeorm.Bind{"Name": "Cars V3"})
 engine.Flush(categoryCars) // no panic
-category.GetID() // 10
+category.ID // 10
 category.Name // "Cars V3"
 ```
 
@@ -133,7 +136,7 @@ For example, consider the following code:
 category := &CategoryEntity{Code: "cars", Name: "Cars"}
 category.SetOnDuplicateKeyUpdate(nil)
 engine.Flush(category) // No panic
-fmt.Println(category.GetID()) // 10
+fmt.Println(category.ID) // 10
 ```
 
 As you can see, the Flush() method does not panic and the ID field of the category entity is set to 10. The ON DUPLICATE KEY UPDATE clause ensures that no fields are updated if a duplicate key is detected.
@@ -149,19 +152,18 @@ bmw1 := &ProductEntity{Name: "BMW 1", Category: categoryCars}
 fordFocus := &ProductEntity{Name: "Ford focus", Category: categoryCars}
 cockerSpaniel := &ProductEntity{Name: "Cocker spaniel", Category: categoryDogs}
 engine.Flush(bmw1, fordFocus) // we are flushing only products
-bmw1.Category.GetID() // 1
-fordFocus.Category.GetID() // 1
-cockerSpaniel.Category.GetID() // 2
-categoryCars.GetID() // 1
-categoryDogs.GetID() // 2
+bmw1.Category.ID // 1
+fordFocus.Category.ID // 1
+cockerSpaniel.Category.ID // 2
+categoryCars.ID // 1
+categoryDogs.ID // 2
 ```
 
 
 Sometimes you may need to define a referenced entity, but you only know its `ID` value. In this case, you can assign it as a new entity with the `ID` set to the correct value:
 
-```go{2}
-category := &CategoryEntity{}
-category.SetID(7)
+```go
+category := &CategoryEntity{ID: 7}
 product := &ProductEntity{Name: "Ford focus", Category: category}
 engine.Flush()
 ```
@@ -210,9 +212,8 @@ There are several ways to load entities from the database when you know the prim
 
 You can use the `engine.Load()` method:
 
-```go{2}
-product := &ProductEntity{}
-product.SetID(1)// provide ID
+```go{1}
+product := &ProductEntity{ID: 1}
 found := engine.Load(product) // true
 ```
 
@@ -229,8 +230,8 @@ If you need to load more than one entity, you can use `engine.LoadByIDs()`:
 var products []*ProductEntity{}
 engine.LoadByIDs([]uint64{1, 2}, &products)
 len(products) == 2 // true
-products[0].GetID() // 1
-products[1].GetID() // 2
+products[0].ID // 1
+products[1].ID // 2
 ```
 
 If an entity is not found, it will be returned as `nil`:
@@ -240,8 +241,8 @@ If an entity is not found, it will be returned as `nil`:
 var products []*ProductEntity{}
 engine.LoadByIDs([]uint64{1, 2, 3}, &products)
 len(products) == 3 // true
-products[0].GetID() // 1
-products[1].GetID() // 2
+products[0].ID // 1
+products[1].ID // 2
 products[2] == nil // true
 ```
 
@@ -250,8 +251,7 @@ products[2] == nil // true
 Every entity stores internally the data that is stored in the corresponding MySQL table. This allows BeeORM to track changes and determine if an entity is "dirty" and needs to be flushed (saved) to the database. This data is stored in the entity every time a new entity is flushed or loaded from the database. You can use the `entity.IsLoaded()` method to determine if an entity has this data and can track changes:
 
 ```go
-category := &CategoryEntity{Code: "cars", Name: "Cars"}
-category.SetID(22)
+category := &CategoryEntity{ID: 22, Code: "cars", Name: "Cars"}
 category.IsLoaded() // false, entity needs to be inserted in MySQL table
 engine.FLush(category)
 category.IsLoaded() // true, entity data is saved in database
@@ -261,8 +261,7 @@ product.IsLoaded() // false
 engine.LoadByID(1, product)
 product.IsLoaded() // true, entity data is loaded from database
 
-product2 := &ProductEntity{}
-product2.SetID(2)
+product2 := &ProductEntity{ID: 2}
 product2.IsLoaded() // false
 product.Load(product2)
 product2.IsLoaded() // true
@@ -286,8 +285,8 @@ Often when loading an entity, you also need data from the connected referenced e
 product := &ProductEntity{}
 engine.LoadByID(1, product)
 product.Name // returns "Ford focus"
-product.Category.GetID() // returns 1
-product.Brand.GetID() // returns 1
+product.Category.ID // returns 1
+product.Brand.ID // returns 1
 product.Category.Name // returns an empty string because the entity data is not Loaded
 product.Brand.Name // returns an empty string because the entity data is not Loaded
 product.Brand.Logo // returns nil because the entity data is not Loaded
@@ -295,7 +294,7 @@ engine.Load(product.Category)
 engine.Load(product.Brand)
 product.Category.Name // returns "Cars"
 product.Brand.Name // returns "Ford"
-product.Brand.Logo.GetID() // returns 1
+product.Brand.Logo.ID // returns 1
 product.Brand.Logo.Name // returns an empty string because the entity data is not Loaded
 engine.Load(product.Brand.Logo)
 product.Brand.Logo.Url // returns "/images/ford.png"

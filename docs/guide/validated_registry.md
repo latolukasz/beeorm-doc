@@ -63,11 +63,13 @@ import "github.com/latolukasz/beeorm/v2"
 
 type CarEntity struct {
 	beeorm.ORM
+	ID    uint32
 	Color string `orm:"enum=colors;required"` 
 	Owner *PersonEntity
 }
 type PersonEntity struct {
 	beeorm.ORM
+	ID    uint32
 	Name  string
 }
 
@@ -184,6 +186,7 @@ entitySchema := validatedRegistry.GetEntitySchemaForCachePrefix("f3b2d")
 ```go
 type CarEntity struct {
 	beeorm.ORM `orm:"my-tag-1=value-1"` 
+	ID    uint32
 	Color string `orm:"my-tag-2=value-2;my-tag-3"` 
 }
 entitySchema := validatedRegistry.GetEntitySchema("main.CarEntity")
