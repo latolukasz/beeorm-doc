@@ -22,28 +22,6 @@ func main() {
 
 This will initialize the plugin and allow you to start collecting metrics on your MySQL queries. From there, you can use the provided report to optimize your application and improve its performance.
 
-## MySQL Slow Queries Report
-
-MySQL Slow Queries Report
-If you need to retrieve a list of the slowest MySQL queries in your application, ordered by query duration, you can use the `GetMySQLSlowQueriesStats()` method provided by the Simple Metrics plugin. Here's an example of how to use it in your code:
-
-```go
-simpleMetrics = engine.GetRegistry().GetPlugin(simple_metrics.PluginCode).(*simple_metrics.Plugin)
-for _, slowQuery := range simpleMetrics.GetMySQLSlowQueriesStats() {
-    slowQuery.Query // "SELECT * FROM...."
-    slowQuery.Pool // "default"
-    slowQuery.Duration //query execution time
-}
-```
-
-By default, the plugin logs the 500 slowest queries from your application. You can change this limit by setting the `MySQLSlowQueriesLimit` option when initializing the plugin. Here's an example:
-```go
-pluginOptions := &simple_metrics.Options{MySQLSlowQueriesLimit: 1000}
-registry.RegisterPlugin(simple_metrics.Init(pluginOptions)) 
-```
-
-Note that the Simple Metrics plugin only stores slow queries for queries that are not executed with [Lazy Flush](/guide/lazy_flush.html). This can help you optimize your application's performance by identifying slow queries that may be impacting its overall speed.
-
 ## Metrics Tag Name
 
 By default all queries are grouped into two groups:
@@ -58,6 +36,25 @@ You can instruct simple metrics plugin to track all queries executed by single `
 ```go{2}
 simpleMetrics = engine.GetRegistry().GetPlugin(simple_metrics.PluginCode).(*simple_metrics.Plugin)
 simpleMetrics.SetTagName(engine, "my_tag")
+```
+
+## MySQL Slow Queries Report
+
+If you need to retrieve a list of the slowest MySQL queries in your application, ordered by query duration, you can use the `GetMySQLSlowQueriesStats(tag string)` method provided by the Simple Metrics plugin. Here's an example of how to use it in your code:
+
+```go
+simpleMetrics = engine.GetRegistry().GetPlugin(simple_metrics.PluginCode).(*simple_metrics.Plugin)
+for _, slowQuery := range simpleMetrics.GetMySQLSlowQueriesStats("") {
+    slowQuery.Query // "SELECT * FROM...."
+    slowQuery.Pool // "default"
+    slowQuery.Duration //query execution time
+}
+```
+
+By default, the plugin logs the 500 slowest queries from your application. You can change this limit by setting the `MySQLSlowQueriesLimit` option when initializing the plugin. Here's an example:
+```go
+pluginOptions := &simple_metrics.Options{MySQLSlowQueriesLimit: 1000}
+registry.RegisterPlugin(simple_metrics.Init(pluginOptions)) 
 ```
 
 ## MySQL Query Statistics Report
@@ -105,7 +102,7 @@ engine.Flush(&UserEntity{Name: "Tom"}) // took 4ms
 engine.FlushLazy(&UserEntity{Name: "Ivona"}) // took 7ms
 engine.LoadByID(12, &UserEntity{})) // took 1ms
 
-slowQueries :=  simpleMetrics.GetMySQLSlowQueriesStats()
+slowQueries :=  simpleMetrics.GetMySQLSlowQueriesStats("")
 
 slowQueries[0].Query // INSERT INTO UserEntity(Name) VALUES("Tom")
 slowQueries[0].Pool // default
@@ -115,7 +112,7 @@ slowQueries[1].Query // INSERT INTO UserEntity(Name) VALUES("Ivona")
 slowQueries[1].Pool // default
 slowQueries[1].Duration // 3ms
 
-queries := simpleMetrics.GetMySQLQueriesStats(")
+queries := simpleMetrics.GetMySQLQueriesStats("")
 
 queries[0].Table // UserEntity
 queries[0].Pool // default
