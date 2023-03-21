@@ -44,6 +44,22 @@ registry.RegisterPlugin(simple_metrics.Init(pluginOptions))
 
 Note that the Simple Metrics plugin only stores slow queries for queries that are not executed with [Lazy Flush](/guide/lazy_flush.html). This can help you optimize your application's performance by identifying slow queries that may be impacting its overall speed.
 
+## Metrics Tag Name
+
+By default all queries are grouped into two groups:
+
+ * lazy queries flushed with [Lazy Flush](/guide/lazy_flush.html)
+ * all other queries
+
+Lazy queries are marked with tag (described later) `"lazy"` and other queries use empty string `"""` tag name.
+
+You can instruct simple metrics plugin to track all queries executed by single `beeorm.Engine` in a custom group:
+
+```go{2}
+simpleMetrics = engine.GetRegistry().GetPlugin(simple_metrics.PluginCode).(*simple_metrics.Plugin)
+simpleMetrics.SetTagName(engine, "my_tag")
+```
+
 ## MySQL Query Statistics Report
 
 The Simple Metrics plugin tracks all MySQL queries and groups them by different criteria, such as pool name, query type, table name, and whether the query was executed lazily.
@@ -53,7 +69,7 @@ The plugin groups queries into the following types:
  * pool name
  * query type (INSERT, UPDATE...)
  * table name
- * lazy (true, false)
+ * tag name
 
 Query type is constant with one of these values:
 
@@ -65,11 +81,11 @@ Query type is constant with one of these values:
  * **ALTER** - all `ALTER TABLE ...` queries
  * **OTHER** - all other queries
 
-You can retrieve all the grouped queries with the `GetMySQLQueriesStats(lazy bool)` method. For instance, to retrieve all non-lazy queries, you can use the following code:
+You can retrieve all the grouped queries with the `GetMySQLQueriesStats(tag string)` method. For instance, to retrieve all non-lazy queries, you can use the following code:
 
 ```go
 simpleMetrics = engine.GetRegistry().GetPlugin(simple_metrics.PluginCode).(*simple_metrics.Plugin)
-for _, query := range simpleMetrics.GetMySQLQueriesStats(false) { // all non-lazy queries
+for _, query := range simpleMetrics.GetMySQLQueriesStats("") { // all non-lazy queries with default tag name
     query.Table // "Users"
     query.Pool // "default"
     query.Operation //query type, for instace simple_metrics.INSERT
@@ -99,7 +115,7 @@ slowQueries[1].Query // INSERT INTO UserEntity(Name) VALUES("Ivona")
 slowQueries[1].Pool // default
 slowQueries[1].Duration // 3ms
 
-queries := simpleMetrics.GetMySQLQueriesStats(false)
+queries := simpleMetrics.GetMySQLQueriesStats(")
 
 queries[0].Table // UserEntity
 queries[0].Pool // default
@@ -115,7 +131,7 @@ queries[0].Counter // 1
 queries[0].TotalTime // 1ms
 queries[0].SlowQueries // 0
 
-queries := simpleMetrics.GetMySQLQueriesStats(true)
+queries := simpleMetrics.GetMySQLQueriesStats("lazy")
 
 queries[0].Table // UserEntity
 queries[0].Pool // default
