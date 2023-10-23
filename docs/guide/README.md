@@ -35,25 +35,6 @@ In short, while a caching layer can improve the performance of a login form, it 
 
 BeeORM provides its own redis client, which includes support for all standard redis commands as well as additional features like shared lock and rate limiter. This means that you do not need to use any other redis client libraries, such as go-redis, when using BeeORM. Our client is specifically designed to make it easy to integrate redis into your application, without the need for additional dependencies.
 
-
-## Events streaming
-
-Event streaming systems are crucial for building modern, high-traffic applications. They allow developers to distribute data between services in an asynchronous and scalable way. There are many solutions available, such as Apache Kafka and RabbitMQ, but implementing these technologies can add complexity to your infrastructure.
-
-Redis, a popular key-value database, includes a powerful feature called streams that can be used to build fast event streaming systems. With BeeORM, it's easy to integrate Redis streams into your application using the built-in event broker. This allows you to leverage the power of Redis streams without adding additional complexity to your infrastructure.
-
-Here's an example of how to use the BeeORM event broker to publish and consume events with Redis streams:
-
-```go
-broker := engine.GetEventBroker()
-
-// Publish an event to a stream
-broker.Publish("stream-name", event)
-
-// Consume events from a stream using a consumer and consumer group
-broker.Consumer("my-consumer", "my-group").Consume(...)
-```
-
 ## And much much more...
 
 To learn more about BeeORM and all of its capabilities, please take some time to read through the rest of our [guide](/guide/registry.html). 
