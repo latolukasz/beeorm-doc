@@ -19,9 +19,9 @@ export default defineUserConfig({
   theme: defaultTheme({
     logo: '/logo-small.svg',
     logoDark: '/logo-small-dark.svg',
-    repo: 'https://github.com/latolukasz/beeorm/tree/v2',
+    repo: 'https://github.com/latolukasz/beeorm/tree/v3',
     docsRepo: 'https://github.com/latolukasz/beeorm-doc',
-    docsBranch: 'v2',
+    docsBranch: 'v3',
     docsDir: 'docs',
     contributors: false,
     navbar: [
