@@ -30,12 +30,12 @@ export default defineUserConfig({
         link: '/guide/',
       },
       {
-        text: 'Plugins',
-        link: '/plugins/',
-      },
-      {
-        text: 'V2',
+        text: 'V3',
         children: [
+          {
+            text: 'V2',
+            link: 'https://v2.beeorm.io/',
+          },
           {
             text: 'V1',
             link: 'https://v1.beeorm.io/',
@@ -70,26 +70,9 @@ export default defineUserConfig({
             'flusher_cache_setters',
             'distributed_lock',
             'event_broker',
-            'plugins',
             'queries_log',
           ]
         }],
-      '/plugins/': [
-        {
-          title: 'Plugins',
-          children: [
-            {
-              text: 'Introduction',
-              link: '/plugins/'
-            },
-            'crud_stream',
-            'log_table',
-            'uuid',
-            'foreign_keys',
-            'fake_delete',
-            'simple_metrics',
-          ]
-        }]
     }
   })
 })
