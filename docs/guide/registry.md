@@ -5,14 +5,14 @@ beeorm.Registry object using the beeorm.NewRegistry() method, as shown in the fo
 ```go
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
 
 func main() {
     // Initialize a new Registry
     registry := beeorm.NewRegistry()
     
     // Register a MySQL connection pool
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db") 
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil) 
 } 
 ```
 
@@ -22,7 +22,7 @@ Alternatively, you can configure the beeorm.Registry object using data from a YA
 package main
 
 import (
-    "github.com/latolukasz/beeorm/v2"
+    "github.com/latolukasz/beeorm/v3"
     "io/ioutil"
     "gopkg.in/yaml.v2"
 )
@@ -44,5 +44,6 @@ func main() {
 
 ```yml
 default:
-  mysql: user:password@tcp(localhost:3306)/db
+  mysql: 
+    uri: user:password@tcp(localhost:3306)/db
 ```
