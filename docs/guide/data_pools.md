@@ -7,17 +7,17 @@ Make sure to choose a clear and descriptive name for each connection pool to avo
 
 ## MySQL pool
 
-To connect to a MySQL database, you can use the RegisterMySQLPool method, which takes a MySQL golang sql driver [data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name) as an argument 
-and required `MySQLPoolOptions` as second argument. The method is defined as follows:
+To connect to a MySQL database, you can use the `RegisterMySQL` method, which takes a MySQL golang sql driver [data source name](https://github.com/go-sql-driver/mysql#dsn-data-source-name) as an first argument. 
+The method is defined as follows:
 
 ```go
 registry := beeorm.NewRegistry()
-//MySQL pool with name "default" with default pool options:
-registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db", beeorm.MySQLPoolOptions{})
-//above line is equivalent to:
-registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db",  beeorm.MySQLPoolOptions{}, "default")
-//pool with name "logs" and default pool options:
-registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/logs", beeorm.MySQLPoolOptions{}, "logs")
+
+//MySQL pool with name "default" with default options:
+registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
+
+//pool with name "logs" and custom options:
+registry.RegisterMySQL("user:password@tcp(localhost:3306)/logs", "logs", *beeorm.MySQLOptions{MaxOpenConnections: 100})
 ```
 
 ```yml
@@ -27,24 +27,37 @@ default:
 logs:
   mysql: 
     uri: user:password@tcp(localhost:3306)/logs
+    maxOpenConnections: 100
 ```
 
-### MySQL Pool settings
+### MySQL options
 
-With `MySQLPoolOptions` argument yon can configure very important [MySQL golang driver important setting](https://github.com/go-sql-driver/mysql#important-settings):
+With `MySQLOptions` argument yon can configure very important [MySQL golang driver important setting](https://github.com/go-sql-driver/mysql#important-settings):
 
 ```go
-poolOptions := beeorm.MySQLPoolOptions{MaxOpenConnections: 30, MaxIdleConnections: 20, ConnMaxLifetime: 3 * time.Minute}
-registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db", poolOptions)
+options := beeorm.MySQLPoolOptions{
+    MaxOpenConnections: 30, 
+    MaxIdleConnections: 20, 
+    ConnMaxLifetime: 3 * time.Minute,
+    DefaultEncoding: "utf8mb4",
+    DefaultCollate: "0900_ai_ci",
+    IgnoredTables: []string{"table1", "table2"}}
+    
+registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db", "global", options)
 ```
 
 ```yml
-default:
+global:
   mysql: 
    uri: user:password@tcp(localhost:3306)/db
-   MaxOpenConnections: 30
-   MaxIdleConnections: 20
-   ConnMaxLifetime: 180 // seconds
+   maxOpenConnections: 30
+   maxIdleConnections: 20
+   connMaxLifetime: 180 // seconds
+   defaultEncoding: utf8mb4
+   defaultCollate: 0900_ai_ci
+   ignoredTables:
+     - table1
+     - table2 
 ```
 
 ### MySQL Encoding and Collation

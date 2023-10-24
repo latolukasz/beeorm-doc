@@ -38,7 +38,10 @@ func main() {
         panic(err)
     }
     registry := beeorm.NewRegistry()
-    registry.InitByYaml(parsedYaml)
+    err = registry.InitByYaml(parsedYaml)
+     if err != nil {
+        panic(err)
+    }
 }
 ```
 
