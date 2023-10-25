@@ -39,8 +39,8 @@ options := beeorm.MySQLPoolOptions{
     MaxOpenConnections: 30, 
     MaxIdleConnections: 20, 
     ConnMaxLifetime: 3 * time.Minute,
-    DefaultEncoding: "utf8mb4",
-    DefaultCollate: "0900_ai_ci",
+    DefaultEncoding: "greek", // utf8mb4 by default
+    DefaultCollate: "greek_general_ci", // 0900_ai_ci by default
     IgnoredTables: []string{"table1", "table2"}}
     
 registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db", "global", options)
@@ -53,47 +53,43 @@ global:
    maxOpenConnections: 30
    maxIdleConnections: 20
    connMaxLifetime: 180 // seconds
-   defaultEncoding: utf8mb4
-   defaultCollate: 0900_ai_ci
+   defaultEncoding: greek
+   defaultCollate: greek_general_ci
    ignoredTables:
      - table1
      - table2 
 ```
 
-### MySQL Encoding and Collation
+::: tip
+You can configure MySQL connection settings, including parameters like `maxOpenConnections` and `maxIdleConnections`, 
+but it's advisable to retain the default values (empty). BeeORM can automatically determine and set the optimal settings based on your MySQL database configuration.
+:::
 
-By default, BeeORM uses the utf8mb4 character set and 0900_ai_ci collation for all tables. You can change this default behavior using the SetDefaultEncoding and SetDefaultCollate methods, as shown in the following example:
+### Ignored tables
 
-```go
-registry := beeorm.NewRegistry()
-registry.SetDefaultEncoding("latin2")
-registry.SetDefaultCollate("0900_ai_ci")
-```
 
-```yml
-default:
-  mysqlEncoding: latin2
-  mysqlCollate: 0900_ai_ci
-```
+BeeORM's default behavior is to attempt to [remove all MySQL tables](/guide/schema_update.html#schema-update)  that are not explicitly defined in your application code. 
+However, you have the option to retain these tables by specifying their names in the `IgnoredTables` option.
+
 
 ## Local cache pool
 
-BeeORM offers a simple and extremely fast in-memory key-value cache for storing values. The cache uses the least recently used ([LRU](https://en.wikipedia.org/wiki/Cache_replacement_policies#Least_recently_used_(LRU))) algorithm to manage its size and automatically evicts the least frequently used values when it reaches capacity.
+BeeORM offers a simple and extremely fast in-memory key-value cache for storing values..
 
 To use the cache, you simply need to specify the pool name and the maximum number of cached keys:
 
 ```go
 // default pool with max 100 000 values
-registry.RegisterLocalCache(100000)
-// pool "last_searches" with max 1000 values
-registry.RegisterLocalCache(1000, "last_searches")
+registry.RegisterLocalCache(beeorm.DefaultPoolCode, 100000)
+// pool "last_searches" with no limits
+registry.RegisterLocalCache(beeorm.DefaultPoolCode, 0)
 ```
 
 ```yml
 default:
   local_cache: 100000
 last_searches:
-  local_cache: 1000
+  local_cache: 0
 ```
 
 ::: tip
