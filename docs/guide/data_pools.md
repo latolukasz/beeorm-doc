@@ -74,7 +74,7 @@ However, you have the option to retain these tables by specifying their names in
 
 ## Local cache pool
 
-BeeORM offers a simple and extremely fast in-memory key-value cache for storing values..
+BeeORM offers a simple and extremely fast in-memory key-value cache for storing values. The cache uses the least recently used ([LRU](https://en.wikipedia.org/wiki/Cache_replacement_policies#Least_recently_used_(LRU))) algorithm to manage its size and automatically evicts the least frequently used values when it reaches capacity.
 
 To use the cache, you simply need to specify the pool name and the maximum number of cached keys:
 
