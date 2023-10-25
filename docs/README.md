@@ -4,7 +4,7 @@ heroText:
 siteTitle:
 heroImage: logo.svg
 heroImageDark: logoDark.svg
-tagline: Golang ORM designed for optimal performance with MySQL and Redis
+tagline: Golang ORM designed for optimal performance with MySQL and Redis or DragonflyDB
 actionText: Quick Start →
 actionLink: /guide/
 footer: MIT Licensed | Copyright © 2023-present Łukasz Lato
