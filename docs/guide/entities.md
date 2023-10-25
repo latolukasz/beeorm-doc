@@ -4,18 +4,15 @@ In BeeORM, an Entity is a struct that represents data stored in a database. In t
 
 ## Defining an Entity
 
-To define an Entity struct, you must follow one rule:
- * the first field of the struct should be an anonymous field with a type of beeorm.ORM
- * the second field of the struct should be called `ID` and be type of uint (from 8 to 64)
+To define an Entity struct, you must follow one rule - the first field of the struct should be called `ID` and be type of uint64.
 
 Here is an example of a simple Entity struct:
 
 ```go
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
 
 type SimpleEntity struct {
-	beeorm.ORM
-	ID uint32
+	ID uint64
 }
 ```
 
@@ -36,36 +33,26 @@ By default, Entity is connected to `default` [data pool](/guide/datapools.html#m
 You can define different pool with special setting **mysql=pool_name** put in tag `orm` 
 for `beeorm.ORM` field:
 
-```go{6}
+```go{6,10}
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
+
+type UserEntity struct {
+	ID  uint64  // equal to `orm:"mysql=default"`
+}
 
 type OrderEntity struct {
-	beeorm.ORM `orm:"mysql=sales"`
-	ID  uint64
+	ID  uint64 `orm:"mysql=sales"`
 }
 
 func main() {
     registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/sales", "sales") 
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
+    registry.RegisterMySQL("user:password@tcp(localhost:3307)/db", "sales", nil)
     registry.RegisterEntity(&OrderEntity{}) 
 }  
 ```
-
-### Registering external MySQL tables
-
-By default, BeeORM removes any tables that are not registered using the `RegisterEntity()` method. However, if you need to keep specific tables in your MySQL databases, you can use the `RegisterMySQLTable()` method to register them.
-
-```
-registry := beeorm.NewRegistry()
-registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data") 
-registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/sales") 
-registry.RegisterMySQLTable("default", "LogTable") 
-registry.RegisterMySQLTable("sales", "LogTable") 
-```
-
-With the above code, the `LogTable` table will be kept in both the `data` and `sales` MySQL databases.
 
 ### Redis pool
 
@@ -75,28 +62,24 @@ For a pool with the name default, you can use the short version orm:"redisCache"
 
 Here is an example in Go code:
 
-```go{6,11}
+```go{6,10}
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
 
 type UserEntity struct {
-	beeorm.ORM `orm:"redisCache"`
-	ID uint8
+	ID uint64 `orm:"redisCache"`
 }
 
 type OrderEntity struct {
-	beeorm.ORM `orm:"redisCache=sales"`
-	ID uint64
+	ID uint64 `orm:"redisCache=sales"`
 }
 
 func main() {
     registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data")
-    registry.RegisterRedis("localhost:6379", 0) 
-    poolSales := []string{":26379", "192.23.12.11:26379", "192.23.12.12:26379"}
-    registry.RegisterRedisSentinel("master", 1, poolSales, "sales") 
-    
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
+    RegisterRedis("localhost:6379", 0, beeorm.DefaultPoolCode, nil)
+    RegisterRedis("localhost:6390", 0, "sales", nil)
     registry.RegisterEntity(&UserEntity{}, &OrderEntity{}) 
 }  
 ```
@@ -109,50 +92,37 @@ Additionally, it is a good idea to disable persistence storage in Redis. If data
 
 ### Local in-memory pool
 
-To cache Entity data in memory locally, you can use the setting localCache=pool_name in the same way as registering a Redis pool (see the example above). This will enable a local in-memory cache to store the data.
+To cache Entity data in memory locally, you can use the setting `localCache` in the same way as registering a Redis pool (see the example above). This will enable a local in-memory cache to store the data.
+Optionally you can define local cache size.
 
-```go{6,11}
+```go{6,10}
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
 
 type CategoryEntity struct {
-	beeorm.ORM `orm:"localCache"`
-	ID uint16
+	ID uint16 `orm:"localCache"` // equal to localcache=0
 }
 
 type BrandEntity struct {
-	beeorm.ORM `orm:"localCache=settings"`
-	ID uint16
+	ID uint16 `orm:"localCache=1000"` // cache size is 1000 elements
 }
 
 func main() {
     registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/data")
-    registry.RegisterLocalCache(100000)
-    registry.RegisterLocalCache(1000, "settings") 
-    
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
     registry.RegisterEntity(&CategoryEntity{}, &BrandEntity{}) 
 }  
 ```
 
-::: tip
-It is important to note that the local cache is not shared across all servers. If an Entity is updated on one server, it will still have the old value cached on other servers. The data in the local cache is cached indefinitely, until it is evicted by the LRU (Least Recently Used) algorithm. Therefore, it is recommended to use the local cache for data that does not change frequently. If necessary, the developer is responsible for clearing the local cache on all machines.
-:::
 
 ### Using Both Redis and Local Cache Simultaneously
 
 It is possible to cache an Entity in both a local cache and Redis using BeeORM. To do so, you can use the following syntax:
 
-```go{2,7}
+```go{2}
 type CategoryEntity struct {
-	beeorm.ORM `orm:"localCache;redisCache"`
-	ID uint16
-}
-
-type BrandEntity struct {
-	beeorm.ORM `orm:"localCache=settings;redisCache=settings"`
-	ID uint16
+	ID uint64 `orm:"localCache;redisCache"`
 }
 ```
 
@@ -173,44 +143,8 @@ By default, BeeORM will use the name of the Entity struct as the name of the cor
 
 ```go{2}
 type UserEntity struct {
-	beeorm.ORM `orm:"table=users"`
+	ID uint64 `orm:"table=users"`
 }
 ```
 
 This allows you to specify a table name that may be more descriptive or follow a naming convention that you have established for your database tables.
-
-### Entity Methods
-
-Each Entity in BeeORM provides several useful methods:
-
-#### GetID()
-
-This method returns the Primary Key of the Entity. For new entities that have not yet been saved to the database, this method returns zero.
-
-```go{2,4}
-user := &UserEntity{Name: "John"}
-user.GetID() // 0
-engine.Flush(user) // saves entity in database
-user.GetID() // 1
-```
-
-#### SetField()
-
-This method sets the value of an Entity field. It automatically attempts to convert the provided value to the correct field type. For example, if an Entity field is defined as uint and the user provides a value of "242" as a string, this method will convert the string "243" to the uint value 243.
-
-```go{2}
-user := &UserEntity{}
-err := user.SetField("Name", "John")
-```
-
-#### SetMetaData() and GetMetaData()
-
-These methods allow you to store additional information within the Entity that is not stored in the database.
-
-```go
-user := &UserEntity{}
-user.SetMetaData("source", "login_form")
-user.GetMetaData() // {"source": login_form}
-user.SetMetaData("source", "") //removes it from meta data
-user.GetMetaData() // nil
-```
