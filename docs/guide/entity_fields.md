@@ -7,9 +7,8 @@ By default, every public entity field (which starts with an uppercase letter) is
 ## Integers
 
 Go offers a variety of integer types such as int8, int16, uint, and uint32, and BeeORM supports all of them.
-```go{4-5}
+```go{3-4}
 type PersonEntity struct {
-    beeorm.ORM
     ID                 uint64
     Age                uint8
     BankAccountBalance int32
@@ -29,7 +28,6 @@ The table below shows how Go's integer types are mapped to MySQL column types:
 | uint32 with tag `orm:"mediumint"` | mediumint      |    0 | 16777215 |
 | uint32,uint | int      |    	0 | 	4294967295 |
 | uint64 | bigint      |    	0 | 	2<sup>64</sup>-1 |
-| uint16 with tag `orm:"year"` | year      |    [0 or 1901](https://dev.mysql.com/doc/refman/8.0/en/year.html) | 2155 |
 
 Note that the minimum and maximum values for each type may vary depending on the MySQL version you are using. Refer to the MySQL documentation for more information.
 
@@ -43,10 +41,9 @@ Always take the time to carefully analyze your data and choose the best int type
 
 If you need to store a NULL value for any of the above MySQL fields, you can use a reference to the corresponding integer type (e.g. *int8, *int16, *int32, *int, *rune, *int64, *uint8, *uint16, *uint32, *uint, *uint64). In MySQL, these fields will be defined as DEFAULT NULL.
 
-```go{6}
+```go{5}
 type PersonEntity struct {
-    beeorm.ORM
-    ID uint32
+    ID uint64
     // null if we don't know how many friends this person has
     // zero if no one likes him:)
     Friends *uint
@@ -56,10 +53,9 @@ type PersonEntity struct {
 ## Floats
 
 Working with floating point values can be challenging. In BeeORM, you can use either float32 or float64 as your primitive type. You can then use special tags to specify how the float value should be stored in MySQL.
-```go{4-6}
+```go{3-5}
 type PersonEntity struct {
-    beeorm.ORM
-    ID          uint32
+    ID          uint64
     Balance     float64
     Temperature float32 `orm:"decimal=3,1;unsigned"`
     Weight      float32 `orm:"unsigned"`
@@ -81,10 +77,9 @@ All of the above MySQL fields are defined as NOT NULL. If you need to store a NU
 
 Working with boolean values is straightforward in BeeORM. You can use the bool type to store boolean values in MySQL. If you need to allow NULL values in your MySQL field, you can use the *bool type instead.
 
-```go{4-5}
+```go{3-4}
 type PersonEntity struct {
-    beeorm.ORM
-    ID           uint32
+    ID           uint64
     Married      bool
     HasChildren  *bool
 }
@@ -100,10 +95,9 @@ In MySQL, the IsActive field will be defined as NOT NULL, while the HasLicense f
 
 To store text in Go, you can use the string type. Here is an example of how to use strings in a struct definition:
 
-```go{4-6}
+```go{3-5}
 type ProductEntity struct {
-    beeorm.ORM
-    ID           uint32
+    ID           uint64
     Title        string `orm:"required;length=150"`
     Description  string `orm:"required;length=max"`
     Brand        string
@@ -125,10 +119,9 @@ When defining string fields in your Go structs, consider adding the orm:"require
 
 To store date or date and time values, use time.Time in your struct::
 
-```go{4-6}
+```go{3-5}
 type UserEntity struct {
-    beeorm.ORM
-    ID              uint32
+    ID              uint64
     DateOfBirth     time.Time
     CreatedAt       time.Time `orm:"time"`
     UpdatedAt       *time.Time `orm:"time"`
@@ -153,10 +146,9 @@ Here is a summary of the mapping between Go types and MySQL columns:
 
 To store binary strings in your database, use the []uint8 type in your struct:
 
-```go{4}
+```go{3}
 type UserEntity struct {
-    beeorm.ORM
-    ID              uint32
+    ID              uint64
     CVFileContent   []uint8
 }
 ```
@@ -173,111 +165,70 @@ Here is a summary of the mapping between Go types and MySQL columns:
 
 ## Enums and Sets
 
-If one of your fields contains a value from a predefined list, you can use the MySQL ENUM or SET field types to store it.
+When you require the storage of a value from a predefined list in one of your fields, MySQL provides convenient options in the form of the ENUM or SET field types to accommodate this need. 
+To enable this feature for string types, you can effortlessly implement the `EnumValues` interface:
+```go
+type EnumValues interface {
+	EnumValues() any
+}
+```
 
-### Using Structs (Recommended)
-
-If you use a struct as a set/enum definition, BeeORM will search for all public fields with a string type in the struct, and use them as values. The first field is used as the default value when the field has the orm:"required" tag.
+This interface is expected to return a struct that defines the valid ENUM values. 
+For a more detailed understanding, please refer to the example below:
 
 ```go
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
+
+type Color string
 
 var Colors = struct{
-	Red    string
-	Blue   string
-	Yellow string
+	Red    Color
+	Blue   Color
+	Yellow Color
 }{
 	Red:    "red",
 	Blue:   "blue",
 	Yellow: "yellow",
 }
 
-type UserEntity struct {
-    beeorm.ORM
-    ID              uint32
-    FavoriteColor   string `orm:"enum=colors;required"`
-    HatedColors     []string `orm:"set=colors"`
+func (c Color) EnumValues() any {
+	return Colors
 }
 
-func main() {
-   registry := beeorm.NewRegistry()
-   registry.RegisterEnumStruct("colors", Colors) // default first field "red"
-   registry.RegisterEnumStruct("colors_default_blue", Colors, Colors.Blue) // "blue" is used as default
-   registry.RegisterEntity(&UserEntity{})
+
+type UserEntity struct {
+    ID              uint64
+    FavoriteColor   Color `orm:"required"`
+    HatedColors     []Color
 }
 ```
-
 Here is a summary of the mapping between Go types and MySQL columns:
 
-| go        | MySQL         |
-| ------------- |:-------------:|
-| string with tag `orm:"enum=colors"` | enum('red', 'blue', 'yellow') DEFAULT NULL     |
-| string with tag `orm:"enum=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
-| []string with tag `orm:"set=colors"` | set('red', 'blue', 'yellow') DEFAULT NULL     |
-| []string with tag `orm:"set=colors;required"` | enum('red', 'blue', 'yellow') NOT NULL DEFAULT 'red'     |
-
-### Example using list of values:
-
-You can also define an enum or set using a list of values. The second argument is used as the default value when the orm:"required" tag is used.
-
-```go
-package main
-
-import "github.com/latolukasz/beeorm/v2"
-
-type UserEntity struct {
-    beeorm.ORM
-    ID              uint32
-    FavoriteColor   string `orm:"enum=colors;required"`
-    HatedColors     []string `orm:"set=hated_colors"`
-}
-
-func main() {
-   registry := beeorm.NewRegistry()
-   registry.RegisterEnum("colors", []string{"red", "blue", "yellow"}) // default is "red"
-   registry.RegisterEnum("hated_colors", []string{"red", "blue", "yellow"}, "yellow") // default is "yellow"
-   registry.RegisterEntity(&UserEntity{})
-}
-```
+| go      |         MySQL         |
+|---------|:---------------------:|
+| Color   | ENUM(red,blue,yellow) |
+| []Color | SET(red,blue,yellow)  |
 
 ## One-to-One References
 
-In BeeORM, you can define a one-to-one reference between two entities by declaring a public field with the type of the referenced entity:
+In BeeORM, you can define a one-to-one reference between two entities by declaring a field with the type of the `*Reference[EntityType]`:
 
-```go{11}
+```go{9}
 type CategoryEntity struct {
-    beeorm.ORM
-    ID     uint15
+    ID     uint64
     Name   string  `orm:"required"`
 }
 
 type ProductEntity struct {
-    beeorm.ORM
-    ID       uint
+    ID       uint64
     Name     string  `orm:"required"`
-    Category *CategoryEntity `orm:"required"`
+    Category *beeorm.Reference[CategoryEntity] `orm:"required"`
 }
 ```
 
-In the example above, BeeORM will create a Category smallint NOT NULL column in the ProductEntity table. If the field is allowed to store NULL values, simply omit the orm:"required" tag.
-
-BeeORM will also create an index and a [foreign key](https://dev.mysql.com/doc/refman/5.6/en/create-table-foreign-keys.html) for every defined one-to-one reference.
-
-You can instruct BeeORM to not create an index and foreign key in a one-to-one reference field by using the orm:"skip_FK" tag:
-
-```go
-type PersonEntity struct {
-    beeorm.ORM
-    ID      uint32
-    Name    string
-    Mother  *PersonEntity `orm:"skip_FK"` 
-}
-```
-
-By using the orm:"skip_FK" tag, BeeORM will not create an index or foreign key for the Mother field. This can be useful if you do not want to enforce a foreign key constraint in your database.
-
+In the example above, BeeORM will create a `Category bigint NOT NULL` column in the ProductEntity table. If the field is allowed to store NULL values, simply omit the orm:"required" tag.
 
 ## Subfields
 
@@ -293,15 +244,13 @@ struct Address {
 }
 
 type UserEntity struct {
-    beeorm.ORM
-    ID             uint32
+    ID             uint64
     HomeAddress    Address
     WorkAddress    Address
 }
 
 type CompanyEntity struct {
-    beeorm.ORM
-    ID         uint32
+    ID         uint64
     Address    Address
 }
 ```
@@ -314,7 +263,7 @@ When working with structs in BeeORM, a MySQL column is created for each field in
 
 In addition to using named structs as subfields, you can also define fields using anonymous structs. For example:
 
-```go{12}
+```go{11}
 struct Address {
    Country    string
    City       string
@@ -324,47 +273,45 @@ struct Address {
 }
 
 type UserEntity struct {
-    beeorm.ORM
-    ID             uint
+    ID             uint64
     Address
 }
 ```
 
 When using anonymous structs in BeeORM, the fields are represented in the MySQL table without a suffix. For example, the field Country would be stored in a column named `Country varchar(255)`.
 
+## Arrays
+
+You can also utilize Go arrays to group fields. Take a look at the example below:
+
+```go{9-12}
+struct Address {
+    City       string
+    Street     string
+    PostalCode string
+}
+
+type TestEntity struct {
+    ID              uint64
+    Alias           [5]string
+    Codes           [3]uint32
+    Top10Categories [10]*beeorm.Reference[CategoryEntity] `orm:"required"`
+    Addresses       [3]Address
+}
+```
+
+In this case, each element within the array is stored in a separate MySQL column. For instance, the example above generates columns 
+like `Alias_1 varchar(255)`, `Alias_2 varchar(255)`, and so on.
+
 ## Ignored Fields
 
 Sometimes you may have public fields in an entity that should not be stored in the database. To instruct BeeORM to ignore a field, you can use the `orm:"ignore"` tag:
 
-```go{4}
+```go{3}
 type UserEntity struct {
-    beeorm.ORM
-    ID        uint32
+    ID        uint64
     MyField   string `orm:"ignore"`
 }
 ```
 
 With this tag, BeeORM will not create a column for the `MyField` field in the MySQL table for the `UserEntity` entity. This can be useful in cases where you want to store additional information in the struct that is not relevant to the database.
-
-## JSON Field
-
-In BeeORM, any public field with a type that is not explicitly supported is mapped to a `JSON` MySQL column type, and the value of the field is automatically converted to and from JSON when the entity is saved or loaded from the database. For example:
-
-```go{9-11}
-type Options struct {
-    Option1 string
-    Option2 bool
-}
-
-type ProductEntity struct {
-    beeorm.ORM
-    ID            uint32
-    Attributes    map[string]string  `orm:"required"`
-    Specification interface{}
-    Options       *Options
-}
-```
-
-::: tip
-While JSON fields can be convenient, they can also be less efficient than other field types. Marshalling and unmarshalling JSON values can take extra time, so it is usually best to avoid them if possible. If you do need to use a JSON field, consider minimizing the amount of data stored in it to reduce the performance impact.
-:::
