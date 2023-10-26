@@ -59,6 +59,7 @@ export default defineUserConfig({
             'mysql_indexes',
             'engine',
             'context',
+            'entity_schema',
             'schema_update',
             'crud',
             'search',
