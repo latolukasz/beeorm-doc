@@ -2,16 +2,16 @@
 
 The `EntitySchema` object holds information about every registered entity. There are many ways to get the entity schema for an entity:
 
-Using `Registry` and the entity type:
+Using ` GetEntitySchema()` function:
 
-```go
-entitySchema :=  engine.Registry().EntitySchema(reflect.TypeOf(CarEntity{}))
+```go{2}
+c := engine.NewContext(context.Background())
+entitySchema :=  GetEntitySchema[CarEntity](c)
 ```
 
 Using `Registry` and the entity name:
 
 ```go
-// remember to use full entity name including package name
 entitySchema := engine.Registry().EntitySchema("main.CarEntity")
 ```
 
@@ -38,38 +38,7 @@ entitySchema := validatedRegistry.GetEntitySchema("main.CarEntity")
 entitySchema.GetTableName() // "CarEntity"
 entitySchema.GetType() // Returns the reflect.Type of the CarEntity
 entitySchema.GetColumns() // []string{"ID", "Color", "Owner"}
-entitySchema.GetReferences() // []string{"Owner"} // Returns the names of one-to-one
-```
-
-### Entity Schema Usage
-
-`beeorm.EntitySchema` provides a special method called `GetUsage()` that returns a map of types and field names where the entity is used as a one-to-one or one-to-many reference. The map has a key of type reflect.Type and a value of a slice of field names where the entity is used. Here's an example of how to use it:
-
-```go{2}
-entitySchema := validatedRegistry.GetEntitySchema("main.PersonEntity")
-for type, fields := range entitySchema.GetUsage(validatedRegistry) {
-    fmt.Println(type.Name()) // "CarEntity"
-    fmt.Printf("%v", fields) // ["Owner"]
-}
-```
-
-### New Entity Instance
-
-You can use the `NewEntity()` method to create a new instance of the entity. For example:
-
-```go{2}
-entitySchema := validatedRegistry.GetEntitySchema("main.PersonEntity")
-carEntity := entitySchema.NewEntity().(*CarEntity)
-```
-
-You can also retrieve the `beeorm.EntitySchema` from the entity cache key. For example, if you see the following query in Redis:
-
-```GET f3b2d:123```
-
-You can retrieve the entity schema with:
-
-```go
-entitySchema := validatedRegistry.GetEntitySchemaForCachePrefix("f3b2d")
+entitySchema.GetUniqueIndexes() // []string{"IndexName"} // Returns names of all Unique indexes
 ```
 
 ### Accessing Entity Tags
@@ -78,12 +47,10 @@ entitySchema := validatedRegistry.GetEntitySchemaForCachePrefix("f3b2d")
 
 ```go
 type CarEntity struct {
-	beeorm.ORM `orm:"my-tag-1=value-1"` 
-	ID    uint32
+	ID    uint64 `orm:"my-tag-1=value-1"` 
 	Color string `orm:"my-tag-2=value-2;my-tag-3"` 
 }
-entitySchema := validatedRegistry.GetEntitySchema("main.CarEntity")
-
+entitySchema :=  GetEntitySchema[CarEntity](c)
 entitySchema.GetTag("ORM", "my-tag-1", "", "") // value-1
 entitySchema.GetTag("Color", "my-tag-2", "", "") // value-2
 entitySchema.GetTag("Color", "my-tag-3", "yes", "") // yes
@@ -91,38 +58,43 @@ entitySchema.GetTag("Color", "missing-tag", "", "") // ""
 entitySchema.GetTag("Color", "missing-tag", "", "default value") // default value
 ```
 
-## Getting MySQL pools
+## Entity MySQL pool
 
-To retrieve a list of registered MySQL pools, you can use the `GetMySQLPools()` method:
+To retrieve entity MySQL pool, you can use the `GetDB()` method:
 
 ```go
-for code, pool := range := validatedRegistry.GetMySQLPools() {
-    fmt.Printf("Pool '%s':\n", code)
-    fmt.Printf("Database: %d\n", pool.GetDatabase())
-    fmt.Printf("URI: %s\n", pool.GetDataSourceURI())
-    fmt.Printf("Version: %d\n", pool.GetVersion()) // 5 or 8
-}
+entitySchema := GetEntitySchema[CarEntity](c)
+db := entitySchema.GetDB()
 ```
 
-## Getting Redis pools
+## Entity Redis pool
 
-To retrieve a list of registered Redis pools, you can use the `GetRedisPools()` method:
+To retrieve entity Redis cache pool, you can use the `GetRedisCache()` method:
 
 ```go
-for code, pool := range := validatedRegistry.GetRedisPools() {
-    fmt.Printf("Pool '%s':\n", code)
-    fmt.Printf("DB: %d\n", pool.GetDB())
-    fmt.Printf("Address: %s\n", pool.GetAddress())
-}
+entitySchema := GetEntitySchema[CarEntity](c)
+redisPool, hasRedisCache := entitySchema.GetRedisCache()
 ```
 
-## Getting local cache pools
+## Entity local cache pool
 
-To retrieve a list of registered local cache pools, you can use the GetLocalCachePools() method:
+
+To retrieve entity local cache pool, you can use the `GetLocalCache()` method:
 
 ```go
-for code, pool := range := validatedRegistry.GetLocalCachePools() {
-    fmt.Printf("Pool '%s':\n", code)
-    fmt.Printf("Limit: %d\n", pool.GetLimit())
+entitySchema := GetEntitySchema[CarEntity](c)
+localCache, hasLocalCache := entitySchema.GetLocalCache()
+```
+
+## Disabling cache
+
+You can disable redis and local cache for specific Entity using `DisableCache()` method:
+
+```go{6}
+type CarEntity struct {
+	ID    uint64 `orm:"localCache;redisCache"` 
+	Color string 
 }
+entitySchema :=  GetEntitySchema[CarEntity](c)
+entitySchema.DisableCache(true, true) // disables both redis and local cache
 ```

@@ -2,28 +2,29 @@
 
 One of the main benefits of using an ORM is the ability to generate and update a database schema based on the data structures in your code. In BeeORM, these data structures are represented as registered entities. There are two ways to generate or update the MySQL schema in BeeORM:
 
-The recommended approach is to use the GetAlters() method of the beeorm.Engine object. This method compares the current MySQL schema in all the MySQL databases used by the registered entities and returns detailed information that can be used to update the schema. Here is an example of how to use the `GetAlters()` method:
+The recommended approach is to use the `GetAlters()` function. This function compares the current MySQL schema in all the MySQL databases used by the registered entities and returns detailed information that can be used to update the schema. Here is an example of how to use the `GetAlters()` function:
+
 ```go{20}
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
 
 type CategoryEntity struct {
-	beeorm.ORM `orm:"mysql=products"`
+	ID   uint64 `orm:"mysql=products"`
     Name string `orm:"required"`
 }
 
 func main() {
     registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/products", "products")
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
     registry.RegisterEntity(&CategoryEntity{})
-    validatedRegistry, err := registry.Validate()
+    engine, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-    engine := validatedRegistry.CreateEngine()
+    c := engine.NewContext(context.Background())
     
-    alters := engine.GetAlters()
+    alters := beeorm.GetAlters(c)
     for _, alter := range alters {
       alter.SQL // "CREATE TABLE `CategoryEntity` ..."
       alter.Pool // "products"
@@ -52,7 +53,8 @@ Make sure to execute all the alters in the exact order they are returned by the 
 :::
 
 ::: warning
-BeeORM generates `DROP TABLE ...` queries for all tables in the registered MySQL database that are not mapped as entities. This is one of the reasons why you should always review all the generated alters before executing them.
+BeeORM generates `DROP TABLE ...` queries for all tables in the registered MySQL database that are not mapped as entities. 
+See [ignored tables](/guide/data_pools.html#ignored-tables) section how to register ignored MySQL tables.
 :::
 
 ## Updating Entity Schema
@@ -60,8 +62,9 @@ BeeORM generates `DROP TABLE ...` queries for all tables in the registered MySQL
 You can also use the `beeorm.EntitySchema` object of an entity to update its database schema. Here is an example:
 
 ```go{2}
-entitySchema := validatedRegistry.GetEntitySchemaForEntity(&CategoryEntity{})
-alters, has := entitySchema.GetSchemaChanges(engine)
+c := engine.NewContext(context.Background())
+entitySchema :=  GetEntitySchema[CategoryEntity](c)
+alters, has := entitySchema.GetSchemaChanges(c)
 if has {
     for _, alter := range alters {
       alter.SQL // "CREATE TABLE `CategoryEntity` ..."
@@ -74,8 +77,9 @@ if has {
 
 For convenience, you can use the following short versions to execute all the necessary alters:
 
-```go{2-3}
-entitySchema := validatedRegistry.GetEntitySchemaForEntity(&CategoryEntity{})
+```go{3-4}
+c := engine.NewContext(context.Background())
+entitySchema := GetEntitySchema[CategoryEntity](c)
 entitySchema.UpdateSchema(engine) // executes all alters
 entitySchema.UpdateSchemaAndTruncateTable(engine) // truncates table and executes all alters
 ```
@@ -83,7 +87,8 @@ entitySchema.UpdateSchemaAndTruncateTable(engine) // truncates table and execute
 The `beeorm.EntitySchema` object also provides several useful methods for managing the entity table:
 
 ```go
-entitySchema := validatedRegistry.GetEntitySchemaForEntity(&CategoryEntity{})
-entitySchema.DropTable(engine) // drops the entire table
-entitySchema.TruncateTable(engine) // truncates the table
+c := engine.NewContext(context.Background())
+entitySchema := GetEntitySchema[CategoryEntity](c)
+entitySchema.DropTable(c) // drops the entire table
+entitySchema.TruncateTable(c) // truncates the table
 ```
