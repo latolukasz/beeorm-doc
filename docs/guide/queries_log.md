@@ -45,30 +45,3 @@ engine.RegisterQueryLogger(&MyLogger{}, false, true, false)
 // only queries to local cache
 engine.RegisterQueryLogger(&MyLogger{}, false, false, true)
 ```
-
-## Queries Debug
-
-BeeORM provides a special query logger that prints a human-friendly output to the console (os.Stderr) that is useful when debugging your queries. You can enable it with the `engine.EnableQueryDebug()` or `engine.EnableQueryDebugCustom()` method:
-
-```go{2,4,6}
-// all queries
-engine.EnableQueryDebug()
-// only queries to MySQL
-engine.EnableQueryDebugCustom(true, false, false)
-// only queries to MySQL and Redis
-engine.EnableQueryDebugCustom(true, true, false)
-```
-
-Here is an example of how the debug output looks:
-
-![An image](/query_debug_1.png)
-
-Every query is displayed in two lines. The first line (with a white background) contains the following fields:
-
- * BeeORM logo
- * query source (MySQL, redis, local cache)
- * data pool name
- * operation
- * query time in milliseconds
-
-The length of the white bar is correlated with the query time. If a query takes more time, the bar is longer and more red. This helps you to identify slow queries. The full query is displayed on the second line.

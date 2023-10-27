@@ -1,43 +1,103 @@
-# ORM Context
+# Context
 
-In this section, you will learn how to create and utilize the central component of BeeORM: the `beeorm.Engine` object. You may recall that the `beeorm.ValidatedRegistry` holds information about all the database connections and entities in your system. The `beeorm.Engine` uses this information to manage and execute database operations. With the `beeorm.Engine`, you can easily connect to your databases, create and modify entities, and query your data. Let's dive in and see how to use this powerful tool.
+In this section, we will explore the fundamental element of BeeORM: the `beeorm.Context` object, and discover how to create and effectively employ it.
 
-## Creating the Engine
+In the previous chapter, you gained insight into creating the `Engine` object, an essential component for accessing data pools and managing registered entities. 
+The `beeorm.Context` plays a pivotal role in all BeeORM methods, typically serving as the initial argument, facilitating data retrieval and modification in your databases, which forms the cornerstone of every ORM's functionality.
 
-To create an `beeorm.Engine` object, you can call the `CreateEngine()` method on a `beeorm.ValidatedRegistry` object. Here is an example of how to create an `beeorm.Engine` in Go:
+## Creating the Context
 
-```go{13}
+To instantiate a `beeorm.Context` object, you should invoke the `NewContext()` method on a `beeorm.Engine` object. 
+Here's a comprehensive example illustrating how to create a `beeorm.Context`:
+
+```go{15}
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import (
+	"context"
+    "github.com/latolukasz/beeorm/v3"
+)
 
 func main() {
     registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
-    validatedRegistry, err := registry.Validate()
+    // ... register data pools and entities
+    engine, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-    engine := validatedRegistry.CreateEngine()
+    c := engine.NewContext(context.Background())
 }  
 ```
 
-## Engine Meta Data
+## Context Query Debug
 
-You can use Engine to store extra parameters using `SetMetadata` and `GetMetaData` methods:
-
-```go
-engine.SetMetaData("source": "cron_A")
-engine.GetMetaData() // {"source": "cron_A"}
-```
-
-
-## Request Cache
-
-If you are building an `HTTP API`, it may be beneficial to enable a temporary cache for entity data loaded during a single HTTP request. You can do this by calling the `EnableRequestCache()` method on the `beeorm.Engine` object:
+You have the option to activate debug mode for each `Context` in order to observe all the queries executed for MySQL, Redis, and the local cache.
 
 ```go
-engine.EnableRequestCache()
+// all queries
+context.EnableQueryDebug()
+// only queries to MySQL
+context.EnableQueryDebugCustom(true, false, false)
+// only queries to MySQL and Redis
+engine.EnableQueryDebugCustom(true, true, false)
 ```
 
-This can help improve performance by reducing the number of database queries needed to fulfill a request. However, keep in mind that using a request cache can increase memory usage and may not be suitable for all applications.
+Here is an example of how the debug output looks:
+
+![An image](/query_debug_1.png)
+
+Every query is displayed in two lines. The first line (with a white background) contains the following fields:
+
+* BeeORM logo
+* query source (MySQL, redis, local cache)
+* data pool name
+* operation
+* query time in milliseconds
+
+The length of the white bar is correlated with the query time. If a query takes more time, the bar is longer and more red. This helps you to identify slow queries. The full query is displayed on the second line.
+
+## Context Meta Data
+
+You can use `beeorm.Context` to store extra parameters using `SetMetadata` and `GetMetaData` methods:
+
+```go
+context.SetMetaData("source": "cron_A")
+context.GetMetaData() // {"source": "cron_A"}
+```
+
+## Context clone
+
+When working with BeeORM, it's essential to adhere to a golden rule: never share the same instance of `beeorm.Context` among goroutines. 
+If you intend to run your code in a goroutine, you should create a new `beeorm.Context` from the `Engine`, as demonstrated in the following example:
+
+```go{5}
+    c := engine.NewContext(context.Background())
+    c.SetMetaData("admin_user_id", 34)
+    c.EnableQueryDebug()
+    go func() {
+        c2 := engine.NewContext(context.Background())
+        c2.GetMetaData() // empty
+    }()
+```
+
+However, there is a caveat to this approach. As observed, the new `Context` (c2) lacks metadata, and the debug mode is not enabled.
+
+To address this issue, the Context provides a specialized method called `Clone()`, which generates a new instance of the `Context` containing a copy of the metadata and inherits the metadata and debug mode is the same as in cloned Context:
+
+```go{5}
+    c := engine.NewContext(context.Background())
+    c.SetMetaData("admin_user_id", "34")
+    c.EnableQueryDebug()
+    go func() {
+        c2 := engine.Clone()
+        c2.GetMetaData() // {"admin_user_id", "34"}
+    }()
+```
+
+Alternatively, you can clone a `Context` and provide a new context.Context as an argument using the `CloneWithContext()` method:
+```go{3}
+    c := engine.NewContext(context.Background())
+    go func() {
+        c2 := engine.CloneWithContext(context.WithDeadline(c.Ctx(), time.Now().Add(time.Second * 5)))
+    }()
+```
