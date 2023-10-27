@@ -64,13 +64,10 @@ export default defineUserConfig({
             'crud',
             'search',
             'lazy_flush',
-            'cached_queries',
             'mysql_queries',
             'local_cache',
             'redis_operations',
-            'flusher_cache_setters',
             'distributed_lock',
-            'event_broker',
             'queries_log',
           ]
         }],

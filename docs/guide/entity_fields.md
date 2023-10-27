@@ -301,7 +301,7 @@ type TestEntity struct {
 ```
 
 In this case, each element within the array is stored in a separate MySQL column. For instance, the example above generates columns 
-like `Alias_1 varchar(255)`, `Alias_2 varchar(255)`, and so on.
+like `Alias_1 varchar(255)`, `Alias_2 varchar(255)` and so on.
 
 ## Ignored Fields
 
