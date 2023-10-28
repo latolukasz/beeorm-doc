@@ -7,110 +7,76 @@ The following examples build upon the following code base:
 ```go
 package main
 
-import "github.com/latolukasz/beeorm/v2"
+import "github.com/latolukasz/beeorm/v3"
 
 type CategoryEntity struct {
-	beeorm.ORM  `orm:"redisCache"`
-	ID          uint16
+	uint64      `orm:"localCahe;redisCache"`
 	Code        string `orm:"required;length=10;unique=code"`
 	Name        string `orm:"required;length=100"`
 }
 
 type ImageEntity struct {
-	beeorm.ORM `orm:"redisCache"`
-	ID  uint64
+	ID  uint64 `orm:"redisCache"`
 	Url string `orm:"required"`
 }
 
 type BrandEntity struct {
-	beeorm.ORM `orm:"redisCache"`
-	ID   uint16
+	ID   uint64 `orm:"redisCache"`
 	Name string `orm:"required;length=100"`
-	Logo *ImageEntity
+	Logo *beeorm.Reference[ImageEntity]
 }
 
 type ProductEntity struct {
 	beeorm.ORM `orm:"redisCache"`
 	ID       uint32
 	Name     string `orm:"required;length=100"`
-	Category *CategoryEntity `orm:"required"`
-	Brand    *BrandEntity
+	Category *beeorm.Reference[CategoryEntity] `orm:"required"`
+	Brand    *beeorm.Reference[BrandEntity] 
 }
 
 func main() {
     registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/db") 
-    registry.RegisterRedis("localhost:6379", 0)
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil) 
+    registry.RegisterRedis("localhost:6379", 0, beeorm.DefaultPoolCode, nil)
     registry.RegisterEntity(&CategoryEntity{}, &BrandEntity{}, &ImageEntity{}, &ProductEntity{}) 
-    validatedRegistry, err := registry.Validate()
+    engine, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-    engine := validatedRegistry.CreateEngine()
+    c := engine.NewContext(context.Background())
 }  
 ```
 
 ## Saving New Entities
 
-There are various ways to store a new entity in a database using BeeORM. The simplest method is to use the `engine.Flush()` method, which inserts the entity into the database and updates its ID field with the primary key value:
-
-```go{2}
-category := &CategoryEntity{Code: "cars", Name: "Cars"}
-engine.Flush(category)
-```
-
-You can save multiple entities at once:
-
-```go{4}
-categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
-categoryBikes := &CategoryEntity{Code: "bikes", Name: "Bikes"}
-product := &ProductEntity{Name: "BMW 1", Category: categoryCars}
-engine.Flush(categoryCars, categoryBikes, product)
-```
-
-::: tip
-Note that `Flush()` only generates two SQL queries, as BeeORM's query optimizer groups all queries to MySQL and Redis to minimize the number of queries. It is always more efficient to use `FlushMany()` to save multiple entities at once, rather than calling `Flush()` multiple times.
-:::
-
-Every time a new entity is saved to MySQL, BeeORM automatically sets the inserted primary key value in the ID field of the entity:
+To insert a new entity into database you need to create new instance with `NewEntity()` function and run `beeorm.Context` method
+`Flush()`. See below example:
 
 ```go
-categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
-categoryCars.ID // 0
-engine.Flush(categoryCars)
-categoryCars.ID // 1
+categoryCars := NewEntity[CategoryEntity](c)
+categoryCars.Code = "cars"
+categoryCars.Name = "Cars"
+err := c.Flush()
 ```
 
-If needed, you can define the ID for new entities by setting the ID before flushing the entity:
+When method `Flush()` of `beeorm.Context` is executed all entities created with `NewEntity` function are
+inserted into MySQL and cache is updated. Below example demonstrates how to insert into MySQL multiple entities at once:
 
-```go{1}
-categoryCars := &CategoryEntity{ID: 10, Code: "cars", Name: "Cars"}
-engine.Flush(categoryCars)
-categoryCars.ID // 10
+```go
+image1 := NewEntity[ImageEntity](c)
+image1.Url = "image1.png"
+image2 := NewEntity[ImageEntity](c)
+image2.Url = "image2.png"
+err := c.Flush() // two rows are inserted into MySQL table
 ```
 
-By default, the `Flush()` method of BeeORM does not return any errors. Instead, it will panic if an error occurs. This approach is preferred in actions that connect to external services such as databases, as it ensures that any issues are immediately addressed. However, in some cases, you may want to handle specific errors that may occur when saving an entity. For example, you may want to catch errors related to duplicate or invalid values in MySQL indexes.
+### Setting reference value
 
-To handle these specific errors, you can use the `engine.FlushWithCheck()` method, which returns either a `*beeorm.DuplicatedKeyError` or a `*beeorm.ForeignKeyError` in case of a duplicate or invalid value in a MySQL index, respectively. Any other errors, such as an unavailable MySQL server, will still cause a panic.
+TODO
 
-Here is an example of using `engine.FlushWithCheck()` to handle specific errors:
+## Unique indexes
 
-```go{3}
-categoryCars := &CategoryEntity{Code: "cars", Name: "Cars"}
-categoryCarsDuplicated := &CategoryEntity{ Code: "cars", Name: "Cars"}
-err := engine.FlushWithCheck(categoryCars, categoryCarsDuplicated)
-if err != nil {
-    duplicatedError, is := err.(*beeorm.DuplicatedKeyError)
-    if is {
-       duplicatedError.Message // "Duplicate entry 'cars' for key 'code'"
-       duplicatedError.Index // "code" 
-    } else {
-        foreignKeyError := err.(*beeorm.ForeignKeyError)
-        duplicatedError.Message // "foreign key error in key `XXX`"
-        duplicatedError.Constraint // "XXX"
-    }
-}
-```
+TODO
 
 ## Getting Entities by ID
 
@@ -201,6 +167,10 @@ engine.Delete(product1, product1, product3)
 ```
 
 This will delete all ProductEntity objects with an ID of 1 or 2 from the table.
+
+## Multiple CRUD operations
+
+TODO
 
 ## Cloning entities
 
