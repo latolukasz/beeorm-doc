@@ -6,7 +6,7 @@ Using ` GetEntitySchema()` function:
 
 ```go{2}
 c := engine.NewContext(context.Background())
-entitySchema :=  GetEntitySchema[CarEntity](c)
+entitySchema := GetEntitySchema[CarEntity](c)
 ```
 
 Using `Registry` and the entity name:
@@ -18,13 +18,13 @@ entitySchema := engine.Registry().EntitySchema("main.CarEntity")
 Using `Registry` and the entity instance:
 
 ```go
-entitySchema :=  engine.Registry().EntitySchema(CarEntity{})
+entitySchema := engine.Registry().EntitySchema(CarEntity{})
 ```
 
 Using `Registry` and the entity type:
 
 ```go
-entitySchema :=  engine.Registry().EntitySchema(reflect.TypeOf(CarEntity{}))
+entitySchema := engine.Registry().EntitySchema(reflect.TypeOf(CarEntity{}))
 ```
 
 If the entity is not registered in the `beeorm.Registry`, above methods will return nil.
@@ -50,7 +50,7 @@ type CarEntity struct {
 	ID    uint64 `orm:"my-tag-1=value-1"` 
 	Color string `orm:"my-tag-2=value-2;my-tag-3"` 
 }
-entitySchema :=  GetEntitySchema[CarEntity](c)
+entitySchema := GetEntitySchema[CarEntity](c)
 entitySchema.GetTag("ORM", "my-tag-1", "", "") // value-1
 entitySchema.GetTag("Color", "my-tag-2", "", "") // value-2
 entitySchema.GetTag("Color", "my-tag-3", "yes", "") // yes
@@ -95,6 +95,6 @@ type CarEntity struct {
 	ID    uint64 `orm:"localCache;redisCache"` 
 	Color string 
 }
-entitySchema :=  GetEntitySchema[CarEntity](c)
+entitySchema := GetEntitySchema[CarEntity](c)
 entitySchema.DisableCache(true, true) // disables both redis and local cache
 ```

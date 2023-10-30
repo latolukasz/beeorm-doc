@@ -63,7 +63,7 @@ You can also use the `beeorm.EntitySchema` object of an entity to update its dat
 
 ```go{2}
 c := engine.NewContext(context.Background())
-entitySchema :=  GetEntitySchema[CategoryEntity](c)
+entitySchema := GetEntitySchema[CategoryEntity](c)
 alters, has := entitySchema.GetSchemaChanges(c)
 if has {
     for _, alter := range alters {
