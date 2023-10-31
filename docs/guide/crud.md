@@ -248,7 +248,34 @@ c.Flush()
 ```
 ## Multiple CRUD operations
 
-TODO
+When you find yourself needing to perform numerous CRUD operations concurrently, it is highly advisable to execute them in a single 
+batch by invoking the `Flush()` method. BeeORM efficiently consolidates all SQL queries into a single 
+transaction and bundles all Redis operations into Redis pipelines. 
+This approach ensures that the execution of all database operations is both rapid and atomic.
+
+Let's illustrate this with an example:
+
+```go
+categoryCars := beeorm.NewEntity[CategoryEntity](c)
+categoryCars.Code = "cars"
+categoryCars.Name = "Cars"
+
+image := beeorm.NewEntity[ImageEntity](c)
+image.Url = "image1.png"
+
+brandBMW := beeorm.NewEntity[BrandEntity](c)
+brandBMW.Name = "BMW"
+brandBMW.Logo = *beeorm.Reference[ImageEntity]{ID: image.ID}
+
+oldProduct := beeorm.GetByID[ProductEntity](c, 27749843747733)
+newProduct := beeorm.EditEntity(c, oldProduct)
+newProduct.Category = *beeorm.Reference[CategoryEntity]{ID: categoryCars.ID}
+
+oldImage := beeorm.GetByID[ImageEntity](c, 277498837423)
+beeorm.DelteEntity(c, oldImage)
+
+err := c.Flush()
+```
 
 ## Cloning entities
 
