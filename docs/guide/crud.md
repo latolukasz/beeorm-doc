@@ -27,8 +27,7 @@ type BrandEntity struct {
 }
 
 type ProductEntity struct {
-	beeorm.ORM `orm:"redisCache"`
-	ID       uint32
+	ID       uint64 `orm:"redisCache"`
 	Name     string `orm:"required;length=100"`
 	Category *beeorm.Reference[CategoryEntity] `orm:"required"`
 	Brand    *beeorm.Reference[BrandEntity] 
@@ -85,60 +84,116 @@ err := c.Flush()
 
 ## Unique indexes
 
-TODO
+In many scenarios, entities maintain [unique indexes](https://dev.mysql.com/doc/refman/8.0/en/create-index.html#create-index-unique) to ensure the uniqueness of specific entity fields within your database. 
+As an example, consider the `Code` field of the `CategoryEntity`. 
+BeeORM leverages [Redis sets](https://redis.io/docs/data-types/sets/) to store information about the utilized values of these unique keys and validate the entity when it is flushed, 
+as demonstrated in the following example:
+
+```go
+categoryCars := beeorm.NewEntity[CategoryEntity](c)
+categoryCars.Code = "cars"
+err := c.Flush() // nil, row is inserted to MySQL table
+
+anotherCategory:= beeorm.NewEntity[CategoryEntity](c)
+categoryCars.Code = "cars"
+// returns beeorm.DuplicatedKeyBindError{Index: "code", ID: 84984747727443, Columns: ["Code"]}
+err = c.Flush() 
+```
+
+Every time an entity is added, updated, or deleted, the values in the Redis set that stores information about the unique key are updated. 
+However, there is one issue with this approach - in certain cases, you may need to clear the Redis data. In such cases, BeeORM is unable to validate unique values when `Flush()` is executed. 
+Instead of receiving a `beeorm.DuplicatedKeyBindError`, the `Flush()` function returns a `mysql.MySQLError` error with code 1062. This indicates that you need to refill the Redis set with the correct data. 
+BeeORM provides a special function for this purpose:
+
+```go
+LoadUniqueKeys(c, false) // set true to enable debug mode
+```
+It is considered a good practice to run the above function every time your application starts. 
+When Redis is not flushed, this function executes in a matter of milliseconds. However, if Redis data has been flushed, 
+it will run until all the data is loaded from MySQL into the Redis set. Be sure to run this function every time Redis data is flushed.
+
+You might wonder why BeeORM chose to use Redis for checking the uniqueness of unique keys instead of relying solely on 
+MySQL Unique Key constraints. This unique approach offers two valuable features, 
+which are explained in the following sections: the ability to [retrieve records from cache by their unique keys](/guide/crud.html#getting-entities-by-unique-key)
+and support for [asynchronous flushing](/guide/async_flush.html).
 
 ## Getting Entities by ID
 
-There are several ways to load entities from the database when you know the primary key. 
+There are several ways to get entities from the database when you know the primary key. 
 
-You can use the `engine.Load()` method:
-
-```go{1}
-product := &ProductEntity{ID: 1}
-found := engine.Load(product) // true
-```
-
-Another option is to use `engine.LoadByID()`:
-
-```go{2}
-product := &ProductEntity{}
-found := engine.LoadByID(1, product) // true
-```
-
-If you need to load more than one entity, you can use `engine.LoadByIDs()`:
-
-```go{2}
-var products []*ProductEntity{}
-engine.LoadByIDs([]uint64{1, 2}, &products)
-len(products) == 2 // true
-products[0].ID // 1
-products[1].ID // 2
-```
-
-If an entity is not found, it will be returned as `nil`:
+You can use the `GetByID()` method:
 
 ```go
-// we have only products with IDs 1 and 2 in the table
-var products []*ProductEntity{}
-engine.LoadByIDs([]uint64{1, 2, 3}, &products)
-len(products) == 3 // true
-products[0].ID // 1
-products[1].ID // 2
-products[2] == nil // true
+product := beeorm.GetByID[ProductEntity](c, 27749843747733)
+```
+
+If you need to get more than one entity, you can use `GetByIDs()`:
+
+```go
+iterator := beeorm.GetByIDs[ProductEntity](c, 324343544424, 34545654434, 7434354434)
+iterator.Len() == 3 // true
+for iterator.Next() {
+    product := iterator.Entity()
+}
 ```
 
 ## Getting Entities by Unique Key
 
-TODO
+If entity holds unique index you can get entity by index name:
+
+```go
+category := beeorm.GetByUniqueIndex[CategoryEntity](c, "code", "cars")
+```
 
 ## Getting Entities by Reference
 
-TODO
+You can easily get entities by one-one reference name:
 
+```go
+iterator := beeorm.GetByReference[ProductEntity](c, "Category", 9934828848843)
+for iterator.Next() {
+    product := iterator.Entity()
+}
+```
+
+In the example above, a MySQL query `SELECT * FROM ProductEntity WHERE Category = 9934828848843` is executed. 
+If you find yourself using this query frequently, it is strongly recommended to include a special tag `cached`, near the reference field. 
+This tag instructs BeeORM to cache the query results in the local cache or, if local cache is not enabled for the returned entity, in Redis. 
+Importantly, the cache is automatically updated whenever entities are added, updated, or deleted. 
+All you need to do is add the `cached` tag as follows:
+
+```go{3}
+type ProductEntity struct {
+	ID       uint64 `orm:"localCache"`
+	Category *beeorm.Reference[CategoryEntity] `orm:"required;cached"`
+	...
+}
+
+// data is loaded from local cache only without any MySQL query to DB
+iterator := beeorm.GetByReference[ProductEntity](c, "Category", 9934828848843)
+```
 
 ## Getting All Entities
 
-TODO
+You can get all entities from a table also:
+
+```go
+iterator := beeorm.GetAll[ProductEntity](c)
+for iterator.Next() {
+    product := iterator.Entity()
+}
+```
+
+The example above performs a MySQL query `SELECT * FROM ProductEntity`. 
+To circumvent the need for MySQL queries and load entities from a cache instead, 
+you can simply include the `cached` tag near the ID field:
+
+```go{2}
+type ProductEntity struct {
+	ID       uint64 `orm:"localCache;cached"`
+	...
+}
+```
 
 ## Updating entities
 

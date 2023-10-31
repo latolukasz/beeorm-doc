@@ -69,6 +69,7 @@ export default defineUserConfig({
             'redis_operations',
             'distributed_lock',
             'queries_log',
+            'log_tables'
           ]
         }],
     }
