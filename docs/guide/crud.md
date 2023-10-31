@@ -197,55 +197,68 @@ type ProductEntity struct {
 
 ## Updating entities
 
-Updating entities with BeeORM is straightforward. You can update entity by calling the `Flush()` method on the entities.
 
-```go{4}
-product := &ProductEntity{}
-engine.LoadByID(1, product)
-product.Name = "New name"
-engine.Flush(product)
+To update an entity, you must first retrieve it from the database. 
+Subsequently, you create a modified copy using the `EditEntity()` function and adjust the fields of 
+this copy before applying the changes with the `Flush()` method. 
+The complete example is provided below:
+
+```go{2}
+product := beeorm.GetByID[ProductEntity](c, 27749843747733)
+newVersionOfProduct := beeorm.EditEntity(c, product)
+newVersionOfProduct.Name = "New name"
+c.Flush()
 ```
 
-To update an entity, you first need to load it from the database using a method like `LoadByID()`. Then, you can modify the entity's properties and call `Flush()` to persist the changes to the database. BeeORM will automatically generate the necessary `SQL UPDATE` statement and execute it against the database, as well as invalidate any relevant cache entries to ensure that the updated data is reflected in future queries.
+It's crucial to note that when you execute `Flush()` and wish to edit the same entity again, 
+you need to re-run the `EditEntity()` function. As illustrated in the following example:
+```go
+product := beeorm.GetByID[ProductEntity](c, 27749843747733)
+newVersionOfProduct := beeorm.EditEntity(c, product)
+newVersionOfProduct.Name = "New name"
+c.Flush() // executes UPDATE ProductEntity SET Name = "New name"
 
-It's important to note that you can only update entities that are already loaded and have their data stored internally. If you try to update an entity that has not been loaded, BeeORM will return an error.
+newVersionOfProduct.Name = "Another name"
+c.Flush() // doeas nothing, propably not what you expected
+```
 
-In the example provided, the code loads two ProductEntity instances and a CategoryEntity instance from the database, then modifies the Name property of each entity and calls `Flush()` to update all three entities in a single batch. This results in three `UPDATE` statements being executed against the database, and the relevant cache entries being invalidated to ensure that the updated data is reflected in future queries.
+Here's the correct approach:
+
+```go{6}
+product := beeorm.GetByID[ProductEntity](c, 27749843747733)
+newVersionOfProduct := beeorm.EditEntity(c, product)
+newVersionOfProduct.Name = "New name"
+c.Flush()  // executes UPDATE ProductEntity SET Name = "New name"
+
+newVersionOfProduct = beeorm.EditEntity(c, newVersionOfProduct)
+newVersionOfProduct.Name = "Another name"
+c.Flush()  // executes UPDATE ProductEntity SET Name = "Another name"
+```
+
+This ensures the proper handling of entity updates.
 
 ## Deleting Entities
 
-In BeORM, entities can be deleted from a MySQL table using the `engine.Delete()` method. For example:
-
-```go{3}
-product := &ProductEntity{}
-engine.LoadByID(1, product)
-engine.Delete(product)
-```
-
-This will delete the `ProductEntity` with an ID of 1 from the table.
-
-To delete multiple entities at once:
+Deleting entity is very simple. See below example:
 
 ```go
-engine.Delete(product1, product1, product3)
+product := beeorm.GetByID[ProductEntity](c, 27749843747733)
+beeorm.DeleteEntity(c, entity)
+c.Flush()
 ```
-
-This will delete all ProductEntity objects with an ID of 1 or 2 from the table.
-
 ## Multiple CRUD operations
 
 TODO
 
 ## Cloning entities
 
-Sometimes you may need to create a copy of an entity, make some changes to it, and save it as a new row in the database. You can easily do this using the `entity.Clone()` method:
+Sometimes you may need to create a copy of an entity, make some changes to it, and save it as a new row in the database. You can easily do this using the `beeorm.Clone()` function:
 
-```go{3}
-category := &CategoryEntity{}
-engine.LoadByID(1, category)
-newCategory := category.Clone(*CategoryEntity)
-newCategory.Name = "New name"
-engine.Flush(newCategory)
+```go{2}
+product := beeorm.GetByID[ProductEntity](c, 27749843747733)
+newProduct := beeorm.Clone(c, product)
+Name.Name = "New name"
+engine.Flush()
 ```
 
 This will create a copy of the category entity, assign a new value to its Name field, and save it as a new row in the database. The original category entity will remain unchanged.
