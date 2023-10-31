@@ -53,17 +53,17 @@ To insert a new entity into database you need to create new instance with `NewEn
 `Flush()`. See below example:
 
 ```go
-categoryCars := NewEntity[CategoryEntity](c)
+categoryCars := beeorm.NewEntity[CategoryEntity](c)
 categoryCars.Code = "cars"
 categoryCars.Name = "Cars"
 err := c.Flush()
 ```
 
-When method `Flush()` of `beeorm.Context` is executed all entities created with `NewEntity` function are
+When method `Flush()` of `beeorm.Context` is executed all entities created with `NewEntity()` with this `beeorm.Context` function are
 inserted into MySQL and cache is updated. Below example demonstrates how to insert into MySQL multiple entities at once:
 
 ```go
-image1 := NewEntity[ImageEntity](c)
+image1 := beeorm.NewEntity[ImageEntity](c)
 image1.Url = "image1.png"
 image2 := NewEntity[ImageEntity](c)
 image2.Url = "image2.png"
@@ -72,7 +72,16 @@ err := c.Flush() // two rows are inserted into MySQL table
 
 ### Setting reference value
 
-TODO
+Here's an example of how to set up a one-to-one reference
+
+```go{5}
+image := beeorm.NewEntity[ImageEntity](c)
+image.Url = "image1.png"
+brandVolvo := beeorm.NewEntity[BrandEntity](c)
+brandVolvo.Name = "Volvo"
+brandVolvo.Logo = *beeorm.Reference[ImageEntity]{ID: image.ID}
+err := c.Flush()
+```
 
 ## Unique indexes
 
