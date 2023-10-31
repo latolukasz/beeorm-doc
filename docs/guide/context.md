@@ -67,37 +67,35 @@ context.GetMetaData() // {"source": "cron_A"}
 
 ## Context clone
 
-When working with BeeORM, it's essential to adhere to a golden rule: never share the same instance of `beeorm.Context` among goroutines. 
-If you intend to run your code in a goroutine, you should create a new `beeorm.Context` from the `Engine`, as demonstrated in the following example:
+You can generate as many `beeorm.Context` instances in your code as needed. 
+Nevertheless, if you wish to share context settings like metadata or debug mode across multiple contexts, you should configure them for each created `Context`, 
+as demonstrated in the example below:
 
-```go{5}
-    c := engine.NewContext(context.Background())
-    c.SetMetaData("admin_user_id", 34)
-    c.EnableQueryDebug()
-    go func() {
-        c2 := engine.NewContext(context.Background())
-        c2.GetMetaData() // empty
-    }()
+```go{6,7}
+c := engine.NewContext(context.Background())
+c.SetMetaData("admin_user_id", 34)
+c.EnableQueryDebug()
+
+c2 := engine.NewContext(context.Background())
+c2.GetMetaData(c.GetMetaData())
+c2.EnableQueryDebug()
 ```
-
-However, there is a caveat to this approach. As observed, the new `Context` (c2) lacks metadata, and the debug mode is not enabled.
 
 To address this issue, the Context provides a specialized method called `Clone()`, which generates a new instance of the `Context` containing a copy of the metadata and inherits the metadata and debug mode is the same as in cloned Context:
 
 ```go{5}
-    c := engine.NewContext(context.Background())
-    c.SetMetaData("admin_user_id", "34")
-    c.EnableQueryDebug()
-    go func() {
-        c2 := engine.Clone()
-        c2.GetMetaData() // {"admin_user_id", "34"}
-    }()
+c := engine.NewContext(context.Background())
+c.SetMetaData("admin_user_id", "34")
+c.EnableQueryDebug()
+go func() {
+    c2 := engine.Clone()
+    c2.GetMetaData() // {"admin_user_id", "34"}
+}()
 ```
 
 Alternatively, you can clone a `Context` and provide a new context.Context as an argument using the `CloneWithContext()` method:
-```go{3}
-    c := engine.NewContext(context.Background())
-    go func() {
-        c2 := engine.CloneWithContext(context.WithDeadline(c.Ctx(), time.Now().Add(time.Second * 5)))
-    }()
+
+```go{2}
+c := engine.NewContext(context.Background())
+c2 := engine.CloneWithContext(context.WithDeadline(c.Ctx(), time.Now().Add(time.Second * 5)))
 ```
