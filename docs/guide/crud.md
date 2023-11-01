@@ -10,7 +10,7 @@ package main
 import "github.com/latolukasz/beeorm/v3"
 
 type CategoryEntity struct {
-	uint64      `orm:"localCahe;redisCache"`
+	ID          uint64      `orm:"localCahe;redisCache"`
 	Code        string `orm:"required;length=10;unique=code"`
 	Name        string `orm:"required;length=100"`
 }
