@@ -39,44 +39,83 @@ func main() {
 ```
 
 In the example above, the `FlushAsync()` method pushes the `INSERT INTO ...` SQL query into a special Redis list and adds entity data into Redis or local cache.
-When you try to load this entity using functions like 
-[GetByID()](/guide/crud.html#getting-entities-by-id), 
-[GetByIDs()](/guide/crud.html#getting-entities-by-id), 
-[GetByUniqueIndex()](/guide/crud.html#getting-entities-by-unique-key), 
-[GetByReference()](/guide/crud.html#getting-entities-by-reference), or 
-[GetAll()](/guide/crud.html#getting-all-entities), the data is loaded from the cache, improving performance.
 
 ## Consuming async queries
 
-When you flush your changes using `FlushLazy()` you must run special function `ConsumeAsyncFlushEvents` in
-your application as showed below:
+When you use `FlushLazy()` to commit your changes, it's essential to execute the `ConsumeAsyncFlushEvents` function in your application, 
+as demonstrated below:
 
 ```go
 err := beeorm.ConsumeAsyncFlushEvents(c, true)
 ```
- Above function can be run in two modes - blocking and non-blocking mode. If you
-set true as seconds argument this function block execution of your code and waits for new
-SQL queries pushed to Redis list by `FlushAsync()` and execute them. 
- 
-To break its execution you must cancel `context` used to create `beeorm.Context`:
+
+This function operates in two modes: blocking and non-blocking. By setting the second argument as true, the function halts the code's execution and awaits new SQL queries that have been 
+pushed to the Redis list via `FlushAsync()`, subsequently executing them.
+
+To halt its execution, it's necessary to cancel the context used in creating `beeorm.Context`:
 
 ```go
  ctx, close := context.WithCancel()
  c := engine.NewContext(ctx)
  go func() {
     err := beeorm.ConsumeAsyncFlushEvents(c, true)
-    if err != nil {
-        panic(err)
-    }
  }()
- // simewhere in your code:
  close() // this will stop execution of ConsumeAsyncFlushEvents
 ```
 
-When you use false as second argument `ConsumeAsyncFlushEvents()` runs until all SQL queries stored in Redis list
-are executes and stops. That's why you should run this function in non-blocking when your application
-starts ( to execute all queries from Redis list tha were not executed from last application run) and
-in blocking mode to execute all new SQL queries that are coming.
+On the other hand, when the second argument is set as false, `ConsumeAsyncFlushEvents()` processes all SQL queries stored in the Redis list and then stops. 
+Consequently, this function should be run in non-blocking mode during the application's start to execute any queries from the 
+Redis list that were not executed during the last run. 
+Conversely, it should be executed in blocking mode to process all incoming new SQL queries.
+
+These modes serve different purposes: non-blocking to clear pending queries and blocking to 
+handle real-time, incoming queries.
+
+## Async flush consumer errors
+
+`ConsumeAsyncFlushEvents()` function reads all SQL queries from Redis set and execute them one by one.
+In case SQL query generate error BeeORM tries to decide if this error is temporary or not.
+For temporary errors `ConsumeAsyncFlushEvents()` function returns error and developer should report this error, 
+fix the problem and rerun `ConsumeAsyncFlushEvents`:
+
+```go
+for {
+    err := beeorm.ConsumeAsyncFlushEvents(c, true)
+    if err != nil {
+        // ... report error in your error log
+        time.Sleep(time.Second * 10)
+    }
+}
+```
+
+Examples of temporary errors:
+    
+* Error 1045: Access denied
+* Error 1040: Too many connections
+* Error 1213: Deadlock found when trying to get lock, try restarting transaction
+* Error 1031: Disk full, waiting for someone to free some space
+
+As you see above errors should be fixed by developer (disc full) or should be executed again (Deadlock found).
+
+All non-temporary errors are skipped and moved to special Redis errors list which holds all SQL problematic SQL queries 
+and corresponding error. 
+
+Example of non-temporary errors:
+
+* Error 1022: Can't write; duplicate key in table
+* Error 1049: Unknown database
+* Error 1051: Unknown table=
+* Error 1054: Unknown column
+* Error 1064: Syntax error
+
+As you can see rerunning these SQL queries won't fix thw issue. Developer should read these queries from
+Redis errors list, try to execute them and remove this them from this list. You can use ``
+
+Below example 
+
+## grouping async events
+
+TODO custom_async_group
 
 
 
