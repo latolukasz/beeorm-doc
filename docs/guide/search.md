@@ -46,7 +46,7 @@ where.SetParameters("elephant@beeorm.io", 20)
 where.GetParameters() // returns: []interface{}{"elephant@beeorm.io", 20}
 
 // append additional conditions
-where.Append("AND Age <= ?", 60)
+where.Append(" AND Age <= ?", 60)
 where.String() // returns: "Email = ? AND Age >= ? AND Age <= ?"
 where.GetParameters() // returns: []interface{}{"elephant@beeorm.io", 20, 60}
 ```
@@ -69,83 +69,51 @@ where.GetParameters() // []interface{}{18, 20, 30}
 
 ## Searching for Entities
 
-The `engine.Search()` method is used to search for entities using a SQL query condition. It requires a `beeorm.Where` object, a `beeorm.Pager` object, and a reference to a slice of entities.
+The `Search()` function is used to search for entities using a SQL query condition.
 
-Here is an example of how to use the `engine.Search()` method:
+Here is an example of how to use the `Search()` function:
 
-```go{25}
-package main
-
-import "github.com/latolukasz/beeorm/v2"
-
-type UserEntity struct {
-    beeorm.ORM
-    ID         uint32
-    FirstName  string `orm:"required"`
-    LastName   string `orm:"required"`
-    Email      string `orm:"required"`
-    Supervisor *UserEntity
-}
-
-func main() {
-    registry := beeorm.NewRegistry()
-    registry.RegisterMySQLPool("user:password@tcp(localhost:3306)/users")
-    registry.RegisterEntity(&UserEntity{})
-    validatedRegistry, err := registry.Validate()
-    if err != nil {
-        panic(err)
-    }
-    engine := validatedRegistry.CreateEngine()
-
-    var users []*UserEntity
-    engine.Search(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100), &users)
-    len(users) // 100
-    users[0].Email // "bee@beeorm.io"
+```go
+iterator := beeorm.Search[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100))
+for iterator.Next() {
+    user := iterator.Entity()
 }
 ```
 
-The Pager object is optional. If you provide nil, BeeORM will still limit the results to **50 000** rows.
+The Pager object is optional. If you provide nil, BeeORM will search for all rows.
 
 ```go
-engine.Search(beeorm.NewWhere("1 ORDER BY ID DESC"), nil, &users)
+beeorm.Search[UserEntity](beeorm.NewWhere("Age >= ?", 18), nil)
 ```
 
-You can also provide optional parameters to define which references should be loaded. You can read more about this feature on the [CRUD/loading references](/guide/crud.html#loading-references) page.
+If you need the total number of found rows, you can use the `SearchWithCount()` function, which works exactly the same as `engine.Search()`, with the only difference being that it returns the total number of found rows as an int.
 
 ```go
-engine.Search(beeorm.NewWhere("1"), beeorm.NewPager(1, 10), &users, "Supervisor")
-```
-
-If you need the total number of found rows, you can use the `engine.SearchWithCount()` method, which works exactly the same as `engine.Search()`, with the only difference being that it returns the total number of found rows as an int.
-
-```go
-total := engine.SearchWithCount(beeorm.NewWhere("FirstName = ?", "Adam"), beeorm.NewPager(1, 10), &users)
+iterator, total := beeorm.SearchWithCount[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100))
 ```
 
 ## Searching for a Single Entity
 
-If you need to search for a single entity, you can use the `engine.SearchOne()` method:
+If you need to search for a single entity, you can use the `SearchOne()` function:
 
-```go{2}
-user := &UserEntity{}
-found := engine.SearchOne(beeorm.NewWhere("Email = ?", "bee@beeorm.io"), user)
-if found {
-  fmt.Printf("Found user with ID %d and Email\n", user.ID, user.Email)
-}
+```go
+// returns nil if not found
+firstUser := beeorm.SearchOne[UserEntity](beeorm.NewWhere("1 ORDER BY `CreatedAt`"))
 ```
 
 ::: tip
-This method always adds `LIMIT 1` to the SQL query, so if your query selects more than one row from the database, only the first row will be returned.
+This function always adds `LIMIT 1` to the SQL query, so if your query selects more than one row from the database, only the first row will be returned.
 :::
 
 ## Searching for Primary Keys
 
-You can use the `engine.SearchIDs()` method to search for the primary keys of an entity:
+You can use the `SearchIDs()` or `SearchIDsWithCount` functions to search for the primary keys of an entity:
 
-```go{2}
-var user *UserEntity
-ids := engine.SearchIDs(beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10), user)
+```go
+ids := beeorm.SearchIDs[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10))
 for _, id := range ids {
     fmt.Printf("ID: %d\n", id)
 }
+// if you need total rows
+ids, total := beeorm.SearchIDsWithCount[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10))
 ```
