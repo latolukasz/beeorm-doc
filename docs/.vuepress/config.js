@@ -29,19 +29,6 @@ export default defineUserConfig({
         text: 'Guide',
         link: '/guide/',
       },
-      {
-        text: 'V3',
-        children: [
-          {
-            text: 'V2',
-            link: 'https://v2.beeorm.io/',
-          },
-          {
-            text: 'V1',
-            link: 'https://v1.beeorm.io/',
-          },
-        ],
-      },
     ],
     sidebar: {
       '/guide/': [
