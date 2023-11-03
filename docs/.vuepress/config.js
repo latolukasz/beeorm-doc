@@ -22,8 +22,12 @@ module.exports = {
         link: '/guide/',
       },
       {
-        text: 'V2',
+        text: 'V3',
         link: 'https://beeorm.io',
+      },
+      {
+        text: 'V2',
+        link: 'https://v2.beeorm.io',
       },
     ],
     sidebar: {
