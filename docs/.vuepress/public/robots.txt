@@ -1,4 +1,2 @@
 User-Agent: *
-Allow: /
-
-Sitemap: https://beeorm.io/sitemap.xml
+Disallow: /
