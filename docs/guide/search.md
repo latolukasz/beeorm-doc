@@ -74,7 +74,7 @@ The `Search()` function is used to search for entities using a SQL query conditi
 Here is an example of how to use the `Search()` function:
 
 ```go
-iterator := beeorm.Search[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100))
+iterator := beeorm.Search[UserEntity](c, beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100))
 for iterator.Next() {
     user := iterator.Entity()
 }
@@ -83,13 +83,13 @@ for iterator.Next() {
 The Pager object is optional. If you provide nil, BeeORM will search for all rows.
 
 ```go
-beeorm.Search[UserEntity](beeorm.NewWhere("Age >= ?", 18), nil)
+beeorm.Search[UserEntity](c, beeorm.NewWhere("Age >= ?", 18), nil)
 ```
 
 If you need the total number of found rows, you can use the `SearchWithCount()` function, which works exactly the same as `engine.Search()`, with the only difference being that it returns the total number of found rows as an int.
 
 ```go
-iterator, total := beeorm.SearchWithCount[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100))
+iterator, total := beeorm.SearchWithCount[UserEntity](c, beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100))
 ```
 
 ## Searching for a Single Entity
@@ -98,7 +98,7 @@ If you need to search for a single entity, you can use the `SearchOne()` functio
 
 ```go
 // returns nil if not found
-firstUser := beeorm.SearchOne[UserEntity](beeorm.NewWhere("1 ORDER BY `CreatedAt`"))
+firstUser := beeorm.SearchOne[UserEntity](c, beeorm.NewWhere("1 ORDER BY `CreatedAt`"))
 ```
 
 ::: tip
@@ -110,10 +110,10 @@ This function always adds `LIMIT 1` to the SQL query, so if your query selects m
 You can use the `SearchIDs()` or `SearchIDsWithCount` functions to search for the primary keys of an entity:
 
 ```go
-ids := beeorm.SearchIDs[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10))
+ids := beeorm.SearchIDs[UserEntity](c, beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10))
 for _, id := range ids {
     fmt.Printf("ID: %d\n", id)
 }
 // if you need total rows
-ids, total := beeorm.SearchIDsWithCount[UserEntity](beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10))
+ids, total := beeorm.SearchIDsWithCount[UserEntity](c, beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 10))
 ```
