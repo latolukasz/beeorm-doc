@@ -218,3 +218,14 @@ type CategoryEntity struct {
 ```
 
 In this case, all instances of `CategoryEntity` entities are directed to their own dedicated Redis list. This configuration improves the performance of `ReadAsyncFlushEvents()` by breaking down SQL queries into multiple lists, allowing for faster and parallel execution.
+
+You can also group events from different entities into one Redis list by providing `split_async_flush=[GROUP NAME]` tag:
+
+```go
+type CategoryEntity struct {
+	ID uint64 `orm:"split_async_flush=settings"`
+}
+type BrandEntity struct {
+	ID uint64 `orm:"split_async_flush=settings"`
+}
+```
