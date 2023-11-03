@@ -1,6 +1,6 @@
 # Queries Log
 
-You can log all MySQL, Redis, and local cache queries by registering a logger using the `engine.RegisterQueryLogger()` method:
+You can log all MySQL, Redis, and local cache queries by registering a logger using the `RegisterQueryLogger()` method of `beeorm.Context`:
 
 ```go{7}
 type MyLogger struct{}
@@ -9,7 +9,7 @@ func (l *MyLogger) Handle(log map[string]interface{}) {
 	fmt.Printf("QUERY %s in %s", log["query"], log["source"])
 }
 
-engine.RegisterQueryLogger(&MyLogger{}, true, true, true)
+c.RegisterQueryLogger(&MyLogger{}, true, true, true)
 ```
 
 This method requires an implementation of the `beeorm.LogHandler` interface:
@@ -39,9 +39,9 @@ You can specify which queries should be logged by setting the respective boolean
 
 ```go
 // only queries to MySQL
-engine.RegisterQueryLogger(&MyLogger{}, true, false, false)
+c.RegisterQueryLogger(&MyLogger{}, true, false, false)
 // only queries to redis
-engine.RegisterQueryLogger(&MyLogger{}, false, true, false)
+c.RegisterQueryLogger(&MyLogger{}, false, true, false)
 // only queries to local cache
-engine.RegisterQueryLogger(&MyLogger{}, false, false, true)
+c.RegisterQueryLogger(&MyLogger{}, false, false, true)
 ```
