@@ -117,7 +117,7 @@ MySQL Unique Key constraints. This unique approach offers two valuable features,
 which are explained in the following sections: the ability to [retrieve records from cache by their unique keys](/guide/crud.html#getting-entities-by-unique-key)
 and support for [asynchronous flushing](/guide/async_flush.html).
 
-## Getting Entities by ID
+## Getting Entity by ID
 
 There are several ways to get entities from the database when you know the primary key. 
 
@@ -126,6 +126,8 @@ You can use the `GetByID()` method:
 ```go
 product := beeorm.GetByID[ProductEntity](c, 27749843747733)
 ```
+
+## Getting Entities by ID
 
 If you need to get more than one entity, you can use `GetByIDs()`:
 
