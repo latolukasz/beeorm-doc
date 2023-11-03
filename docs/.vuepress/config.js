@@ -38,7 +38,7 @@ export default defineUserConfig({
         children: [
           {
             text: 'V3',
-            link: 'https://v3.beeorm.io/',
+            link: 'https://beeorm.io/',
           },
           {
             text: 'V1',
