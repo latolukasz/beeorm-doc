@@ -22,7 +22,7 @@ In order to use an entity in beeorm, it must be registered in the Registry:
 
 ```go{2}
 registry := beeorm.NewRegistry()
-registry.RegisterEntity(&entity.UserEntity()) 
+registry.RegisterEntity(entity.UserEntity()) 
 ```
 
 ## Defining data pools
@@ -50,7 +50,7 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
     registry.RegisterMySQL("user:password@tcp(localhost:3307)/db", "sales", nil)
-    registry.RegisterEntity(&OrderEntity{}) 
+    registry.RegisterEntity(OrderEntity{}) 
 }  
 ```
 
@@ -80,7 +80,7 @@ func main() {
     registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
     RegisterRedis("localhost:6379", 0, beeorm.DefaultPoolCode, nil)
     RegisterRedis("localhost:6390", 0, "sales", nil)
-    registry.RegisterEntity(&UserEntity{}, &OrderEntity{}) 
+    registry.RegisterEntity(UserEntity{}, &OrderEntity{}) 
 }  
 ```
 
@@ -111,7 +111,7 @@ type BrandEntity struct {
 func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(&CategoryEntity{}, &BrandEntity{}) 
+    registry.RegisterEntity(CategoryEntity{}, &BrandEntity{}) 
 }  
 ```
 

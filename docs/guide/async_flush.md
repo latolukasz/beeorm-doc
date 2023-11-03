@@ -25,7 +25,7 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil) 
     registry.RegisterRedis("localhost:6379", 0, beeorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(&CategoryEntity{}) 
+    registry.RegisterEntity(CategoryEntity{}) 
     engine, err := registry.Validate()
     if err != nil {
         panic(err)

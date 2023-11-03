@@ -39,7 +39,7 @@ context.EnableQueryDebug()
 // only queries to MySQL
 context.EnableQueryDebugCustom(true, false, false)
 // only queries to MySQL and Redis
-engine.EnableQueryDebugCustom(true, true, false)
+context.EnableQueryDebugCustom(true, true, false)
 ```
 
 Here is an example of how the debug output looks:

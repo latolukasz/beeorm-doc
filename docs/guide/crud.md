@@ -37,7 +37,7 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil) 
     registry.RegisterRedis("localhost:6379", 0, beeorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(&CategoryEntity{}, &BrandEntity{}, &ImageEntity{}, &ProductEntity{}) 
+    registry.RegisterEntity(CategoryEntity{}, BrandEntity{}, ImageEntity{}, ProductEntity{}) 
     engine, err := registry.Validate()
     if err != nil {
         panic(err)
@@ -64,7 +64,7 @@ inserted into MySQL and cache is updated. Below example demonstrates how to inse
 ```go
 image1 := beeorm.NewEntity[ImageEntity](c)
 image1.Url = "image1.png"
-image2 := NewEntity[ImageEntity](c)
+image2 := beeorm.NewEntity[ImageEntity](c)
 image2.Url = "image2.png"
 err := c.Flush() // two rows are inserted into MySQL table
 ```
@@ -106,7 +106,7 @@ Instead of receiving a `beeorm.DuplicatedKeyBindError`, the `Flush()` function r
 BeeORM provides a special function for this purpose:
 
 ```go
-LoadUniqueKeys(c, false) // set true to enable debug mode
+beeorm.LoadUniqueKeys(c, false) // set true to enable debug mode
 ```
 It is considered a good practice to run the above function every time your application starts. 
 When Redis is not flushed, this function executes in a matter of milliseconds. However, if Redis data has been flushed, 

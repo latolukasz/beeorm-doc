@@ -20,7 +20,7 @@ func main() {
     registry := beeorm.NewRegistry()
     registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
     registry.RegisterRedis("localhost:6379", 0, beeorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(&UserEntity{}) 
+    registry.RegisterEntity(UserEntity{}) 
     
     engine, err := registry.Validate()
     if err != nil {
@@ -55,7 +55,7 @@ func main() {
     registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", beeorm.DefaultPoolCode, nil)
     registry.RegisterRedis("localhost:6379", 0, beeorm.DefaultPoolCode, nil)
     registry.RegisterLocalCache(beeorm.DefaultPoolCode, 0)
-    registry.RegisterEntity(&CarEntity{}) 
+    registry.RegisterEntity(CarEntity{}) 
     engine, err := registry.Validate()
     if err != nil {
       panic(err)
