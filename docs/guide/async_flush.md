@@ -42,7 +42,7 @@ In the example above, the `FlushAsync()` method pushes the `INSERT INTO ...` SQL
 
 ## Consuming async queries
 
-When you use `FlushLazy()` to commit your changes, it's essential to execute the `ConsumeAsyncFlushEvents` function in your application, 
+When you use `FlushAsync()` to commit your changes, it's essential to execute the `ConsumeAsyncFlushEvents` function in your application, 
 as demonstrated below:
 
 ```go
@@ -74,7 +74,7 @@ handle real-time, incoming queries.
 
 ## Understanding Cache Updates
 
-To ensure smooth operation of your application and prevent unexpected issues, it is crucial to have a solid grasp of how asynchronous cache flushing works in BeeORM. When you execute the `FlushLazy()` function, BeeORM updates entity data in the cache. This data is added to both Redis (when the entity uses the `redisCache` tag) and the local cache (when the `localCache` tag is used). SQL queries are executed at a later stage, typically a few milliseconds after the `FlushLazy()` call, thanks to the `ConsumeAsyncFlushEvents()` function. This is the reason why not all BeeORM functions that retrieve entities from the database return updated data immediately after the execution of `FlushLazy()`.
+To ensure smooth operation of your application and prevent unexpected issues, it is crucial to have a solid grasp of how asynchronous cache flushing works in BeeORM. When you execute the `FlushAsync()` function, BeeORM updates entity data in the cache. This data is added to both Redis (when the entity uses the `redisCache` tag) and the local cache (when the `localCache` tag is used). SQL queries are executed at a later stage, typically a few milliseconds after the `FlushLazy()` call, thanks to the `ConsumeAsyncFlushEvents()` function. This is the reason why not all BeeORM functions that retrieve entities from the database return updated data immediately after the execution of `FlushLazy()`.
 
 Let's take a closer look at an example to help you understand how this process works:
 
@@ -112,7 +112,7 @@ category = SearchOne[CategoryEntity](c, beeorm.NewWhere("Name = ?", "cars"))
 user = SearchOne[UserEntity](c, beeorm.NewWhere("Name = ?", "Tom"))
 ```
 
-Below, you'll find a list of functions that return updated entity data when `FlushLazy()` is executed:
+Below, you'll find a list of functions that return updated entity data when `FlushAsync()` is executed:
 
 * [GetByID](/guide/crud.html#getting-entity-by-id) when the entity uses cache
 * [GetByIDs](/guide/crud.html#getting-entities-by-id) when the entity uses cache
