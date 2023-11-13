@@ -1,278 +1,147 @@
 # Plugins
 
-BeeORM can be enhanced with new functionality through the use of plugins. Currently, these plugins only allow for partial extension of BeeORM's features, but in upcoming releases, it will be possible to extend all of BeeORM's functionalities.
+BeeORM's functionality can be extended by incorporating plugins.
 
 ## Enabling Plugins
 
-Activating plugins in BeeORM is straightforward. Simply register the plugin using the `RegisterPlugin()` method:
+Activating plugins in BeeORM is a simple process. To get started, register the desired plugin using the `RegisterPlugin()` method, as demonstrated in the example below:
 
 ```go{10}
 package main
 
 import (
-    "github.com/latolukasz/beeorm/v2"
-    "github.com/latolukasz/beeorm/v2/plugins/log_tables"
+    "github.com/latolukasz/beeorm/v3"
+    "github.com/latolukasz/beeorm/v3/plugins/modified"
 )
 
 func main() {
   registry := beeorm.NewRegistry()
-  registry.RegisterPlugin(log_tables.Init())
+  registry.RegisterPlugin(modified.New("Added", "Updated"))
 }
 ```
 
-BeeORM offers several built-in plugins that can be found in the [Plugins](/plugins/) section.
+BeeORM offers a variety of built-in plugins, which can be explored further in the [Plugins](/plugins/) section.
 
-## Creating a BeeORM Plugin
+## Creating a Custom Plugin
 
-You can create your own custom BeeORM plugin by implementing the following interface:
+To tailor BeeORM to your specific needs, you have the flexibility to craft your own custom plugin by implementing at least one of the following interfaces.
+
+### ValidateRegistry Interface
 
 ```go
-type Plugin interface {
-	GetCode() string
+type PluginInterfaceValidateRegistry interface {
+	ValidateRegistry(engine beeorm.EngineSetter, registry beeorm.Registry) error
 }
 ```
 
-The GetCode function returns a unique name that identifies your plugin. It is recommended to include the go module name in the plugin name, such as `github.com/latolukasz/beeorm/my_debugger`, to prevent collisions with other plugins created by other developers.
-
-Here's an example of a basic plugin called `my_debugger`:
+The `PluginInterfaceValidateRegistry` interface comes into play when the `registry.Validate()` method is invoked.
+The first argument, `EngineSetter`, empowers you to define additional parameters for the `Engine`. These parameters can later be accessed in your code using the `engine.Option()` method. The example below illustrates this concept:
 
 ```go
-package my_debugger
+type MyPlugin struct {}
 
-const PluginCode = "github.com/me/my_project/my_debugger"
-
-type MyDebuggerPlugin struct{}
-
-func (p *MyDebuggerPlugin) GetCode() string {
-	return PluginCode
+func (p *MyPlugin) ValidateRegistry(engine beeorm.EngineSetter, registry beeorm.Registry) error {
+    // perform custom actions
+    engine.SetOptions("orm-started", time.Now())
+    return nil
 }
 ```
 
-Once you have created a basic plugin, you can implement one or many of the BeeORM plugin interfaces defined [here](https://github.com/latolukasz/beeorm/blob/v2/plugin.go) to add custom functionality.
-
-### PluginInterfaceInitRegistry
+Subsequently, in your code, you can retrieve this option from `beeorm.Engine()`:
 
 ```go
-type PluginInterfaceInitRegistry interface {
-	PluginInterfaceInitRegistry(registry *Registry)
+ormStarted := engine.Option("orm-started") // returns nil if not defined
+```
+
+This mechanism allows you to enrich the behavior of the `Engine` during initialization by injecting and retrieving custom parameters.
+
+### InitRegistryFromYaml Interface
+
+```go
+type PluginInterfaceInitRegistryFromYaml interface {
+	InitRegistryFromYaml(registry beeorm.Registry, yaml map[string]interface{}) error
 }
 ```
 
-The `PluginInterfaceInitRegistry` interface is executed when the plugin is registered in the BeeORM Registry.
+The `PluginInterfaceInitRegistryFromYaml` interface is invoked for each Entity when the `registry.InitByYaml()` method is called. This interface provides access to both the `beeorm.Registry` and the data loaded from a YAML file.
 
-:::tip
-The code for plugins is executed in the same order in which they were registered in BeeORM.
-:::
-
-### PluginInterfaceInitEntitySchema
+For instance:
 
 ```go
-type PluginInterfaceInitEntitySchema interface {
-	InterfaceInitEntitySchema(schema SettableEntitySchema, registry *Registry) error
-}
-```
+type MyPlugin struct {}
 
-The `PluginInterfaceInitEntitySchema` interface is executed for every Entity when the [registry.Validate()](/guide/validated_registry.html#validating-the-registry)  method is called. You have access to the `beeorm.Registry` and the `beeorm.SettableEntitySchema` object, which allows you to save additional settings in the [Entity Schema](/guide/validated_registry.html#entity-schema) using the `SetPluginOption()` method.
-
-For example:
-
-```go{12-13}
-package my_debugger
-
-const PluginCode = "github.com/me/my_project/my_debugger"
-
-type MyDebuggerPlugin struct{}
-
-func (p *MyDebuggerPlugin) GetCode() string {
-	return PluginCode
-}
-
-func (p *MyDebuggerPlugin) InterfaceInitEntitySchema(schema SettableEntitySchema, _ *Registry) error {
-	schema.SetPluginOption(PluginCode, "my-option-1", 200)
-	schema.SePlugintOption(PluginCode, "my-option-2", "Hello")
-	return nil
-}
-```
-
-Note that the `schema.SetPluginOption` method requires the plugin code name as its first argument, to prevent overrides of options with the same name from other plugins. The Entity Schema options can be easily accessed through the `GetPluginOption...` methods.
-
-For example:
-
-```go
-entitySchema := validatedRegistry.GetEntitySchema(carEntity)
-entitySchema.GetPluginOption(PluginCode, "my-option-1") // int(200)
-entitySchema.GetPluginOption(PluginCode, "my-option-2") // "Hello"
-entitySchema.GetPluginOption(PluginCode, "missing-key") // nil
-```
-
-### PluginInterfaceTableSQLSchemaDefinition
-
-```go
-type PluginInterfaceTableSQLSchemaDefinition interface {
-	PluginInterfaceTableSQLSchemaDefinition(engine Engine, sqlSchema *TableSQLSchemaDefinition) error
-}
-```
-
-
-This interface is executed during Entity MySQL [schema update](/guide/schema_update.html). When this interface is called, you have access to the `TableSQLSchemaDefinition` object, which provides information about the Entity schema definition and the current MySQL table schema (if the table already exists in the database):
-
-```go
-func (p *MyDebuggerPlugin) PluginInterfaceTableSQLSchemaDefinition(_ beeorm.Engine, sqlSchema *beeorm.TableSQLSchemaDefinition) error {
-    sqlSchema.EntitySchema // entity schema that is currently under validation
-    sqlSchema.EntityColumns // Entity columns SQL definitions
-    sqlSchema.EntityIndexes // Entity SQL indexes definitions
-    sqlSchema.DBTableColumns // columns SQL definitions from current table
-    sqlSchema.DBIndexes // SQL index definitions from current table
-    sqlSchema.DBCreateSchema // SQL `CREATE TABLE..` definition from current table
-    sqlSchema.DBEncoding // encoding from current table
-    sqlSchema.PreAlters // alters that should be executed at the beginning of schema update
-    sqlSchema.PostAlters // alters that should be executed at the end of schema update
-```
-
-Here's an example that demonstrates how to implement a plugin that adds a `IP VARCHAR(15)` column to every table:
-
-```go
-func (p *MyDebuggerPlugin) PluginInterfaceTableSQLSchemaDefinition(_ beeorm.Engine, sqlSchema *beeorm.TableSQLSchemaDefinition) error {
- hasIPColumn := false 
- name := "IP"
- definition := "`+name+` VARCHAR(15)"
- for _, column := range sqlSchema.EntityColumns {
-    if column.ColumnName == name {
-        if column.Definition != definition {
-            return fmt.Errorf("column %s  with wrong definition `%s` already exist", name, definition)
-        }
-        hasIPColumn = true
-        break
+func (p *MyPlugin) InitRegistryFromYaml(registry beeorm.Registry, yaml map[string]interface{}) error {
+    if yaml["MyPluginEnabled"] == true {
+        registry.SetOption("IsMyPluginEnabled", true)
     }
- }
- if !hasIPColumn {
-    ipColumnDefinition := &beeorm.ColumnSchemaDefinition{ColumnName: name, Definition: definition}
-    sqlSchema.EntityColumns = append(sqlSchema.EntityColumns, ipColumnDefinition)
- }
+    return nil
 }
 ```
 
-In the example above, the `PluginInterfaceTableSQLSchemaDefinition` method first checks if the IP column with the correct definition already exists. If it does not, the method adds the IP column definition to the `TableSQLSchemaDefinition` object's EntityColumns field. This effectively adds the IP column to the MySQL table when the schema update is executed.
-
-### PluginInterfaceEntityFlushing 
+Subsequently, in your code, you can retrieve registry options:
 
 ```go
-type PluginInterfaceEntityFlushing interface {
-	PluginInterfaceEntityFlushing(engine Engine, event EventEntityFlushing)
+isEnabled := engine.Registry().Option("IsMyPluginEnabled") == true
+```
+
+This functionality allows you to customize the initialization process based on data loaded from YAML files, offering greater flexibility in configuring BeeORM entities.
+
+### ValidateEntitySchema Interface
+
+```go
+type PluginInterfaceValidateEntitySchema interface {
+	ValidateEntitySchema(schema beeorm.EntitySchemaSetter) error
 }
 ```
 
-The `PluginInterfaceEntityFlushing` interface is called every time an Entity is flushed prior to the execution of the SQL query in the MySQL database. The `EventEntityFlushing` object contains information about the changes, such as the type of action (Insert, Update, or Delete), the entity name, ID, and the values of the fields before and after the SQL query.
-
-Additionally, the EventEntityFlushing object provides a method `SetMetaData()` which allows you to store extra parameters in the flush entity event that can be used in subsequent plugin interfaces, such as [PluginInterfaceEntityFlushed](/guide/plugins.html#plugininterfaceentityflushed).
+The `PluginInterfaceValidateEntitySchema` interface is executed for each entity registered with `registry.RegisterEntity()` when `registry.Validate()` is called:
 
 ```go
-func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushing(engine Engine, event EventEntityFlushing) {
-    event.Type() // beeorm.Insert or beeorm.Update or beeorm.Delete
-    event.EntityName() // flushed entity name, for instance "package.CarEntity"
-    event.EntityID() // flushed entity ID, zero when  event.Type() is beeorm.Insert
-    event.Before() // map of changed fields values before SQL query. nil when Action is "beeorm.Insert"
-    event.After() // map of changed fields values after SQL query. nil when Action is "beeorm.Delete"
-    event.SetMetaData("meta-1", "value")
+type MyPlugin struct {}
+
+func (p *MyPlugin) ValidateEntitySchema(schema beeorm.EntitySchemaSetter) error {
+    schema.SetOption("my-plugin-schema-option", "Some value")
+    return nil
 }
 ```
 
-### PluginInterfaceEntityFlushed
+Subsequently, in your code, you can access entity schema options:
 
 ```go
-type PluginInterfaceEntityFlushed interface {
-	PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter)
+schema := GetEntitySchema[MyEntity](c)
+value := schema.Option("my-plugin-schema-option")
+```
+
+This interface empowers you to enhance the behavior of individual entity schemas during validation, providing a mechanism to inject custom options and retrieve them later in your code.
+
+### EntityFlush Interface
+
+```go
+type PluginInterfaceEntityFlush interface {
+	EntityFlush(schema beeorm.EntitySchema, entity reflect.Value, before, after beeorm.Bind, engine beeorm.Engine) (beeorm.PostFlushAction, error)
 }
 ```
 
-This interface is executed every time an Entity is flushed in the MySQL database after the SQL query has been executed but before any cache-related operations (e.g. deleting the Entity cache in Redis) are carried out.
+The `EntityFlush` interface plays a crucial role when entity data undergoes flushing via the `Flush()` method. Code within this method executes just before data is poised for updating in MySQL. Optionally, you can return a function that executes immediately after the SQL queries are executed and data is stored in MySQL. The `before` and `after` maps contain entity data before and after changes:
 
-The `EventEntityFlushed` object holds all information about the changes made to the Entity.
+- If `before` is nil and `after` is not nil, a new entity is slated for insertion into MySQL.
+- If both `before` and `after` are not nil, an entity is set to be updated in MySQL.
+- If `before` is not nil and `after` is nil, an entity is on the brink of being deleted from MySQL.
 
-```go
-func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter) {
-    event.Type() // beeorm.Insert or beeorm.Update or beeorm.Delete
-    event.EntityName() // flushed entity name, for instance "package.CarEntity"
-    event.EntityID() // flushed entity ID
-    event.Before() // map of changed fields values before SQL query. nil when Action is "beeorm.Insert"
-    event.After() // map of changed fields values after SQL query. nil when Action is "beeorm.Delete"
-    event.MetaData() // meta data set in `PluginInterfaceEntityFlushing`
-}
-```
-
-For example:
+Here's an illustrative example:
 
 ```go
-package my_package
+type MyPlugin struct {}
 
-car := &CarEntity{Name: "BMW", Year: 2006}
-engine.FLush(car)
-// then
-event.Type() // beeorm.Insert
-event.EntityName() // my_package.CarEntity
-event.EntityID() // 1
-event.Before() // nil
-event.After() // {"Name": "Bmw", "Year": "2006"}
-
-car.Year = 2007
-engine.Flush(car)
-// then
-event.Type() // beeorm.Update
-event.EntityName() // my_package.CarEntity
-event.EntityID() // 1
-event.Before() // {"Year": "2006"}
-event.After() // {""Year": "2007"}
-
-engine.Delete(car)
-engine// then
-event.Type() // beeorm.Delete
-event.EntityName() // my_package.CarEntity
-event.EntityID() // 1
-event.Before() // {"Name": "BMW", "Year": "2007"}
-event.After() // nil
-```
-
-The last argument, `FlusherCacheSetter`, is used to add extra cache operations to Redis or the local cache that should be executed after the Entity is updated in the database. BeeORM groups all cache operations in an optimized way by using pipelines.
-
-For example:
-
-```go
-func (p *MyDebuggerPlugin) PluginInterfaceEntityFlushed(engine Engine, event EventEntityFlushed, cacheFlusher FlusherCacheSetter) {
-    cacheFlusher.GetRedisCacheSetter("default").Del("my-key")
-    cacheFlusher.PublishToStream("my-stream", "hello")
-}
-```
-
-### PluginInterfaceEntitySearch
-
-```go
-type PluginInterfaceEntitySearch interface {
-	PluginInterfaceEntitySearch(engine Engine, schema EntitySchema, where *Where) *Where
-}
-```
-
-The PluginInterfaceEntitySearch interface is executed every time a user searches for entities using BeeORM's [search feature](/guide/search.html). It allows you to modify the search query by returning a new `beeorm.Where` object.
-
-Here is an example implementation of this interface:
-
-```go
-func (p *MyDebuggerPlugin) PluginInterfaceEntitySearch(engine Engine, schema EntitySchema, where *Where) *Where {
-    if schema.GetEntityName() == "myproject.UserEntity" {
-        return beeorm.NewWhere("`Active` == 1 AND " + where.String(), where.GetParameters()...)
+func (p *MyPlugin) EntityFlush(schema beeorm.EntitySchema, entity reflect.Value, before, after beeorm.Bind, engine beeorm.Engine) (beeorm.PostFlushAction, error) {
+    now := time.Now().UTC()
+    if before == nil && after != nil { // INSERT
+        after["CreatedAt"] = now.Format(time.RFC3339)
     }
-    return where
+    return func(_ beeorm.Context) {
+        entity.FieldByName("CreatedAt").Set(reflect.ValueOf(now))
+    }, nil
 }
 ```
 
-In this example, the `PluginInterfaceEntitySearch` method checks if the entity being searched for is a UserEntity. If it is, the method returns a new Where object that includes an additional condition to filter out inactive users. If the entity being searched for is not a UserEntity, the original `Where` object is returned unmodified.
-
-## Engine Plugin Options
-
-The `SetPluginOption` and `GetPluginOption` methods of the `beeorm.Engine` allow you to store and retrieve extra options in the engine.
-
-Here's an example of how you can use these methods:
-
-```go
-engine.SetPluginOption(PluginCode, "option-1", "value")
-val := engine.GetPluginOption(PluginCode, "options-1") // "value"
-```
+This example showcases how to utilize the `EntityFlush` interface to manipulate entity data just before insertion, updating, or deletion in MySQL, demonstrating the flexibility it provides in customizing the flushing process.
