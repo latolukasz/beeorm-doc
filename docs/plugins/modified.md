@@ -1,4 +1,4 @@
-# Introduction
+# Modified
 
 This enhanced plugin streamlines the process of managing timestamps in your entity when interacting with a MySQL database. It allows you to specify which fields should be automatically set to the current time when an entity is inserted or updated.
 
