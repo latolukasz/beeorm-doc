@@ -2,6 +2,7 @@
 
 The `beeorm.Registry` object is the starting point for using BeeORM. It allows you to configure your database connections and register structs that represent your data. You can initialize a 
 beeorm.Registry object using the `beeorm.NewRegistry()` function, as shown in the following example:
+
 ```go
 package main
 

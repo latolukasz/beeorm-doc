@@ -72,12 +72,7 @@ export default defineUserConfig({
               text: 'Introduction',
               link: '/plugins/'
             },
-            'crud_stream',
-            'log_table',
-            'uuid',
-            'foreign_keys',
-            'fake_delete',
-            'simple_metrics',
+            'modified',
           ]
         }]
     }
