@@ -29,6 +29,10 @@ export default defineUserConfig({
         text: 'Guide',
         link: '/guide/',
       },
+      {
+        text: 'Plugins',
+        link: '/plugins/',
+      },
     ],
     sidebar: {
       '/guide/': [
