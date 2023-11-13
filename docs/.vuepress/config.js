@@ -64,6 +64,22 @@ export default defineUserConfig({
             'log_tables'
           ]
         }],
+      '/plugins/': [
+        {
+          title: 'Plugins',
+          children: [
+            {
+              text: 'Introduction',
+              link: '/plugins/'
+            },
+            'crud_stream',
+            'log_table',
+            'uuid',
+            'foreign_keys',
+            'fake_delete',
+            'simple_metrics',
+          ]
+        }]
     }
   })
 })
