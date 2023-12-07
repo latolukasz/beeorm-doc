@@ -197,13 +197,13 @@ type ProductEntity struct {
 }
 ```
 
-## Updating entities
+## Updating Entities
 
+When updating an entity, the process involves retrieving it from the database and then modifying its fields. Two methods can be employed to achieve this:
 
-To update an entity, you must first retrieve it from the database. 
-Subsequently, you create a modified copy using the `EditEntity()` function and adjust the fields of 
-this copy before applying the changes with the `Flush()` method. 
-The complete example is provided below:
+### Method 1: Creating a Copy of the Entity
+
+In this approach, you begin by obtaining the entity from the database and then create a modified copy using the `EditEntity()` function. Subsequently, you adjust the fields of the copy before applying the changes with the `Flush()` method. The following example illustrates the process:
 
 ```go{2}
 product := beeorm.GetByID[ProductEntity](c, 27749843747733)
@@ -212,32 +212,50 @@ newVersionOfProduct.Name = "New name"
 c.Flush()
 ```
 
-It's crucial to note that when you execute `Flush()` and wish to edit the same entity again, 
-you need to re-run the `EditEntity()` function. As illustrated in the following example:
+It is essential to note that after executing `Flush()`, if you intend to edit the same entity again, you must rerun the `EditEntity()` function, as demonstrated in the corrected approach below:
+
 ```go
 product := beeorm.GetByID[ProductEntity](c, 27749843747733)
 newVersionOfProduct := beeorm.EditEntity(c, product)
 newVersionOfProduct.Name = "New name"
-c.Flush() // executes UPDATE ProductEntity SET Name = "New name"
-
-newVersionOfProduct.Name = "Another name"
-c.Flush() // doeas nothing, propably not what you expected
-```
-
-Here's the correct approach:
-
-```go{6}
-product := beeorm.GetByID[ProductEntity](c, 27749843747733)
-newVersionOfProduct := beeorm.EditEntity(c, product)
-newVersionOfProduct.Name = "New name"
-c.Flush()  // executes UPDATE ProductEntity SET Name = "New name"
+c.Flush() // Executes UPDATE ProductEntity SET Name = "New name"
 
 newVersionOfProduct = beeorm.EditEntity(c, newVersionOfProduct)
 newVersionOfProduct.Name = "Another name"
-c.Flush()  // executes UPDATE ProductEntity SET Name = "Another name"
+c.Flush() // Executes UPDATE ProductEntity SET Name = "Another name"
 ```
 
-This ensures the proper handling of entity updates.
+This ensures the proper handling of entity updates. However, it's worth noting that this approach may lead to high memory usage due to the allocation of memory for all entity fields, even if only a few fields are updated.
+
+### Method 2: Using EditEntityField
+
+An alternative method involves using the `EditEntityField()` function to define new values for specific entity fields. Afterward, the `Flush()` method is employed to execute all changes and apply the new values to the entity and its cache. The example below illustrates this approach:
+
+```go
+product := beeorm.GetByID[ProductEntity](c, 27749843747733)
+err := beeorm.EditEntityField(c, product, "Name",  "New name")
+if err != nil {
+    return err
+}
+err := beeorm.EditEntityField(c, product, "Price",  123.12)
+if err != nil {
+    return err
+}
+
+c.Flush()  // Executes UPDATE ProductEntity SET Name = "New name", Price = "123.12"
+```
+
+It's important to remember that until the `Flush()` method is executed, the entity field retains its old value, as demonstrated in the following example:
+
+```go
+fmt.Println(product.Name) // "Old value"
+beeorm.EditEntityField(c, product, "Name",  "New value")
+product.Name // "Old value"
+c.Flush()
+product.Name // "New value"
+```
+
+This method provides a more memory-efficient approach when updating specific fields of an entity.
 
 ## Deleting Entities
 

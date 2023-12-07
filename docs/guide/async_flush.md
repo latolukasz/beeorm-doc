@@ -40,6 +40,40 @@ func main() {
 
 In the example above, the `FlushAsync()` method pushes the `INSERT INTO ...` SQL query into a special Redis list and adds entity data into Redis or local cache.
 
+## Consuming the Async Buffer
+
+When incorporating queries into a Redis list, a potential performance bottleneck arises due to the inherent time delay associated with each Redis query. Even if these queries individually take less than a millisecond, adding a substantial number simultaneously can pose challenges in high-traffic applications. To address this, BeeORM introduces an innovative solution by accumulating all queries in a dedicated Golang in-memory list. This consolidated approach significantly enhances performance, especially in scenarios with a high query volume.
+
+To leverage this optimization, it is imperative to execute the `ConsumeAsyncBuffer()` function at the beginning of your application. This function reads queries from the in-memory buffer and efficiently dispatches them to Redis in packs, resulting in a performance boost of several orders of magnitude.
+
+It is essential to note that `ConsumeAsyncBuffer()` returns a special function that should be invoked when your application is shutting down. This ensures that BeeORM has adequate time to transmit any remaining queries to Redis before the application concludes. Additionally, you are required to supply a callback function as an argument, which is executed whenever an error occurs in the communication with Redis (e.g., Redis is temporarily unavailable). While you should log and handle these errors appropriately, `ConsumeAsyncBuffer()` continues to run, patiently waiting until Redis is operational again.
+
+The example below illustrates the integration of the async buffer consumption into a typical application setup:
+
+```go{13-15,18}
+func main() {
+
+    registry := beeorm.NewRegistry()
+    engine, err := registry.Validate()
+    if err != nil {
+        panic(err)
+    }
+    c := engine.NewContext(context.Background())
+
+    ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+    defer stop()
+    
+    stopBuffer := beeorm.ConsumeAsyncBuffer(c, func(err error) {
+        // Report the error in the application's error log
+    })
+    
+    <-ctx.Done()
+    stopBuffer() // Waits until all queries are flushed to Redis
+}
+```
+
+By seamlessly integrating the consumption of the async buffer into your application's lifecycle, you ensure optimal query performance and robust error handling during Redis interactions.
+
 ## Consuming async queries
 
 When you use `FlushAsync()` to commit your changes, it's essential to execute the `ConsumeAsyncFlushEvents` function in your application, 
