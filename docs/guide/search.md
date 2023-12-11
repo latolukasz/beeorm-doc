@@ -92,6 +92,15 @@ If you need the total number of found rows, you can use the `SearchWithCount()` 
 iterator, total := beeorm.SearchWithCount[UserEntity](c, beeorm.NewWhere("Age >= ?", 18), beeorm.NewPager(1, 100))
 ```
 
+You can efficiently search for entities using the search methods offered by the [entity schema](/guide/entity_schema.html) object.
+
+```go
+entitySchema := c.Engine().Registry().EntitySchema("mypackage.UserEntity")
+searchCriteria := beeorm.NewWhere("Age >= ?", 18)
+pagination := beeorm.NewPager(1, 100)
+iterator, total := entitySchema.SearchWithCount(c, searchCriteria, pagination)
+```
+
 ## Searching for a Single Entity
 
 If you need to search for a single entity, you can use the `SearchOne()` function:
