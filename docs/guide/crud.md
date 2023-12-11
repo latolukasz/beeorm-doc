@@ -69,6 +69,16 @@ image2.Url = "image2.png"
 err := c.Flush() // two rows are inserted into MySQL table
 ```
 
+If you are unsure about the entity type, perhaps knowing only the entity name, you can generate a new instance by employing the `NewEntity()` method within the [entity schema](/guide/entity_schema.html) as illustrated below in Go:
+
+```go
+// Acquire the entity schema for "mypackage.UserEntity" from the engine's registry.
+entitySchema := c.Engine().Registry().EntitySchema("mypackage.UserEntity")
+
+// Create a new instance of the UserEntity using the NewEntity method.
+newUser := entitySchema.NewEntity(c)
+```
+
 ### Setting reference value
 
 Here's an example of how to set up a one-to-one reference
