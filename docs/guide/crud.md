@@ -69,13 +69,10 @@ image2.Url = "image2.png"
 err := c.Flush() // two rows are inserted into MySQL table
 ```
 
-If you are unsure about the entity type, perhaps knowing only the entity name, you can generate a new instance by employing the `NewEntity()` method within the [entity schema](/guide/entity_schema.html) as illustrated below in Go:
+If you are unsure about the entity type, perhaps knowing only the entity name, you can generate a new instance by employing the `NewEntity()` method within the _[entity schema](/guide/entity_schema.html)_ as illustrated below in Go:
 
 ```go
-// Acquire the entity schema for "mypackage.UserEntity" from the engine's registry.
 entitySchema := c.Engine().Registry().EntitySchema("mypackage.UserEntity")
-
-// Create a new instance of the UserEntity using the NewEntity method.
 newUser := entitySchema.NewEntity(c)
 ```
 
@@ -136,6 +133,13 @@ You can use the `GetByID()` method:
 ```go
 product := beeorm.GetByID[ProductEntity](c, 27749843747733)
 ```
+
+Furthermore, if you find yourself in a scenario where the entity type is unknown, you can still retrieve the entity by utilizing the `GetByID()` method within the [entity schema](/guide/entity_schema.html):
+```go
+entitySchema := c.Engine().Registry().EntitySchema("mypackage.UserEntity")
+newUser := entitySchema.GetByID(c, 12)
+```
+
 
 ## Getting Entities by ID
 
