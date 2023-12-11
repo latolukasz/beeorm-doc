@@ -313,11 +313,11 @@ err := c.Flush()
 
 ## Cloning entities
 
-Sometimes you may need to create a copy of an entity, make some changes to it, and save it as a new row in the database. You can easily do this using the `beeorm.Clone()` function:
+Sometimes you may need to create a copy of an entity, make some changes to it, and save it as a new row in the database. You can easily do this using the `beeorm.Copy()` function:
 
 ```go{2}
 product := beeorm.GetByID[ProductEntity](c, 27749843747733)
-newProduct := beeorm.Clone(c, product)
+newProduct := beeorm.Copy(c, product)
 Name.Name = "New name"
 engine.Flush()
 ```
