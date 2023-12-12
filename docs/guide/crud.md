@@ -271,6 +271,20 @@ product.Name // "New value"
 
 This method provides a more memory-efficient approach when updating specific fields of an entity.
 
+### Getting entity changes
+
+You can use `IsDirty()` function to get list of changed entity fields:
+
+```go
+fmt.Println(product.Name) // "Old value"
+beeorm.EditEntityField(c, product, "Name",  "New value")
+oldValues, newValues, hasChanges := beeorm.IsDirty[ProductEntity](c, 232)
+if hasChanges {
+    fmt.Printf("%v\n", oldValues) // ["Name": "Old value"]
+    fmt.Printf("%v\n", newValues)  // ["Name": "New value"]
+}
+```
+
 ## Deleting Entities
 
 Deleting entity is very simple. See below example:
