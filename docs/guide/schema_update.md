@@ -22,9 +22,9 @@ func main() {
     if err != nil {
         panic(err)
     }
-    c := engine.NewContext(context.Background())
+    orm := engine.NewORM(context.Background())
     
-    alters := beeorm.GetAlters(c)
+    alters := beeorm.GetAlters(orm)
     for _, alter := range alters {
       alter.SQL // "CREATE TABLE `CategoryEntity` ..."
       alter.Pool // "products"
@@ -62,9 +62,9 @@ See [ignored tables](/guide/data_pools.html#ignored-tables) section how to regis
 You can also use the `beeorm.EntitySchema` object of an entity to update its database schema. Here is an example:
 
 ```go{2}
-c := engine.NewContext(context.Background())
-entitySchema := GetEntitySchema[CategoryEntity](c)
-alters, has := entitySchema.GetSchemaChanges(c)
+orm := engine.NewORM(context.Background())
+entitySchema := GetEntitySchema[CategoryEntity](orm)
+alters, has := entitySchema.GetSchemaChanges(orm)
 if has {
     for _, alter := range alters {
       alter.SQL // "CREATE TABLE `CategoryEntity` ..."
@@ -78,8 +78,8 @@ if has {
 For convenience, you can use the following short versions to execute all the necessary alters:
 
 ```go{3-4}
-c := engine.NewContext(context.Background())
-entitySchema := GetEntitySchema[CategoryEntity](c)
+orm := engine.NewORM(context.Background())
+entitySchema := GetEntitySchema[CategoryEntity](orm)
 entitySchema.UpdateSchema(engine) // executes all alters
 entitySchema.UpdateSchemaAndTruncateTable(engine) // truncates table and executes all alters
 ```
@@ -87,8 +87,8 @@ entitySchema.UpdateSchemaAndTruncateTable(engine) // truncates table and execute
 The `beeorm.EntitySchema` object also provides several useful methods for managing the entity table:
 
 ```go
-c := engine.NewContext(context.Background())
-entitySchema := GetEntitySchema[CategoryEntity](c)
-entitySchema.DropTable(c) // drops the entire table
-entitySchema.TruncateTable(c) // truncates the table
+orm := engine.NewORM(context.Background())
+entitySchema := GetEntitySchema[CategoryEntity](orm)
+entitySchema.DropTable(orm) // drops the entire table
+entitySchema.TruncateTable(orm) // truncates the table
 ```

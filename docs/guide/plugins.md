@@ -108,7 +108,7 @@ func (p *MyPlugin) ValidateEntitySchema(schema beeorm.EntitySchemaSetter) error 
 Subsequently, in your code, you can access entity schema options:
 
 ```go
-schema := GetEntitySchema[MyEntity](c)
+schema := GetEntitySchema[MyEntity](orm)
 value := schema.Option("my-plugin-schema-option")
 ```
 
@@ -138,7 +138,7 @@ func (p *MyPlugin) EntityFlush(schema beeorm.EntitySchema, entity reflect.Value,
     if before == nil && after != nil { // INSERT
         after["CreatedAt"] = now.Format(time.RFC3339)
     }
-    return func(_ beeorm.Context) {
+    return func(_ beeorm.ORM) {
         entity.FieldByName("CreatedAt").Set(reflect.ValueOf(now))
     }, nil
 }

@@ -62,7 +62,7 @@ server to store all log tables (see example above).
 Now it's time to save some data and see our first logs:
 
 ```go
-user := beeorm.NewEntity[UserEntity](c)
+user := beeorm.NewEntity[UserEntity](orm)
 user.Name = "Adam"
 user.Age = 39
 c.Flush()
@@ -99,7 +99,7 @@ Log tables has 6 columns:
 Now let's update our user:
 
 ```go
-user = beeorm.EditEntity(c, user)
+user = beeorm.EditEntity(orm, user)
 user.Age = 18
 c.Flush()
 ```
@@ -119,7 +119,7 @@ SELECT * FROM _LogEntity_default_UserEntity WHERE ID = 2\G;
 At the end we will remove our entity:
 
 ```go
-beeorm.DeleteEntity(c, entity)
+beeorm.DeleteEntity(orm, entity)
 c.Flush()
 ```
 
@@ -137,11 +137,11 @@ SELECT * FROM _LogEntity_default_UserEntity WHERE ID = 3\G;
 
 ## Log meta data
 
-You can  register log meta data in `beeorm.Context`:
+You can  register log meta data in `beeorm.ORM`:
 
 ```go{1}
 c.SetMetaData("ip", "213.22.11.24")
-user := beeorm.NewEntity[UserEntity](c)
+user := beeorm.NewEntity[UserEntity](orm)
 user.Name = "Tom"
 user.Age = 20
 c.Flush()

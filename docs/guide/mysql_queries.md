@@ -10,7 +10,7 @@ engine, err := registry.Validate()
 if err != nil {
     panic(err)
 }
-c := engine.NewContext(context.Background())
+orm := engine.NewORM(context.Background())
 ```
 
 ## MySQL Data Pool
@@ -32,20 +32,20 @@ To run queries that modify data in MySQL, use the `Exec()` method:
 
 ```go{2,6,10,15}
 db := engine.DB(beeorm.DefaultPoolCode)
-result := db.Exec(c, "INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?)", "Berlin", 12)
+result := db.Exec(orm, "INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?)", "Berlin", 12)
 result.LastInsertId() // 1
 result.RowsAffected() // 1
 
-result = db.Exec(c, "INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?),(?, ?)", "Amsterdam", 13, "Warsaw", 14)
+result = db.Exec(orm, "INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?),(?, ?)", "Amsterdam", 13, "Warsaw", 14)
 result.LastInsertId() // 3
 result.RowsAffected() // 2
 
-result = db.Exec(c, "UPDATE `Cities` SET `Name` = ? WHERE ID = ?", "New York", 1)
+result = db.Exec(orm, "UPDATE `Cities` SET `Name` = ? WHERE ID = ?", "New York", 1)
 result.LastInsertId() // 0
 result.RowsAffected() // 1
 
 dbUsers := engine.DB("users")
-dbUsers.Exec(c, "DELETE FROM `Users` WHERE `Status` = ?", "rejected")
+dbUsers.Exec(orm, "DELETE FROM `Users` WHERE `Status` = ?", "rejected")
 result.LastInsertId() // 0
 result.RowsAffected() // 0
 ```
@@ -59,7 +59,7 @@ db := engine.DB(beeorm.DefaultPoolCode)
 where := beeorm.NewWhere("SELECT ID, Name FROM Cities WHERE ID = ?", 12)
 var id uint64
 var name string
-found := db.QueryRow(c, where, &id, &name)
+found := db.QueryRow(orm, where, &id, &name)
 ```
 
 ## Querying Multiple Rows
@@ -70,7 +70,7 @@ To run a query that returns multiple rows, use the `Query()` method:
 db := engine.DB(beeorm.DefaultPoolCode)
 var id uint64
 var name string
-results, close := db.Query(c, "SELECT ID, Name FROM Cities WHERE ID > ? LIMIT 100", 20)
+results, close := db.Query(orm, "SELECT ID, Name FROM Cities WHERE ID > ? LIMIT 100", 20)
 defer close()
 results.Columns() // []string{"ID", "Name"}
 for results.Next() {
@@ -90,10 +90,10 @@ Working with transactions is straightforward:
 db := engine.DB(beeorm.DefaultPoolCode)
 
 func() {
-    tx := db.Begin(c) 
-    defer tx.Rollback(c)
+    tx := db.Begin(orm) 
+    defer tx.Rollback(orm)
     // execute some queries
-    tx.Commit(c)
+    tx.Commit(orm)
 }()
 ```
 
@@ -107,7 +107,7 @@ Using MySQL prepared statements  with BeeORM is straightforward:
 
 ```go
 db := engine.DB(beeorm.DefaultPoolCode)
-preparedStatement, close := db.Prepare(c, "INSERT INTO `UserEntity(`Name`, `Age`)` VALUES(?,?)")
+preparedStatement, close := db.Prepare(orm, "INSERT INTO `UserEntity(`Name`, `Age`)` VALUES(?,?)")
 defer close()
 res := preparedStatement.Exec("Tom", 12)
 res.LastInsertId() // 1
@@ -117,7 +117,7 @@ res.LastInsertId() // 2
 
 ```go
 db := engine.DB(beeorm.DefaultPoolCode)
-preparedStatement, close := db.Prepare(c, "SELECT `ID`, `Name` FROM `UserEntity WHERE `ID` = ?")
+preparedStatement, close := db.Prepare(orm, "SELECT `ID`, `Name` FROM `UserEntity WHERE `ID` = ?")
 defer close()
 id := 0
 name := "
@@ -127,7 +127,7 @@ preparedStatement.QueryRow([]interface{}{2}, &id, &name)
 
 ```go
 db := engine.DB(beeorm.DefaultPoolCode)
-preparedStatement, close := db.Prepare(c, "SELECT `ID`, `Name` FROM `UserEntity WHERE `ID` > ?")
+preparedStatement, close := db.Prepare(orm, "SELECT `ID`, `Name` FROM `UserEntity WHERE `ID` > ?")
 defer close()
 id := 0
 name := "

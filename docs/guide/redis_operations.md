@@ -10,7 +10,7 @@ engine, err := registry.Validate()
 if err != nil {
     panic(err)
 }
-c := engine.NewContext(context.Background())
+orm := engine.NewORM(context.Background())
 ```
 
 ## Accessing the Redis Data Pool
@@ -36,17 +36,17 @@ Using the BeeORM Redis data pool, you can execute all Redis commands except [SEL
 
 ```go
 redisPool := engine.Redis(beeorm.DefaultPoolCode)
-redisPool.Set(c, "my-key", "some-value", 30) // cache for 30 seconds
-value, has := redisPool.Get(c, "my-key")
-pushed := redisPool.LPUsh(c, "another-key", "value-1", "value-2")
+redisPool.Set(orm, "my-key", "some-value", 30) // cache for 30 seconds
+value, has := redisPool.Get(orm, "my-key")
+pushed := redisPool.LPUsh(orm, "another-key", "value-1", "value-2")
 
 testPool := engine.Redis("test")
-testPool.FlushDB(c) // flush redis DB 3
+testPool.FlushDB(orm) // flush redis DB 3
 ```
 
 ## Using Redis Pipelines
 
-To send Redis commands in a [pipeline](https://redis.io/topics/pipelining), create a `RedisPipeLine` object using the `RedisPipeLine()` method of `beeorm.Context`, register the commands you want to send, and then call the `Execute()` method to send all the commands to Redis at once.
+To send Redis commands in a [pipeline](https://redis.io/topics/pipelining), create a `RedisPipeLine` object using the `RedisPipeLine()` method of `beeorm.ORM`, register the commands you want to send, and then call the `Execute()` method to send all the commands to Redis at once.
 
 ```go{1,5,12}
 pipeLine := c.RedisPipeLine(beeorm.DefaultPoolCode)

@@ -14,7 +14,7 @@ engine, err := registry.Validate()
 if err != nil {
     panic(err)
 }
-c := engine.NewContext(context.Background())
+orm := engine.NewORM(context.Background())
 ```
 
 ## Accessing the Local Cache Data Pool
@@ -39,7 +39,7 @@ Use the `Get()` method to retrieve a single value from the local cache:
 
 ```go{2}
 cache := engine.LocalCache(beeorm.DefaultPoolCode)
-value, found := cache.Get(c, "test-key")
+value, found := cache.Get(orm, "test-key")
 if found {
     fmt.Printf("Found: %v\n", value)
 } else {
@@ -53,9 +53,9 @@ Use the `Set()` method to store a single value in the local cache:
 
 ```go{2,4}
 cache := engine.LocalCache(beeorm.DefaultPoolCode)
-cache.Set(c, "test-key", "my value")
+cache.Set(orm, "test-key", "my value")
 cache = engine.LocalCache("test")
-cache.Set(c, "another-key", &SomeStruct{Field: "hello"})
+cache.Set(orm, "another-key", &SomeStruct{Field: "hello"})
 ```
 
 ## Removing Stored Values
@@ -63,7 +63,7 @@ cache.Set(c, "another-key", &SomeStruct{Field: "hello"})
 Use the `Remove()` method to remove one or more values from the local cache:
 
 ```go
-cache.Remove(c, "key1")
+cache.Remove(orm, "key1")
 ```
 
 ## Clearing the Cache
@@ -71,5 +71,5 @@ cache.Remove(c, "key1")
 Use the `Clear()` method to remove all values from the local cache:
 
 ```go
-cache.Clear(c)
+cache.Clear(orm)
 ```

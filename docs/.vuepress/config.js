@@ -49,7 +49,7 @@ export default defineUserConfig({
             'entity_fields',
             'mysql_indexes',
             'engine',
-            'context',
+            'orm',
             'entity_schema',
             'schema_update',
             'crud',
