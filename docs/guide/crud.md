@@ -124,6 +124,14 @@ MySQL Unique Key constraints. This unique approach offers two valuable features,
 which are explained in the following sections: the ability to [retrieve records from cache by their unique keys](/guide/crud.html#getting-entities-by-unique-key)
 and support for [asynchronous flushing](/guide/async_flush.html).
 
+You can also provide optional arguments to force unique index cache recalculation only for specific entities.
+It's very useful when you manually run queries in one table. Then you can run:
+
+```go
+schema := beeorm.GetEntitySchema[UserEntity](orm)
+beeorm.LoadUniqueKeys(orm, false, schema)
+```
+
 ## Getting Entity by ID
 
 There are several ways to get entities from the database when you know the primary key. 

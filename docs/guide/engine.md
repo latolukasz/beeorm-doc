@@ -62,8 +62,8 @@ func main() {
     }
     
     // Returns all registered entities
-    for name, type := range := engine.Registry().GetEntities() {
-        fmt.Printf("%s = %s\n", name, type.Name())
+    for _, schema := range engine.Registry().GetEntities() {
+        fmt.Printf("%s = %s\n", schema.Type().Name, schema.GetTableName())
     }
     
     // Returns all MySQL pools
