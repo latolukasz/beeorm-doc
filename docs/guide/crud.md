@@ -134,6 +134,12 @@ You can use the `GetByID()` method:
 product, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 ```
 
+In case you are sure entity with provided ID exists in database you can use `MustByID()`:
+
+```go
+product := beeorm.MustByID[ProductEntity](orm, 27749843747733) // panics if not found
+```
+
 Furthermore, if you find yourself in a scenario where the entity type is unknown, you can still retrieve the entity by utilizing the `GetByID()` method within the [entity schema](/guide/entity_schema.html):
 ```go
 entitySchema := c.Engine().Registry().EntitySchema("mypackage.UserEntity")
