@@ -217,7 +217,7 @@ This function not only allows you to inspect pending SQL queries but also provid
 ```go
 for _, eventList := range beeorm.ReadAsyncFlushEvents(orm) {
     eventList.ErrorsCount() // Number of problematic SQL queries that were skipped and moved to the errors list
-    for _, event := range eventList.Errors(100) { // Retrieve the 100 oldest SQL queries from the error list
+    for _, event := range eventList.Errors(100, false) { // Retrieve the 100 oldest SQL queries from the error list
         event.SQL // MySQL query, for example, "INSERT INTO TableName(ID, Name) VALUES(?,?)"
         event.QueryAttributes // Query attributes, for example, ["2341234", "Cars"]
         event.Error // Query error, for example, "Unknown column Name"
