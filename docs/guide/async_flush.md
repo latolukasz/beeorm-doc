@@ -132,18 +132,18 @@ c.FlushAsync()
 // but before ConsumeAsyncFlushEvents() consumes events:
 
 // Returns valid data because it's saved in Redis
-category := beeorm.GetByID[CategoryEntity](orm, 1)
+category, found := beeorm.GetByID[CategoryEntity](orm, 1)
 categories := beeorm.GetByIDs[CategoryEntity](orm, 1)
-category := beeorm.GetByUniqueIndex[CategoryEntity](orm, "Name", "cars")
+category, found := beeorm.GetByUniqueIndex[CategoryEntity](orm, "Name", "cars")
 // Returns nil because UserEntity does not use any cache
-user := beeorm.GetByID[UserEntity](orm, 1)
+user, found := beeorm.GetByID[UserEntity](orm, 1)
 users := beeorm.GetByIDs[UserEntity](orm, 1)
 // Returns valid data because unique indexes are always cached in Redis
-user := beeorm.GetByUniqueIndex[UserEntity](orm, "Name", "Tom")
+user, found := beeorm.GetByUniqueIndex[UserEntity](orm, "Name", "Tom")
 
 // Returns nil because search functions never use cache
-category = SearchOne[CategoryEntity](orm, beeorm.NewWhere("Name = ?", "cars"))
-user = SearchOne[UserEntity](orm, beeorm.NewWhere("Name = ?", "Tom"))
+category, found = SearchOne[CategoryEntity](orm, beeorm.NewWhere("Name = ?", "cars"))
+user, found = SearchOne[UserEntity](orm, beeorm.NewWhere("Name = ?", "Tom"))
 ```
 
 Below, you'll find a list of functions that return updated entity data when `FlushAsync()` is executed:

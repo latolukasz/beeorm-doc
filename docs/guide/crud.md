@@ -131,13 +131,13 @@ There are several ways to get entities from the database when you know the prima
 You can use the `GetByID()` method:
 
 ```go
-product := beeorm.GetByID[ProductEntity](orm, 27749843747733)
+product, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 ```
 
 Furthermore, if you find yourself in a scenario where the entity type is unknown, you can still retrieve the entity by utilizing the `GetByID()` method within the [entity schema](/guide/entity_schema.html):
 ```go
 entitySchema := c.Engine().Registry().EntitySchema("mypackage.UserEntity")
-newUser := entitySchema.GetByID(orm, 12)
+user, found := entitySchema.GetByID(orm, 12)
 ```
 
 
@@ -158,7 +158,7 @@ for iterator.Next() {
 If entity holds unique index you can get entity by index name:
 
 ```go
-category := beeorm.GetByUniqueIndex[CategoryEntity](orm, "code", "cars")
+category, found := beeorm.GetByUniqueIndex[CategoryEntity](orm, "code", "cars")
 ```
 
 ## Getting Entities by Reference
@@ -220,7 +220,7 @@ When updating an entity, the process involves retrieving it from the database an
 In this approach, you begin by obtaining the entity from the database and then create a modified copy using the `EditEntity()` function. Subsequently, you adjust the fields of the copy before applying the changes with the `Flush()` method. The following example illustrates the process:
 
 ```go{2}
-product := beeorm.GetByID[ProductEntity](orm, 27749843747733)
+product, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 newVersionOfProduct := beeorm.EditEntity(orm, product)
 newVersionOfProduct.Name = "New name"
 c.Flush()
@@ -229,7 +229,7 @@ c.Flush()
 It is essential to note that after executing `Flush()`, if you intend to edit the same entity again, you must rerun the `EditEntity()` function, as demonstrated in the corrected approach below:
 
 ```go
-product := beeorm.GetByID[ProductEntity](orm, 27749843747733)
+product, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 newVersionOfProduct := beeorm.EditEntity(orm, product)
 newVersionOfProduct.Name = "New name"
 c.Flush() // Executes UPDATE ProductEntity SET Name = "New name"
@@ -246,7 +246,7 @@ This ensures the proper handling of entity updates. However, it's worth noting t
 An alternative method involves using the `EditEntityField()` function to define new values for specific entity fields. Afterward, the `Flush()` method is employed to execute all changes and apply the new values to the entity and its cache. The example below illustrates this approach:
 
 ```go
-product := beeorm.GetByID[ProductEntity](orm, 27749843747733)
+product, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 err := beeorm.EditEntityField(orm, product, "Name",  "New name")
 if err != nil {
     return err
@@ -290,7 +290,7 @@ if hasChanges {
 Deleting entity is very simple. See below example:
 
 ```go
-product := beeorm.GetByID[ProductEntity](orm, 27749843747733)
+product, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 beeorm.DeleteEntity(orm, entity)
 c.Flush()
 ```
@@ -315,11 +315,11 @@ brandBMW := beeorm.NewEntity[BrandEntity](orm)
 brandBMW.Name = "BMW"
 brandBMW.Logo = *beeorm.Reference[ImageEntity]{ID: image.ID}
 
-oldProduct := beeorm.GetByID[ProductEntity](orm, 27749843747733)
+oldProduct, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 newProduct := beeorm.EditEntity(orm, oldProduct)
 newProduct.Category = *beeorm.Reference[CategoryEntity]{ID: categoryCars.ID}
 
-oldImage := beeorm.GetByID[ImageEntity](orm, 277498837423)
+oldImage, found := beeorm.GetByID[ImageEntity](orm, 277498837423)
 beeorm.DelteEntity(orm, oldImage)
 
 err := c.Flush()
@@ -330,7 +330,7 @@ err := c.Flush()
 Sometimes you may need to create a copy of an entity, make some changes to it, and save it as a new row in the database. You can easily do this using the `beeorm.Copy()` function:
 
 ```go{2}
-product := beeorm.GetByID[ProductEntity](orm, 27749843747733)
+product, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 newProduct := beeorm.Copy(orm, product)
 Name.Name = "New name"
 engine.Flush()

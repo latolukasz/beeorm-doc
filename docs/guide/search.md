@@ -107,7 +107,7 @@ If you need to search for a single entity, you can use the `SearchOne()` functio
 
 ```go
 // returns nil if not found
-firstUser := beeorm.SearchOne[UserEntity](orm, beeorm.NewWhere("1 ORDER BY `CreatedAt`"))
+firstUser, found := beeorm.SearchOne[UserEntity](orm, beeorm.NewWhere("1 ORDER BY `CreatedAt`"))
 ```
 
 ::: tip
