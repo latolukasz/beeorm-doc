@@ -113,7 +113,7 @@ Instead of receiving a `beeorm.DuplicatedKeyBindError`, the `Flush()` function r
 BeeORM provides a special function for this purpose:
 
 ```go
-beeorm.LoadUniqueKeys(orm, false) // set true to enable debug mode
+beeorm.LoadUniqueKeys(orm, false)
 ```
 It is considered a good practice to run the above function every time your application starts. 
 When Redis is not flushed, this function executes in a matter of milliseconds. However, if Redis data has been flushed, 
@@ -125,11 +125,11 @@ which are explained in the following sections: the ability to [retrieve records 
 and support for [asynchronous flushing](/guide/async_flush.html).
 
 You can also provide optional arguments to force unique index cache recalculation only for specific entities.
-It's very useful when you manually run queries in one table. Then you can run:
+It's very useful when you manually run SQL queries in MySQL. Then you can run:
 
 ```go
 schema := beeorm.GetEntitySchema[UserEntity](orm)
-beeorm.LoadUniqueKeys(orm, false, schema)
+beeorm.LoadUniqueKeys(orm, true, schema)
 ```
 
 ## Getting Entity by ID
