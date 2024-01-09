@@ -4,7 +4,7 @@ In BeeORM, an Entity is a struct that represents data stored in a database. In t
 
 ## Defining an Entity
 
-To define an Entity struct, you must follow one rule - the first field of the struct should be called `ID` and be type of uint64.
+To define an Entity struct, you must follow one rule - the first field of the struct should be called `ID` and be type of uint (8, 16, 32 or 64).
 
 Here is an example of a simple Entity struct:
 
