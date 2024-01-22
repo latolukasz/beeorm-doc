@@ -23,14 +23,14 @@ type ImageEntity struct {
 type BrandEntity struct {
 	ID   uint64 `orm:"redisCache"`
 	Name string `orm:"required;length=100"`
-	Logo *beeorm.Reference[ImageEntity]
+	Logo beeorm.Reference[ImageEntity]
 }
 
 type ProductEntity struct {
 	ID       uint64 `orm:"redisCache"`
 	Name     string `orm:"required;length=100"`
-	Category *beeorm.Reference[CategoryEntity] `orm:"required"`
-	Brand    *beeorm.Reference[BrandEntity] 
+	Category beeorm.Reference[CategoryEntity] `orm:"required"`
+	Brand    beeorm.Reference[BrandEntity] 
 }
 
 func main() {
@@ -85,7 +85,7 @@ image := beeorm.NewEntity[ImageEntity](orm)
 image.Url = "image1.png"
 brandVolvo := beeorm.NewEntity[BrandEntity](orm)
 brandVolvo.Name = "Volvo"
-brandVolvo.Logo = *beeorm.Reference[ImageEntity]{ID: image.ID}
+brandVolvo.Logo = beeorm.Reference[ImageEntity](image.ID)
 err := c.Flush()
 ```
 
@@ -195,7 +195,7 @@ All you need to do is add the `cached` tag as follows:
 ```go{3}
 type ProductEntity struct {
 	ID       uint64 `orm:"localCache"`
-	Category *beeorm.Reference[CategoryEntity] `orm:"required;cached"`
+	Category beeorm.Reference[CategoryEntity] `orm:"required;cached"`
 	...
 }
 
@@ -327,11 +327,11 @@ image.Url = "image1.png"
 
 brandBMW := beeorm.NewEntity[BrandEntity](orm)
 brandBMW.Name = "BMW"
-brandBMW.Logo = *beeorm.Reference[ImageEntity]{ID: image.ID}
+brandBMW.Logo = beeorm.Reference[ImageEntity](image.ID)
 
 oldProduct, found := beeorm.GetByID[ProductEntity](orm, 27749843747733)
 newProduct := beeorm.EditEntity(orm, oldProduct)
-newProduct.Category = *beeorm.Reference[CategoryEntity]{ID: categoryCars.ID}
+newProduct.Category = beeorm.Reference[CategoryEntity](categoryCars.ID)
 
 oldImage, found := beeorm.GetByID[ImageEntity](orm, 277498837423)
 beeorm.DelteEntity(orm, oldImage)

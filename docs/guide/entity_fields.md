@@ -213,7 +213,7 @@ Here is a summary of the mapping between Go types and MySQL columns:
 
 ## One-to-One References
 
-In BeeORM, you can define a one-to-one reference between two entities by declaring a field with the type of the `*Reference[EntityType]`:
+In BeeORM, you can define a one-to-one reference between two entities by declaring a field with the type of the `Reference[EntityType]`:
 
 ```go{9}
 type CategoryEntity struct {
@@ -224,7 +224,7 @@ type CategoryEntity struct {
 type ProductEntity struct {
     ID       uint64
     Name     string  `orm:"required"`
-    Category *beeorm.Reference[CategoryEntity] `orm:"required"`
+    Category beeorm.Reference[CategoryEntity] `orm:"required"`
 }
 ```
 
@@ -295,7 +295,7 @@ type TestEntity struct {
     ID              uint64
     Alias           [5]string
     Codes           [3]uint32
-    Top10Categories [10]*beeorm.Reference[CategoryEntity] `orm:"required"`
+    Top10Categories [10]beeorm.Reference[CategoryEntity] `orm:"required"`
     Addresses       [3]Address
 }
 ```
