@@ -203,6 +203,33 @@ type ProductEntity struct {
 iterator := beeorm.GetByReference[ProductEntity](orm, "Category", 9934828848843)
 ```
 
+## Getting Entities by Index
+
+You can easily get entities by index name:
+
+```go
+type ProductEntity struct {
+	ID       uint64 `orm:"localCache"`
+	Category beeorm.Reference[CategoryEntity] `orm:"index=ActiveInCategory;required"`
+	Active   bool `orm:"required"`            `orm:"index=ActiveInCategory:1"`
+	...
+}
+
+iterator := beeorm.GetByIndex[ProductEntity](orm, "ActiveInCategory", 9934828848843, true)
+```
+
+You can also add `cached` tag to keep rows in cache:
+
+```go{3,4}
+type ProductEntity struct {
+	ID       uint64 `orm:"localCache"`
+	Category beeorm.Reference[CategoryEntity] `orm:"index=ActiveInCategory;required;cached"`
+	Active   bool `orm:"required"`            `orm:"index=ActiveInCategory:1;cached"`
+	...
+}
+
+```
+
 ## Getting All Entities
 
 You can get all entities from a table also:
