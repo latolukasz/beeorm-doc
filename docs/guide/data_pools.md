@@ -82,7 +82,7 @@ To use the cache, you simply need to specify the pool name and the maximum numbe
 // default pool with max 100 000 values
 registry.RegisterLocalCache(beeorm.DefaultPoolCode, 100000)
 // pool "last_searches" with no limits
-registry.RegisterLocalCache(beeorm.DefaultPoolCode, 0)
+registry.RegisterLocalCache("last_searches", 0)
 ```
 
 ```yml
