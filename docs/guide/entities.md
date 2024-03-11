@@ -22,7 +22,7 @@ In order to use an entity in beeorm, it must be registered in the Registry:
 
 ```go{2}
 registry := beeorm.NewRegistry()
-registry.RegisterEntity(entity.UserEntity()) 
+registry.RegisterEntity(&entity.UserEntity{}) 
 ```
 
 ## Defining data pools
