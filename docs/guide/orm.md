@@ -77,7 +77,7 @@ orm.SetMetaData("admin_user_id", 34)
 orm.EnableQueryDebug()
 
 orm2 := engine.NewORM(context.Background())
-orm2.GetMetaData(orm.GetMetaData())
+orm2.SetMetaData(orm.GetMetaData())
 orm2.EnableQueryDebug()
 ```
 
