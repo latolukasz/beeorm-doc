@@ -50,7 +50,7 @@ type CarEntity struct {
 	ID    uint64 `orm:"my-tag-1=value-1"` 
 	Color string `orm:"my-tag-2=value-2;my-tag-3"` 
 }
-entitySchema := GetEntitySchema[CarEntity](orm)
+entitySchema := beeorm.GetEntitySchema[CarEntity](orm)
 entitySchema.GetTag("ORM", "my-tag-1", "", "") // value-1
 entitySchema.GetTag("Color", "my-tag-2", "", "") // value-2
 entitySchema.GetTag("Color", "my-tag-3", "yes", "") // yes

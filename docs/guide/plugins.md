@@ -108,7 +108,7 @@ func (p *MyPlugin) ValidateEntitySchema(schema beeorm.EntitySchemaSetter) error 
 Subsequently, in your code, you can access entity schema options:
 
 ```go
-schema := GetEntitySchema[MyEntity](orm)
+schema := beeorm.GetEntitySchema[MyEntity](orm)
 value := schema.Option("my-plugin-schema-option")
 ```
 

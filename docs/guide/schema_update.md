@@ -63,7 +63,7 @@ You can also use the `beeorm.EntitySchema` object of an entity to update its dat
 
 ```go{2}
 orm := engine.NewORM(context.Background())
-entitySchema := GetEntitySchema[CategoryEntity](orm)
+entitySchema := beeorm.GetEntitySchema[CategoryEntity](orm)
 alters, has := entitySchema.GetSchemaChanges(orm)
 if has {
     for _, alter := range alters {
@@ -79,7 +79,7 @@ For convenience, you can use the following short versions to execute all the nec
 
 ```go{3-4}
 orm := engine.NewORM(context.Background())
-entitySchema := GetEntitySchema[CategoryEntity](orm)
+entitySchema := beeorm.GetEntitySchema[CategoryEntity](orm)
 entitySchema.UpdateSchema(engine) // executes all alters
 entitySchema.UpdateSchemaAndTruncateTable(engine) // truncates table and executes all alters
 ```
@@ -88,7 +88,7 @@ The `beeorm.EntitySchema` object also provides several useful methods for managi
 
 ```go
 orm := engine.NewORM(context.Background())
-entitySchema := GetEntitySchema[CategoryEntity](orm)
+entitySchema := beeorm.GetEntitySchema[CategoryEntity](orm)
 entitySchema.DropTable(orm) // drops the entire table
 entitySchema.TruncateTable(orm) // truncates the table
 ```
