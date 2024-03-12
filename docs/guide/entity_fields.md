@@ -257,7 +257,7 @@ type CompanyEntity struct {
 
 You can also nest structs within structs to any desired level of complexity.
 
-When working with structs in BeeORM, a MySQL column is created for each field in the struct, with the field name added as a suffix to the column name. For example, the field HomeAddressCountry would be stored in a column named HomeAddressCountry varchar(255).
+When working with structs in BeeORM, a MySQL column is created for each field in the struct, with the field name added as a suffix to the column name. For example, the field `HomeAddress.Country` would be stored in a column named HomeAddressCountry varchar(255).
 
 ## Anonymous Subfields
 
