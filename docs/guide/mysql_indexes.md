@@ -79,7 +79,7 @@ Note that the LastName field is included in both the name and occupation indexes
 There may be cases where it is not possible to define indexes using field tags, such as when a struct field itself contains multiple fields that need to be included in an index. For example:
 
 ```go
-struct Address {
+type Address struct {
    Country    string
    City       string
    Street     string

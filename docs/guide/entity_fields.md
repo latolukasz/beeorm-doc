@@ -235,7 +235,7 @@ In the example above, BeeORM will create a `Category bigint NOT NULL` column in 
 It is often useful to divide entity fields into logical groups, as this can help improve code readability and facilitate reuse of field definitions in other entities. In BeeORM, you can do this by creating a struct for the subfields and using it as the type of a field. For example:
 
 ```go
-struct Address {
+type Address struct  {
    Country    string
    City       string
    Street     string
@@ -264,7 +264,7 @@ When working with structs in BeeORM, a MySQL column is created for each field in
 In addition to using named structs as subfields, you can also define fields using anonymous structs. For example:
 
 ```go{11}
-struct Address {
+type Address struct  {
    Country    string
    City       string
    Street     string
@@ -285,7 +285,7 @@ When using anonymous structs in BeeORM, the fields are represented in the MySQL 
 You can also utilize Go arrays to group fields. Take a look at the example below:
 
 ```go{9-12}
-struct Address {
+type Address struct  {
     City       string
     Street     string
     PostalCode string
