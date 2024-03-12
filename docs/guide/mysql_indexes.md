@@ -101,7 +101,7 @@ KEY `homeStreet` (`HomeAddressStreet`),
 KEY `workAddress` (`WorkAddressCity`, `WorkAddressStreet`),
 ```
 
-To define these indexes in BeeORM, you can use tag attributes on the `beeorm.ORM` field:
+To define these indexes in BeeORM, you can use tag attributes on the `ID` field:
 
 ```go{2}
 type UserEntity struct {
