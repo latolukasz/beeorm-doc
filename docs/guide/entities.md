@@ -1,15 +1,13 @@
 # Entities
 
-In FluxaORM v2, an Entity is a Go struct that represents data stored in a MySQL database table. You define the struct, register it with a Registry, validate the configuration, and then run code generation to produce typed Provider and Entity code with getters, setters, and query methods.
+An entity is a plain Go struct that describes one MySQL table. You write the struct, register it in a [Registry](/guide/registry.html), call `Validate()` and run [code generation](/guide/code_generation.html). The generator produces a typed entity type and a Provider with getters, setters and query methods; the struct itself is never used at runtime.
 
 ## Defining an Entity
 
-To define an entity, create a Go struct with an `ID` field of type `uint64` as the first field:
+The only structural requirements are a field named `ID` of type `uint64` that is the **first** field of the struct, and supported [field types](/guide/entity_fields.html). No embedded marker type or interface is needed:
 
 ```go
-package entity
-
-import "github.com/latolukasz/fluxaorm/v2"
+package model
 
 type UserEntity struct {
     ID    uint64
@@ -19,34 +17,38 @@ type UserEntity struct {
 }
 ```
 
-Every entity must have an `ID uint64` field. This field maps to the primary key in the corresponding MySQL table.
+`Validate()` rejects a struct that breaks these rules (the two `ID` errors are wrapped as `invalid entity struct '<type>': ...`):
 
-## Registering and Validating Entities
+| Problem | Error |
+|---------|-------|
+| `ID` missing or not the first field | `field ID on position 1 is missing` |
+| `ID` is not `uint64` | `ID column must be uint64, got <type> on <entity>` |
+| Unsupported field type | `<entity> field <name> type <type> is not supported` |
 
-Before you can use entities, you must register them with a Registry and validate the configuration:
+The `ID` column becomes `` `ID` bigint unsigned NOT NULL `` and the table's `PRIMARY KEY`. It must be `uint64` because IDs are 63-bit snowflake values (see below).
+
+## Registering and Validating
+
+Register pools and entities, validate, and generate:
 
 ```go
 package main
 
-import "github.com/latolukasz/fluxaorm/v2"
+import (
+    "github.com/latolukasz/fluxaorm/v2"
+)
 
 func main() {
     registry := fluxaorm.NewRegistry()
-
-    // Register data pools
-    registry.RegisterMySQL("user:password@tcp(localhost:3306)/mydb", fluxaorm.DefaultPoolCode, nil)
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/app", fluxaorm.DefaultPoolCode, &fluxaorm.MySQLOptions{})
     registry.RegisterRedis("localhost:6379", 0, fluxaorm.DefaultPoolCode, nil)
 
-    // Register entities
-    registry.RegisterEntity(UserEntity{}, ProductEntity{}, CategoryEntity{})
+    registry.RegisterEntity(&UserEntity{}, &ProductEntity{}, &CategoryEntity{})
 
-    // Validate configuration and create engine
     engine, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-
-    // Generate typed code
     err = fluxaorm.Generate(engine, "./entities")
     if err != nil {
         panic(err)
@@ -54,111 +56,46 @@ func main() {
 }
 ```
 
-The workflow is:
+`RegisterEntity(entity ...any)` accepts values or pointers; pointers are dereferenced. Entities are processed in sorted type-name order, so validation errors are deterministic.
 
-1. Create a `Registry` with `fluxaorm.NewRegistry()`
-2. Register MySQL and Redis pools
-3. Register entity structs with `registry.RegisterEntity(...)`
-4. Call `registry.Validate()` to verify configuration and create an Engine
-5. Call `fluxaorm.Generate(engine, outputDir)` to generate typed code
+### Generated names
 
-After `Generate()` runs, you get a typed Provider and Entity for each registered struct. For example, registering `UserEntity` produces:
+Generated names derive from the **table name**, not from the Go struct name: the table name is split on `_`, every part is capitalised and the parts are joined. Without a `table` tag the table name equals the struct name, so `UserEntity` produces:
 
-- `entities.UserEntityProvider` -- a Provider variable with methods like `New()`, `GetByID()`, `SearchMany()`, `SearchOne()`, etc.
-- `entities.UserEntity` -- a generated Entity type with `GetName()`, `SetName()`, `GetEmail()`, `SetEmail()`, etc.
+| Generated | Name |
+|-----------|------|
+| Entity type | `entities.UserEntity` |
+| Provider variable | `entities.UserEntityProvider` |
+| Typed field descriptors | `entities.UserEntityProvider.Fields.Name`, `.Fields.Age`, ... |
+| Enum types | `enums.<Name>` in the `enums/` sub-package |
 
-## MySQL Pool
+With `orm:"table=user_accounts"` the same struct generates `entities.UserAccounts` and `entities.UserAccountsProvider`. See [Code Generation](/guide/code_generation.html) for the full generated API.
 
-By default, every entity is connected to the `default` MySQL pool. You can specify a different pool using the `orm:"mysql=pool_name"` tag on the `ID` field:
+The generated type implements `fluxaorm.Entity`; `ctx.Save`, `ctx.Delete`, `ctx.ForceDelete` and `ctx.Reload` accept any number of them (see [CRUD](/guide/crud.html)). Your own struct never implements anything.
+
+### ID assignment
+
+A new entity gets its ID immediately in `Provider.New(ctx)`, which calls `ctx.Engine().NextID()` - not on `Save`. IDs come from an in-process snowflake generator (41 bits of milliseconds since 2024-01-01, 11 bits node, 11 bits sequence) that never touches MySQL or Redis. Every running process must use a distinct node ID (`engine.SetNodeID(node)`, default `0`); see [Engine](/guide/engine.html).
 
 ```go
-type UserEntity struct {
-    ID uint64 // uses the "default" pool
-}
+user := entities.UserEntityProvider.New(ctx) // user.GetID() is already set
+user.SetName("Alice").SetEmail("alice@example.com")
+err := ctx.Save(user)
+```
 
+## Entity-Level Tags
+
+Entity-level options are `orm` tags placed on the `ID` field. Several tags are combined with `;`:
+
+```go
 type OrderEntity struct {
-    ID uint64 `orm:"mysql=sales"` // uses the "sales" pool
+    ID uint64 `orm:"table=orders;mysql=sales;redisCache;cdc"`
 }
 ```
 
-Make sure to register the pool in the Registry:
+### Table name
 
-```go
-registry := fluxaorm.NewRegistry()
-registry.RegisterMySQL("user:password@tcp(localhost:3306)/users", fluxaorm.DefaultPoolCode, nil)
-registry.RegisterMySQL("user:password@tcp(localhost:3307)/sales", "sales", nil)
-registry.RegisterEntity(UserEntity{}, OrderEntity{})
-```
-
-## Redis Cache
-
-To protect MySQL from unnecessary queries, entities can be automatically cached in Redis. Enable Redis caching with the `orm:"redisCache"` tag on the `ID` field:
-
-```go
-type UserEntity struct {
-    ID uint64 `orm:"redisCache"` // cache in the "default" Redis pool
-}
-
-type OrderEntity struct {
-    ID uint64 `orm:"redisCache=orders"` // cache in the "orders" Redis pool
-}
-```
-
-When Redis caching is enabled, FluxaORM automatically stores entity data in Redis after loading it from MySQL. Subsequent reads are served from Redis, significantly reducing MySQL load.
-
-::: tip
-To optimize Redis as a cache, set the `maxmemory` configuration to a value below the machine's memory size and enable the `allkeys-lru` eviction policy. Consider disabling persistence -- if data is lost, FluxaORM automatically refills it from MySQL.
-:::
-
-### Cache TTL
-
-By default, Redis cache entries never expire. You can set a TTL (in seconds) using the `ttl` tag:
-
-```go
-type UserEntity struct {
-    ID uint64 `orm:"redisCache;ttl=30"` // Cache for 30 seconds
-}
-```
-
-The TTL is reset every time the data is updated.
-
-## Local In-Memory Cache
-
-To cache entity data in local memory, use the `localCache` tag. You can optionally specify a maximum cache size:
-
-```go
-type CategoryEntity struct {
-    ID uint64 `orm:"localCache"` // unlimited local cache
-}
-
-type ProductEntity struct {
-    ID uint64 `orm:"localCache=1000"` // cache up to 1000 entities
-}
-```
-
-### Using Both Redis and Local Cache
-
-You can enable both local and Redis caching on the same entity:
-
-```go
-type CategoryEntity struct {
-    ID uint64 `orm:"localCache;redisCache"`
-}
-```
-
-::: tip
-Enabling both local and Redis caching is highly recommended for frequently accessed entities. When data is requested:
-
-1. FluxaORM first checks the local cache
-2. If not found locally, it checks Redis
-3. If not in Redis either, it queries MySQL, then populates both caches
-
-This multi-layer caching greatly reduces MySQL load, especially when running on multiple servers or with autoscaling.
-:::
-
-## Custom Table Name
-
-By default, FluxaORM uses the struct name as the MySQL table name. Override this with the `table` tag:
+By default the table is named after the struct (`UserEntity`). Override it with `table=`:
 
 ```go
 type UserEntity struct {
@@ -166,9 +103,64 @@ type UserEntity struct {
 }
 ```
 
-## Soft Deletes (Fake Delete)
+### MySQL pool
 
-To enable soft deletes, add a `FakeDelete bool` field to your entity:
+Every entity lives in the `default` MySQL pool unless `mysql=` names another registered pool. A missing pool fails validation with `mysql pool '<code>' not found`:
+
+```go
+type OrderEntity struct {
+    ID uint64 `orm:"mysql=sales"`
+}
+
+registry.RegisterMySQL("user:password@tcp(localhost:3306)/app", fluxaorm.DefaultPoolCode, &fluxaorm.MySQLOptions{})
+registry.RegisterMySQL("user:password@tcp(localhost:3307)/sales", "sales", &fluxaorm.MySQLOptions{})
+```
+
+### Redis row cache
+
+`redisCache` caches rows loaded by ID in Redis. A bare tag uses the `default` Redis pool, `redisCache=orders` uses pool `orders` (`redis pool '<code>' not found` otherwise). Every cached row expires after `EntityCacheTTL` (one hour); writes invalidate keys, they never refresh them. Details, key layout and invalidation are in [Redis Cache](/guide/redis_cache.html).
+
+```go
+type UserEntity struct {
+    ID uint64 `orm:"redisCache"`
+}
+```
+
+### Redis Search
+
+Fields tagged `searchable` (optionally `sortable`) are indexed in Redis Search. The index lives in the `default` Redis pool unless `redisSearch=pool` is set on `ID` (`redis pool '<code>' not found for redisSearch in entity '<name>'` when the pool is missing). See [Redis Search](/guide/redis_search.html).
+
+```go
+type ProductEntity struct {
+    ID    uint64  `orm:"redisSearch=search"`
+    Name  string  `orm:"required;searchable"`
+    Price float64 `orm:"searchable;sortable"`
+}
+```
+
+### Change events: `cdc` and `outbox`
+
+`cdc` publishes an insert/update/delete event to NATS JetStream after every committed write of the entity. `outbox` additionally stores the event as a row of `fluxaorm.CDCOutboxEntity` inside the same transaction, so it can be relayed if the publish fails; `outbox` without `cdc` keeps a change log only.
+
+```go
+type OrderEntity struct {
+    ID uint64 `orm:"cdc;outbox"`
+}
+```
+
+Consumers are declared with `fluxaorm.ConsumerDef`, not on the entity. An `outbox` entity requires `fluxaorm.CDCOutboxEntity{}` to be registered on the **same** MySQL pool; `Validate()` otherwise fails with `entity '<name>' is tagged `orm:"outbox"` but fluxaorm.CDCOutboxEntity is not registered; add registry.RegisterEntity(fluxaorm.CDCOutboxEntity{})` or `entity '<name>' is tagged `orm:"outbox"` on mysql pool '<a>' but the outbox table is on pool '<b>'; the outbox row would not be in the same transaction`. See [Entity Events](/guide/entity_events.html) and [Outbox](/guide/outbox.html).
+
+::: warning Migration note
+The old `orm:"dirty=..."` tag is rejected at `Validate()`: `entity '<name>' uses `orm:"dirty=..."`, which no longer exists; tag it `orm:"cdc"` and declare the entity on a fluxaorm.ConsumerDef instead`.
+:::
+
+## Well-Known Fields
+
+Some fields are recognised by name and type and get special behaviour.
+
+### `FakeDelete bool` - soft delete
+
+When the struct has a top-level field `FakeDelete bool`, `ctx.Delete(entity)` marks the row instead of removing it and `ctx.ForceDelete(entity)` removes it for real. The column is stored as `bigint unsigned` holding the row's own ID, which lets the ORM append it to every unique index. See [Fake Delete](/guide/fake_delete.html).
 
 ```go
 type ProductEntity struct {
@@ -178,187 +170,56 @@ type ProductEntity struct {
 }
 ```
 
-When `FakeDelete` is present, calling `entity.Delete()` sets the `FakeDelete` column to `1` instead of removing the row from MySQL. All generated search methods (`SearchMany`, `SearchOne`, `SearchManyWithTotal`) automatically filter out soft-deleted rows unless you explicitly include them using `FilterWhere(fluxaorm.NewWhere("1").WithFakeDeletes())`.
+### `CreatedAt` / `UpdatedAt time.Time` - timestamps
 
-## Automatic Timestamps
+Fields named `CreatedAt` and `UpdatedAt` of type `time.Time` are always `datetime` columns (the `time` tag is implied) and are maintained automatically:
 
-FluxaORM automatically manages `CreatedAt` and `UpdatedAt` fields if they are defined as `time.Time`:
+- on INSERT both are set to `time.Now().UTC().Truncate(time.Second)` if they are zero - a value you set yourself is kept;
+- on UPDATE `UpdatedAt` is always overwritten.
+
+Both are excluded from the change maps passed to after-update handlers and change events.
 
 ```go
 type UserEntity struct {
     ID        uint64
-    Name      string    `orm:"required"`
+    Name      string `orm:"required"`
     CreatedAt time.Time
     UpdatedAt time.Time
 }
 ```
 
-- `CreatedAt` is automatically set to the current UTC time on insert (unless you set it explicitly before flushing)
-- `UpdatedAt` is automatically set to the current UTC time on both insert and update
+## References
 
-## References (Foreign Keys)
-
-Use `fluxaorm.Reference[T]` to define a foreign key relationship to another entity:
-
-```go
-type CategoryEntity struct {
-    ID   uint64
-    Name string `orm:"required"`
-}
-
-type ProductEntity struct {
-    ID       uint64
-    Name     string                                 `orm:"required"`
-    Category fluxaorm.Reference[CategoryEntity]      `orm:"required"`
-}
-```
-
-The `Category` field creates a `Category bigint NOT NULL` column in the `ProductEntity` table. After code generation, you access the reference ID via `entity.GetCategoryID()` and set it via `entity.SetCategory(id)`.
-
-To make a reference optional (nullable), omit the `orm:"required"` tag:
+Relations to other entities are declared with `fluxaorm.Reference[T]` (one ID, `bigint unsigned`) and `fluxaorm.References[T]` (a JSON array of IDs in a `text` column). A plain pointer to a registered entity is **not** supported.
 
 ```go
 type ProductEntity struct {
     ID       uint64
-    Name     string                                 `orm:"required"`
-    Category fluxaorm.Reference[CategoryEntity]      // nullable reference
+    Category fluxaorm.Reference[CategoryEntity]  `orm:"required"`
+    Tags     fluxaorm.References[TagEntity]
 }
 ```
 
-For an optional reference, the getter returns `uint64`: `entity.GetCategoryID()` returns `0` when no reference is set.
+The generator emits `GetCategoryID()`, `SetCategory(id)`, `GetCategory(ctx)`, `MustGetCategory(ctx)`, `GetTagsIDs()`, `SetTagsIDs(ids)` and `GetTags(ctx)`. Column types and accessors are described in [Entity Fields](/guide/entity_fields.html).
 
-## Enums and Sets
+## Indexes
 
-Define inline enums and sets directly in the struct tag without implementing any interface:
+Unique and non-unique indexes are declared by implementing `UniqueIndexes() [][]string`, `CachedUniqueIndexes() [][]string` and `Indexes() [][]string` on the struct. Index names are generated from the column names. See [MySQL Indexes](/guide/mysql_indexes.html).
 
 ```go
-type OrderEntity struct {
-    ID     uint64
-    Status string `orm:"enum=pending,processing,shipped,delivered;required"`
-    Tags   string `orm:"set=sale,featured,new;required"`
+func (e UserEntity) UniqueIndexes() [][]string {
+    return [][]string{{"Email"}}
 }
 ```
 
-The `enum` tag creates a MySQL `ENUM` column, and the `set` tag creates a MySQL `SET` column.
+## Redis Key Namespaces
 
-### Shared Enum Types
-
-When multiple fields use the same set of values, use `enumName` to share a single generated type:
-
-```go
-type OrderEntity struct {
-    ID             uint64
-    Status         string `orm:"enum=pending,processing,shipped,delivered;required"`
-    PreviousStatus string `orm:"enum=pending,processing,shipped,delivered;enumName=Status"`
-}
-```
-
-You can also share enums **across entities** by defining the values in one entity and referencing them from others:
-
-```go
-type OrderEntity struct {
-    ID     uint64
-    Status string `orm:"enum=pending,processing,shipped,delivered;required;enumName=OrderStatus"`
-}
-
-type OrderLogEntity struct {
-    ID     uint64
-    Status string `orm:"enum;enumName=OrderStatus"` // no values needed — references OrderEntity
-}
-```
-
-This works the same way for sets: `orm:"set;enumName=TypeName"` references a definition from another entity. Values only need to be defined once — when you add a new value, only the defining entity needs to change.
-
-Both fields share the generated `enums.Status` type. The code generator creates enum types in an `enums/` subdirectory with typed constants:
-
-```go
-// Generated in enums/Status.go
-package enums
-
-type Status string
-var StatusList = struct {
-    Pending    Status
-    Processing Status
-    Shipped    Status
-    Delivered  Status
-}{
-    Pending:    "pending",
-    Processing: "processing",
-    Shipped:    "shipped",
-    Delivered:  "delivered",
-}
-```
-
-After generation, you use the typed enum values:
-
-```go
-order := entities.OrderEntityProvider.New(ctx)
-order.SetStatus(enums.StatusList.Pending)
-
-// For sets, pass variadic values
-order.SetTags(enums.StatusList.Sale, enums.StatusList.Featured)
-```
-
-## Redis Search
-
-To enable full-text and numeric search via Redis Search, mark individual fields as `searchable` and optionally `sortable`. FluxaORM will automatically use the `default` Redis pool. To use a different pool, add `orm:"redisSearch=pool"` on the `ID` field:
-
-```go
-type ProductEntity struct {
-    ID    uint64
-    Name  string  `orm:"required;searchable"`
-    Price float64 `orm:"searchable;sortable"`
-    Stock uint32  `orm:"searchable;sortable"`
-}
-```
-
-After code generation, the Provider includes Redis Search methods like `SearchManyInRedis()`, `SearchOneInRedis()`, and `SearchManyInRedisWithTotal()`, along with a `FieldsRedisSearch` struct for type-safe query building.
-
-## Unique Indexes
-
-Define unique indexes by implementing the `EntityUniqueIndexes` interface on your entity struct. The method returns a map where each key is the index name and the value is an ordered slice of column names:
-
-```go
-type UserEntity struct {
-    ID    uint64
-    Name  string `orm:"required"`
-    Age   uint8
-    Email string `orm:"required"`
-}
-
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "NameAge": {"Name", "Age"},
-        "Email":   {"Email"},
-    }
-}
-```
-
-This creates two unique indexes: a composite `NameAge` index on `(Name, Age)` and a single-column `Email` index. After code generation, you can look up entities by unique indexes using `SearchOne()` -- it automatically detects cached unique indexes and uses the optimized lookup path:
-
-```go
-user, found, err := entities.UserEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(
-        entities.UserEntityProvider.Fields.Name.Is("Alice"),
-        entities.UserEntityProvider.Fields.Age.Eq(30),
-    ),
-)
-
-user, found, err = entities.UserEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(
-        entities.UserEntityProvider.Fields.Email.Is("alice@example.com"),
-    ),
-)
-```
-
-See the [MySQL Indexes](/guide/mysql_indexes.html) page for full details on unique indexes, non-unique indexes, and caching.
+Every entity with `redisCache` or cached unique indexes owns a Redis key prefix derived from its MySQL pool and table name, and every Redis Search entity owns a hash prefix. `Validate()` refuses two entities whose prefixes collide: `redis key prefix "<prefix>" is claimed by both <A> (<kind>) and <B> (<kind>); rename one of the tables`.
 
 ## Complete Example
 
-Here is a complete example showing multiple entities with various features:
-
 ```go
-package entity
+package model
 
 import (
     "time"
@@ -367,12 +228,16 @@ import (
 )
 
 type CategoryEntity struct {
-    ID   uint64 `orm:"localCache;redisCache"`
+    ID   uint64 `orm:"redisCache"`
     Name string `orm:"required"`
 }
 
+func (e CategoryEntity) UniqueIndexes() [][]string {
+    return [][]string{{"Name"}}
+}
+
 type UserEntity struct {
-    ID        uint64 `orm:"redisCache"`
+    ID        uint64 `orm:"redisCache;cdc"`
     Name      string `orm:"required"`
     Email     string `orm:"required"`
     Age       uint8
@@ -381,11 +246,19 @@ type UserEntity struct {
     UpdatedAt time.Time
 }
 
+func (e UserEntity) UniqueIndexes() [][]string {
+    return [][]string{{"Email"}}
+}
+
+func (e UserEntity) CachedUniqueIndexes() [][]string {
+    return [][]string{{"Email"}}
+}
+
 type ProductEntity struct {
-    ID         uint64    `orm:"redisCache"`
-    Name       string    `orm:"required"`
-    Price      float64   `orm:"decimal=10,2;unsigned"`
-    Status     string    `orm:"enum=draft,active,archived;required"`
+    ID         uint64  `orm:"table=products;redisCache"`
+    Name       string  `orm:"required;searchable"`
+    Price      float64 `orm:"decimal=10,2;unsigned;searchable;sortable"`
+    Status     string  `orm:"enum=draft,active,archived;required"`
     Category   fluxaorm.Reference[CategoryEntity] `orm:"required"`
     FakeDelete bool
     CreatedAt  time.Time
@@ -395,29 +268,28 @@ type ProductEntity struct {
 
 ## Struct Tags Reference
 
-All `orm` struct tags available in v2:
+Tags use the `orm` key, are separated by `;`, and a tag without `=value` is a boolean flag. Unknown tags are ignored silently, so check spelling carefully.
 
-| Tag | Description |
-|-----|-------------|
-| `mysql=pool` | Use a specific MySQL pool (on `ID` field) |
-| `table=name` | Custom MySQL table name (on `ID` field) |
-| `redisCache` / `redisCache=pool` | Enable Redis entity cache (on `ID` field) |
-| `localCache` / `localCache=size` | Enable local in-memory cache (on `ID` field) |
-| `ttl=seconds` | Redis cache TTL in seconds (on `ID` field) |
-| `redisSearch=pool` | Override Redis pool for Search indexing (on `ID` field); defaults to `default` when `searchable` fields exist |
-| `required` | NOT NULL in MySQL; for strings, prevents empty default |
-| `enum=a,b,c` | MySQL ENUM column with specified values |
-| `enum` | Reference a shared enum defined in another entity (requires `enumName`) |
-| `set=a,b,c` | MySQL SET column with specified values |
-| `set` | Reference a shared set defined in another entity (requires `enumName`) |
-| `enumName=TypeName` | Share a generated enum type across fields or entities |
-| `time` | Map `time.Time` to `datetime` instead of `date` |
-| `length=N` | Set varchar length (default 255) |
-| `length=max` | Use `mediumtext` instead of varchar |
-| `decimal=X,Y` | Use MySQL `decimal(X,Y)` for floats |
-| `unsigned` | Unsigned float column |
-| `mediumint` | Use MySQL `mediumint` for int32/uint32 |
-| `debezium` / `debezium=pool` | Enable Debezium CDC streaming to Kafka (on `ID` field); defaults to default Kafka pool |
-| `searchable` | Include field in Redis Search index |
-| `sortable` | Make field sortable in Redis Search |
-| `ignore` | Do not store this field in MySQL |
+| Tag | Placement | Value | Effect | Default |
+|-----|-----------|-------|--------|---------|
+| `table=name` | `ID` | table name | MySQL table name; also drives generated type names | struct name |
+| `mysql=pool` | `ID` | pool code | MySQL pool of the entity (bare `mysql` means `default`) | `default` |
+| `redisCache` / `redisCache=pool` | `ID` | pool code | Enable the Redis row cache in that pool | off; bare = `default` |
+| `ttl=N` | `ID` | integer | Parsed and validated (`invalid ttl '<v>' for entity '<name>'`) but not used by any read path; rows always expire after `EntityCacheTTL` (1 hour) | - |
+| `redisSearch` / `redisSearch=pool` | `ID` | pool code | Redis pool of the Redis Search index (only relevant with `searchable` fields) | `default` |
+| `cdc` | `ID` | flag | Publish entity change events to NATS | off |
+| `outbox` | `ID` | flag | Store change events in `CDCOutboxEntity` within the write transaction | off |
+| `required` | field | flag | `NOT NULL` with a non-null default; for strings, enums, sets, references, JSON and blobs it decides nullability | nullable where applicable |
+| `length=N` / `length=max` | `string` | int <= 65535 or `max` | `varchar(N)` or `mediumtext` (`invalid max string: <v>` otherwise) | `255` |
+| `enum=a,b,c` / `enum` | `string` | csv or flag | MySQL `ENUM`; bare `enum` references a shared definition and requires `enumName` | - |
+| `set=a,b,c` / `set` | `string` | csv or flag | MySQL `SET`; bare `set` requires `enumName` | - |
+| `enumName=Name` | `string` | identifier | Name of the generated enum type; alone it references an enum defined elsewhere | `<EntityPrefix><Field>` |
+| `time` | `time.Time`, `*time.Time` | flag | `datetime` instead of `date` (implied for `CreatedAt`/`UpdatedAt`) | `date` |
+| `decimal=X,Y` | `float32`, `float64` | two ints | `decimal(X,Y)` column | `float` / `double` |
+| `unsigned` | `float32`, `float64` | flag | Append ` unsigned` to the float column (ignored on integers) | signed |
+| `precision=N` | `float32`, `float64` | int | Number of decimals used by the setter's dirty check, by the Redis row cache when formatting the value, and by Redis Search; no effect on the column | `8` (`float64`), `4` (`float32`), `Y` of `decimal=X,Y` |
+| `mediumint` | `int32`, `uint32` | flag | `mediumint` / `mediumint unsigned` | `int` |
+| `mediumblob` / `longblob` | `[]uint8` | flag | Blob size | `blob` |
+| `searchable` | field | flag | Include the field in the Redis Search index | off |
+| `sortable` | field | flag | Make the field `SORTABLE` in Redis Search (needs `searchable`) | off |
+| `ignore` | field | flag | Skip the field entirely - no column, no accessors | - |

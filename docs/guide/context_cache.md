@@ -1,61 +1,53 @@
 # Context Cache
 
-In this section, you will learn how to use the context cache to speed up your application.
-
-The context cache is a per-request, in-memory cache that lives on the `fluxaorm.Context` object. It is **enabled by default** with a TTL of **1 second**. When an entity is loaded via `GetByID` or `GetByIDs`, it is automatically stored in the context cache. Subsequent calls to `GetByID` or `GetByIDs` for the same entity within the TTL window will return the cached copy without hitting MySQL or Redis.
-
-```go
-import fluxaorm "github.com/latolukasz/fluxaorm/v2"
-
-ctx := engine.NewContext(context.Background())
-user, found, err := UserEntityProvider.GetByID(ctx, 1) // executes query to DB/Redis
-user, found, err = UserEntityProvider.GetByID(ctx, 1)  // served from context cache (no DB/Redis query)
-```
-
-:::tip
-The context cache is only populated by `GetByID` and `GetByIDs`. Search methods (`SearchMany`, `SearchOne`, `SearchManyWithTotal`, etc.) do **not** read from or write to the context cache.
-:::
-
-## TTL and Expiration
-
-The default TTL is 1 second (1000 milliseconds). When the TTL expires, the **entire** context cache map is cleared on the next read attempt. This means all cached entities across all entity types are removed at once, not on a per-entry basis.
-
-This design makes the context cache ideal for short-lived scopes such as a single HTTP request. For long-running processes, either disable the context cache or use a short TTL and create a fresh context for each unit of work.
-
-## Customizing the TTL
-
-You can change the TTL using `SetContextCacheTTL()`:
+The context cache is the **identity map** of a `fluxaorm.Context`: for every entity type and ID it holds at most one `*Entity`, and every load on that context returns that same pointer. It lives exactly as long as the `Context` and never expires.
 
 ```go
 ctx := engine.NewContext(context.Background())
-ctx.SetContextCacheTTL(5 * time.Second) // cache entries are valid for 5 seconds
+
+a, _, _ := entities.UserEntityProvider.GetByID(ctx, 1) // Redis or MySQL
+b, _, _ := entities.UserEntityProvider.GetByID(ctx, 1) // served from the context cache
+// a == b: the same pointer
 ```
 
-Set the TTL before any `GetByID` / `GetByIDs` calls to ensure it takes effect from the start.
+## Why an identity map
 
-## Disabling the Context Cache
+Two handles on one row are how updates get lost: code path A loads a user and changes the name, code path B loads the "same" user, changes the e-mail and saves — B's save carries B's stale name and, once A saves, A's stale e-mail. With one pointer per row and per context both paths change the same object, and whoever saves writes both changes. This is also why the map never expires: an expiring entry would silently hand out a second, divergent handle in the middle of a unit of work. To make a handle current, use [`ctx.Reload`](/guide/crud.html#reloading), which refreshes the pointer everyone holds.
 
-You can disable the context cache entirely by calling `DisableContextCache()`:
+The consequence is that a `Context` should be scoped to one unit of work — an HTTP request, a job, a message — and created fresh for the next one. A long-running loop that loads many rows on one `Context` keeps all of them in memory.
+
+## What populates and evicts it
+
+| Operation | Effect on the context cache |
+|:----------|:----------------------------|
+| `Provider.New(ctx)`, `Provider.NewWithID(ctx, id)` | The new entity is inserted immediately, before it is saved. |
+| `GetByID`, `MustGetByID`, `GetByIDs` | Hits are served from the map; misses loaded from Redis or MySQL are inserted. |
+| `SearchOne`, `SearchMany`, `SearchManyWithTotal`, `SearchOneInRedis`, `SearchManyInRedis`, `SearchManyInRedisWithTotal` | These select ids and hydrate through `GetByID` / `GetByIDs`, so search results come from and go into the map too. |
+| Setters | No effect. A dirty entity stays in the map — that is the point. |
+| `ctx.Save` | The entity stays in the map, now clean. |
+| `ctx.Delete`, `ctx.ForceDelete` | The entity is removed after the write commits. A [fake-deleted](/guide/fake_delete.html) entity is removed as well; the next `GetByID` re-reads it from the database (found, with `GetFakeDelete() == true`). |
+| `ctx.Reload` | The entry is refreshed in place; the pointer does not change. |
+| `ctx.Clone()`, `ctx.CloneWithContext(...)` | The clone starts with an **empty** map. It shares no entities with the original, so a row loaded on both is two handles — treat the clone as a separate unit of work. |
+
+## Disabling the context cache
 
 ```go
 ctx := engine.NewContext(context.Background())
 ctx.DisableContextCache()
 
-user, found, err := UserEntityProvider.GetByID(ctx, 1) // always executes query to DB/Redis
-user, found, err = UserEntityProvider.GetByID(ctx, 1)  // always executes query to DB/Redis
+a, _, _ := entities.UserEntityProvider.GetByID(ctx, 1) // Redis or MySQL
+b, _, _ := entities.UserEntityProvider.GetByID(ctx, 1) // Redis or MySQL again, a != b
 ```
 
-Once disabled, the context cache cannot be re-enabled on the same context. If you need caching again, create a new context.
+Once disabled it cannot be re-enabled on that context; clones inherit the flag. With the cache disabled every load creates a new handle, which brings back the lost-update problem described above — use it for measurements and tests (for example to count Redis or SQL round trips), not as a memory-saving device.
 
-## How It Works Internally
+## Low-level access
 
-The context cache uses two low-level methods on the `Context` interface that are called by the generated entity code:
+The generated code talks to the identity map through two methods of `Context`:
 
-- `GetFromContextCache(cacheIndex uint64, id uint64) Entity` -- looks up an entity in the cache by its type index and ID. Returns `nil` if not found or if the cache is disabled/expired.
-- `SetInContextCache(cacheIndex uint64, id uint64, entity Entity)` -- stores an entity in the cache. Does nothing if the cache is disabled.
+```go
+GetFromContextCache(cacheIndex string, id uint64) Entity
+SetInContextCache(cacheIndex string, id uint64, entity Entity)
+```
 
-The `cacheIndex` is a unique identifier for each entity type, generated at code-generation time. You should not need to call these methods directly -- they are used automatically by the generated `GetByID` and `GetByIDs` functions.
-
-## Interaction with Entity Tracking
-
-When an entity is modified and tracked for flushing (via `ctx.Track()`), it is **removed** from the context cache. This prevents stale reads of an entity that has pending changes. After `ctx.Flush()` completes, subsequent `GetByID` calls will fetch the updated entity from the database and re-populate the context cache.
+`cacheIndex` is the fully qualified Go type name of the entity struct as registered (`model.UserEntity`); it is stored in every provider and assigned during `registry.Validate()`. `GetFromContextCache` returns `nil` when the entry is missing or the cache is disabled; `SetInContextCache` is a no-op when the cache is disabled. You should not need them in application code.

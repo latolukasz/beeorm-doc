@@ -1,118 +1,136 @@
 # Testing
 
-FluxaORM provides several utilities in the `fluxaorm` package to simplify writing integration and unit tests for applications that use the ORM.
+FluxaORM tests run against real MySQL, Redis and (optionally) NATS services. The `fluxaorm` package ships helpers that wire a registry to the local Docker services, reset the schema and data between tests, and let you intercept SQL calls and query logs.
 
-## Setting Up a Test Environment
+## Local Services
 
-### PrepareTables
+The ORM repository contains `docker/docker-compose.yml` with MySQL 8.0, Redis, ClickHouse and NATS (JetStream enabled). Ports are taken from environment variables; `docker/.env` provides the defaults the test helpers expect:
 
-The primary test helper is `fluxaorm.PrepareTables`, which sets up a clean database environment for each test. It registers MySQL, Redis, and local cache pools, validates the registry, runs any pending schema migrations, truncates all entity tables, and flushes Redis:
+```
+LOCAL_IP=0.0.0.0
+MYSQL_PORT=3397
+REDIS_PORT=6395
+CLICKHOUSE_PORT=9942
+CLICKHOUSE_HTTP_PORT=9943
+NATS_PORT=9944
+NATS_HTTP_PORT=9945
+```
+
+```bash
+cd docker
+docker compose up -d
+```
+
+MySQL is created with user `root` / password `root` and database `test`. Run the test suite with the race detector and without package parallelism (the packages share the same database):
+
+```bash
+go test -race -p 1 ./...
+# a single test
+go test -race -p 1 -run TestUserCRUD ./...
+```
+
+## PrepareTables
+
+```go
+func PrepareTables(t *testing.T, registry Registry, entities ...any) (orm Context)
+```
+
+`PrepareTables` takes a registry you have already customised (metrics, tasks, extra pools) and completes it with the local test services, then resets everything the test touches:
+
+1. `registry.RegisterMySQL("root:root@tcp(localhost:3397)/test", DefaultPoolCode, &MySQLOptions{})`
+2. `registry.RegisterRedis("localhost:6395", 0, DefaultPoolCode, nil)`
+3. `registry.RegisterRedis("localhost:6395", 1, "second", nil)`
+4. `registry.RegisterEntity(entities...)`
+5. `registry.Validate()` (the test fails on error)
+6. creates a context with `engine.NewContext(context.Background())`
+7. `FlushDB` on both Redis pools
+8. runs every pending [schema alter](/guide/schema_update.html) (`GetAlters` + `Exec`)
+9. for every registered entity: `TruncateTable` and `UpdateSchema`
+
+It returns a ready-to-use `fluxaorm.Context`. Entities are passed exactly as you pass them to `RegisterEntity` -- values (`UserEntity{}`) or pointers both work.
 
 ```go
 import (
     "testing"
 
-    fluxaorm "github.com/latolukasz/fluxaorm/v2"
+    "github.com/latolukasz/fluxaorm/v2"
 )
 
-type UserEntity struct {
-    ID    uint64
-    Name  string
-    Email string
-}
-
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{"Email": {"Email"}}
-}
-
-func TestCreateUser(t *testing.T) {
-    registry := fluxaorm.NewRegistry()
-    ctx := fluxaorm.PrepareTables(t, registry, &UserEntity{})
-
-    // ctx is a fully initialized fluxaorm.Context
-    // All entity tables are clean and ready to use
-    // Use generated Provider code for CRUD operations
+func TestSomething(t *testing.T) {
+    ctx := fluxaorm.PrepareTables(t, fluxaorm.NewRegistry(), UserEntity{}, ProductEntity{})
+    // ...
 }
 ```
 
-`PrepareTables` performs the following steps:
-
-1. Registers a MySQL pool (`default`) pointing to `root:root@tcp(localhost:3397)/test`
-2. Registers two Redis pools (`default` on db 0 and `second` on db 1) at `localhost:6395`
-3. Registers a local cache pool (`default`)
-4. Registers the provided entities
-5. Calls `registry.Validate()` to build the `Engine`
-6. Creates a new `fluxaorm.Context`
-7. Flushes both Redis databases
-8. Runs all pending schema alters (`GetAlters`)
-9. Truncates all entity tables and updates their schemas
-10. Clears all local caches
-
-The function returns a ready-to-use `fluxaorm.Context`.
-
-### PrepareTablesWithKafka
-
-`PrepareTablesWithKafka` works identically to `PrepareTables` but also registers a Kafka pool and async flush, making it suitable for testing `FlushAsync()`:
+## PrepareTablesWithNats
 
 ```go
-func TestWithKafka(t *testing.T) {
-    registry := fluxaorm.NewRegistry()
-    ctx := fluxaorm.PrepareTablesWithKafka(t, registry, &UserEntity{})
+func PrepareTablesWithNats(t *testing.T, registry Registry, entities ...any) (orm Context)
+```
 
-    // ctx is ready with Kafka and async flush configured
-    // You can use ctx.FlushAsync(true) or ctx.FlushAsync(false)
+Same as `PrepareTables`, plus:
+
+- `registry.RegisterNats([]string{"nats://localhost:9944"}, "nats", nil)` -- a NATS pool with code `"nats"`
+- after the tables are prepared, all pending [NATS alters](/guide/nats.html) are applied (`GetNatsAlters` + `Exec`), so registered streams and durable consumers exist before the test publishes.
+
+## PrepareTablesWithConsumers
+
+```go
+func PrepareTablesWithConsumers(t *testing.T, registry Registry, consumers []ConsumerDef, entities ...any) (orm Context)
+```
+
+For tests of [entity events](/guide/entity_events.html), [consumers](/guide/consumers.html) and [tasks](/guide/tasks.html). In addition to `PrepareTablesWithNats` it:
+
+- registers the entity stream and the task stream on the `"nats"` pool (`RegisterEntityStream(EntityStreamOptions{NatsPool: "nats"})`, `RegisterTaskStream(TaskStreamOptions{NatsPool: "nats"})`)
+- registers every `ConsumerDef` with `NatsPool` forced to `"nats"`
+- purges the entity stream and the task stream after the alters, so messages from a previous run never leak into the test.
+
+Tasks must be registered on the registry **before** calling the helper (a consumer draining a queue with no tasks is a validation error), entities listed in `ConsumerDef.Entities` must be tagged `orm:"cdc"`, and `fluxaorm.JobRunEntity{}` must be registered when tasks are used:
+
+```go
+type OrderEntity struct {
+    ID     uint64 `orm:"cdc"`
+    Number string `orm:"required"`
+}
+
+type SendWelcomeEmail struct {
+    UserID uint64
+}
+
+func TestConsumers(t *testing.T) {
+    registry := fluxaorm.NewRegistry()
+    registry.RegisterTask(SendWelcomeEmail{}, fluxaorm.TaskOptions{})
+
+    consumers := []fluxaorm.ConsumerDef{
+        {Name: "indexer", Entities: []any{OrderEntity{}}},
+        {Name: "emails-worker", Queues: []fluxaorm.Queue{fluxaorm.DefaultQueue}},
+    }
+    ctx := fluxaorm.PrepareTablesWithConsumers(t, registry, consumers, OrderEntity{}, fluxaorm.JobRunEntity{})
+    defer ctx.Engine().Nats("nats").Close()
+    // ...
 }
 ```
 
-### PrepareTablesBeta
+::: tip
+Close the NATS pool at the end of a test that opened one (`defer ctx.Engine().Nats("nats").Close()`), otherwise connections accumulate across the package's tests.
+:::
 
-`PrepareTablesBeta` works identically to `PrepareTables` but configures the MySQL connection with the `Beta` option enabled (which uses `parseTime=true&loc=UTC` in the DSN):
+## Redis-only Setup
 
-```go
-func TestWithBetaMySQL(t *testing.T) {
-    registry := fluxaorm.NewRegistry()
-    ctx := fluxaorm.PrepareTablesBeta(t, registry, &UserEntity{})
-
-    // Use ctx as normal — MySQL is configured with Beta options
-}
-```
-
-### Manual Setup
-
-If you need more control over the test configuration (custom ports, additional Redis pools, etc.), set up the registry manually:
+When a test needs only Redis (e.g. the [distributed lock](/guide/distributed_lock.html)), skip the helpers and use a dedicated database number:
 
 ```go
-func TestCustomSetup(t *testing.T) {
-    registry := fluxaorm.NewRegistry()
-    registry.RegisterMySQL("root:root@tcp(localhost:3306)/testdb", fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterRedis("localhost:6379", 0, fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterLocalCache(fluxaorm.DefaultPoolCode, 1000)
-    registry.RegisterEntity(&UserEntity{}, &ProductEntity{})
-
-    engine, err := registry.Validate()
-    if err != nil {
-        t.Fatal(err)
-    }
-
-    ctx := engine.NewContext(context.Background())
-
-    // Run alters, truncate tables, etc. as needed
-    alters, err := fluxaorm.GetAlters(ctx)
-    if err != nil {
-        t.Fatal(err)
-    }
-    for _, alter := range alters {
-        err = alter.Exec(ctx)
-        if err != nil {
-            t.Fatal(err)
-        }
-    }
-}
+registry := fluxaorm.NewRegistry()
+registry.RegisterRedis("localhost:6395", 15, fluxaorm.DefaultPoolCode, nil)
+engine, err := registry.Validate()
+require.NoError(t, err)
+ctx := engine.NewContext(context.Background())
+require.NoError(t, engine.Redis(fluxaorm.DefaultPoolCode).FlushDB(ctx))
 ```
 
 ## MockDBClient
 
-`MockDBClient` lets you intercept and mock MySQL database calls without a real database connection. It implements the `DBClient` interface and delegates to the original client for any method that does not have a mock function set:
+`MockDBClient` sits between FluxaORM and `database/sql`. It implements `DBClient`; every method whose mock function is `nil` delegates to `OriginDB`, so you only override what you want to intercept:
 
 ```go
 type MockDBClient struct {
@@ -130,137 +148,133 @@ type MockDBClient struct {
 }
 ```
 
-### Using MockDBClient
+`Begin` delegates to `OriginDB.(DBClientNoTX).Begin()`, so `OriginDB` must be the real pool client returned by `GetDBClient()` -- the mock wraps a live connection, it does not replace it. `PrepareMock`, `CommitMock` and `RollbackMock` are currently not consulted by any method.
 
-To install a mock, get the `DB` instance from the engine and call `SetMockDBClient`:
+Install it with `SetMockDBClient` on the pool's `DB` and restore the original client when the test ends:
 
 ```go
-func TestWithMockDB(t *testing.T) {
-    registry := fluxaorm.NewRegistry()
-    ctx := fluxaorm.PrepareTables(t, registry, &UserEntity{})
+func TestInsertFailure(t *testing.T) {
+    ctx := fluxaorm.PrepareTables(t, fluxaorm.NewRegistry(), UserEntity{})
 
     db := ctx.Engine().DB(fluxaorm.DefaultPoolCode)
-    originalClient := db.GetDBClient()
+    origin := db.GetDBClient()
+    defer db.SetMockDBClient(origin)
 
-    mock := &fluxaorm.MockDBClient{
-        OriginDB: originalClient,
+    db.SetMockDBClient(&fluxaorm.MockDBClient{
+        OriginDB: origin,
         ExecMock: func(query string, args ...any) (sql.Result, error) {
-            // Inspect or modify behavior
-            if strings.Contains(query, "INSERT") {
-                return nil, fmt.Errorf("simulated insert failure")
+            if strings.HasPrefix(query, "INSERT") {
+                return nil, errors.New("simulated insert failure")
             }
-            // Fall through to the real database for other queries
-            return originalClient.Exec(query, args...)
+            return origin.Exec(query, args...)
         },
-    }
+    })
 
-    db.SetMockDBClient(mock)
-    defer db.SetMockDBClient(originalClient) // restore after test
-
-    // Operations that call Exec will now hit the mock
+    user := entities.UserEntityProvider.New(ctx)
+    user.SetName("Alice")
+    err := ctx.Save(user)
+    assert.EqualError(t, err, "simulated insert failure")
 }
 ```
 
-Any mock function field left as `nil` causes that method to delegate to `OriginDB`, so you only need to set the specific methods you want to intercept.
+The mock also applies inside `ctx.Transaction()`: transactions are opened through the mocked `Begin`, and statements run on the returned `*sql.Tx`.
 
 ## MockLogHandler
 
-`MockLogHandler` captures all query log entries so you can assert on them in tests. It implements the `LogHandler` interface:
+`MockLogHandler` implements [`LogHandler`](/guide/queries_log.html) and keeps every log entry:
 
 ```go
 type MockLogHandler struct {
     Logs []map[string]any
 }
+
+func (h *MockLogHandler) Handle(_ Context, log map[string]any) // appends to Logs
+func (h *MockLogHandler) Clear()                               // Logs = nil
 ```
 
-The `Handle` method receives a `fluxaorm.Context` and a log entry map:
+It is the easiest way to assert *how* the ORM talked to MySQL or Redis -- for example that a cached read did not hit the database:
 
 ```go
-func (h *MockLogHandler) Handle(ctx fluxaorm.Context, log map[string]any) {
-    h.Logs = append(h.Logs, log)
-}
-```
+logs := &fluxaorm.MockLogHandler{}
+ctx.RegisterQueryLogger(logs, fluxaorm.QueryLoggerOptions{MySQL: true})
 
-### Using MockLogHandler
+_, _, err := entities.UserEntityProvider.GetByID(ctx, id)
+assert.NoError(t, err)
 
-```go
-func TestQueryLogging(t *testing.T) {
-    registry := fluxaorm.NewRegistry()
-    ctx := fluxaorm.PrepareTables(t, registry, &UserEntity{})
-
-    logger := &fluxaorm.MockLogHandler{}
-    ctx.RegisterQueryLogger(logger, true, true, false) // MySQL + Redis
-
-    // Perform operations using generated Providers...
-    // e.g., UserEntityProvider.New(ctx), entity.SetName("Alice"), ctx.Flush()
-
-    // Inspect captured logs
-    for _, entry := range logger.Logs {
-        fmt.Printf("source=%s operation=%s query=%s\n",
-            entry["source"], entry["operation"], entry["query"])
+selects := 0
+for _, entry := range logs.Logs {
+    if entry["operation"] == "SELECT" {
+        selects++
     }
-
-    // Clear logs between test phases
-    logger.Clear()
 }
+assert.Equal(t, 0, selects, "expected the row to come from Redis")
+logs.Clear()
 ```
 
-Each entry in `logger.Logs` is a `map[string]any` containing the same fields documented in the [Queries Log](/guide/queries_log.html) page (`source`, `pool`, `query`, `operation`, `microseconds`, etc.).
+Because the [context cache](/guide/context_cache.html) answers repeated reads on the same context, use `reader := ctx.Clone(); reader.DisableContextCache()` when you want to prove a read goes to Redis or MySQL.
 
-## Example: Full Integration Test
+## Full Example
 
-Here is a complete example that combines `PrepareTables` with generated entity code. Assume that `UserEntity` has been defined and code generation has been run, producing `UserEntityProvider`:
+Assume `UserEntity` is defined in your application package and [code generation](/guide/code_generation.html) produced the `entities` package with `entities.UserEntity` and `entities.UserEntityProvider`:
 
 ```go
-package myapp_test
+package myapp
 
 import (
     "testing"
 
-    fluxaorm "github.com/latolukasz/fluxaorm/v2"
+    "github.com/latolukasz/fluxaorm/v2"
     "github.com/stretchr/testify/assert"
-    "myapp/entities" // generated entity code
+    "github.com/stretchr/testify/require"
+
+    "myapp/entities"
 )
 
+type UserEntity struct {
+    ID    uint64 `orm:"redisCache"`
+    Name  string `orm:"required"`
+    Email string `orm:"required"`
+}
+
+func (e UserEntity) UniqueIndexes() [][]string {
+    return [][]string{{"Email"}}
+}
+
 func TestUserCRUD(t *testing.T) {
-    registry := fluxaorm.NewRegistry()
-    ctx := fluxaorm.PrepareTables(t, registry, &entities.UserEntityDefinition{})
+    ctx := fluxaorm.PrepareTables(t, fluxaorm.NewRegistry(), UserEntity{})
 
-    // Set up query logging
-    logger := &fluxaorm.MockLogHandler{}
-    ctx.RegisterQueryLogger(logger, true, false, false)
+    logs := &fluxaorm.MockLogHandler{}
+    ctx.RegisterQueryLogger(logs, fluxaorm.QueryLoggerOptions{MySQL: true, Redis: true})
 
-    // Create a user via generated Provider
+    // create
     user := entities.UserEntityProvider.New(ctx)
-    user.SetName("Alice")
-    user.SetEmail("alice@example.com")
-    err := ctx.Flush()
-    assert.NoError(t, err)
-    assert.Greater(t, user.GetID(), uint64(0))
+    user.SetName("Alice").SetEmail("alice@example.com")
+    require.NoError(t, ctx.Save(user))
+    assert.NotZero(t, user.GetID())
 
-    // Read the user back
-    loaded, found, err := entities.UserEntityProvider.GetByID(ctx, user.GetID())
-    assert.NoError(t, err)
-    assert.True(t, found)
+    // read on a fresh context so the identity map is not involved
+    reader := ctx.Clone()
+    loaded, found, err := entities.UserEntityProvider.GetByID(reader, user.GetID())
+    require.NoError(t, err)
+    require.True(t, found)
     assert.Equal(t, "Alice", loaded.GetName())
 
-    // Update
+    // update
     loaded.SetName("Bob")
-    err = ctx.Flush()
-    assert.NoError(t, err)
+    require.NoError(t, reader.Save(loaded))
 
-    // Verify update
-    updated, found, err := entities.UserEntityProvider.GetByID(ctx, loaded.GetID())
-    assert.NoError(t, err)
-    assert.True(t, found)
-    assert.Equal(t, "Bob", updated.GetName())
+    again, err := entities.UserEntityProvider.MustGetByID(ctx.Clone(), user.GetID())
+    require.NoError(t, err)
+    assert.Equal(t, "Bob", again.GetName())
 
-    // Delete
-    updated.Delete()
-    err = ctx.Flush()
-    assert.NoError(t, err)
+    // delete
+    require.NoError(t, ctx.Delete(again))
+    _, found, err = entities.UserEntityProvider.GetByID(ctx.Clone(), user.GetID())
+    require.NoError(t, err)
+    assert.False(t, found)
 
-    // Verify log captured queries
-    assert.Greater(t, len(logger.Logs), 0)
+    assert.NotEmpty(t, logs.Logs)
 }
 ```
+
+See [CRUD Operations](/guide/crud.html) for the generated API used above.

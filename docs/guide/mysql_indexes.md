@@ -1,49 +1,20 @@
 # MySQL Indexes
 
-In FluxaORM v2, indexes are defined by implementing interfaces on your entity struct. There are three interfaces available: `EntityUniqueIndexes` for unique indexes, `EntityCachedUniqueIndexes` for cached unique indexes, and `EntityIndexes` for non-unique indexes. After code generation, unique indexes are automatically detected by `SearchOne()` when filter conditions match an index.
-
-## Defining Unique Indexes
-
-Implement the `EntityUniqueIndexes` interface on your entity struct. The method returns a map where each key is the index name and the value is an ordered slice of column names:
+Indexes are declared by implementing small interfaces on the entity struct. FluxaORM creates and maintains them through [schema alters](/guide/schema_update.html), and the generated `SearchOne` uses unique indexes for fast, optionally Redis-cached, lookups.
 
 ```go
-type UserEntity struct {
-    ID    uint64
-    Email string `orm:"required"`
-}
-
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "Email": {"Email"},
-    }
-}
+type EntityIndexes interface            { Indexes() [][]string }
+type EntityUniqueIndexes interface      { UniqueIndexes() [][]string }
+type EntityCachedUniqueIndexes interface{ CachedUniqueIndexes() [][]string }
 ```
 
-This creates a unique index named `Email` on the `Email` column:
+Each inner slice is one index, listing its columns in order. The methods may use a value or a pointer receiver.
 
-```sql
-UNIQUE KEY `Email` (`Email`)
-```
+## Index Names
 
-After code generation, you can look up entities by unique indexes using `SearchOne()`. When the filter conditions match a cached unique index, `SearchOne()` automatically uses the optimized cached lookup:
+Names are not chosen by you: an index is named by joining its column names with `_`. `{"Name", "Age"}` becomes `Name_Age`, `{"Email"}` becomes `Email`. The same name is used in MySQL and in Redis keys.
 
-```go
-user, found, err := entities.UserEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(
-        entities.UserEntityProvider.Fields.Email.Is("alice@example.com"),
-    ),
-)
-if err != nil {
-    // handle error
-}
-if found {
-    fmt.Println(user.GetName())
-}
-```
-
-## Composite Unique Indexes
-
-To create an index that spans multiple columns, list the column names in the desired order:
+## Unique Indexes
 
 ```go
 type UserEntity struct {
@@ -53,22 +24,24 @@ type UserEntity struct {
     Email string `orm:"required"`
 }
 
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "NameAge": {"Name", "Age"},
-        "Email":   {"Email"},
+func (e UserEntity) UniqueIndexes() [][]string {
+    return [][]string{
+        {"Email"},
+        {"Name", "Age"},
     }
 }
 ```
 
-The order of columns in the slice determines their position in the index. This creates:
+This produces the following definitions in `CREATE TABLE` / `ALTER TABLE`:
 
 ```sql
-UNIQUE KEY `NameAge` (`Name`, `Age`),
-UNIQUE KEY `Email` (`Email`)
+UNIQUE INDEX `Email` (`Email`),
+UNIQUE INDEX `Name_Age` (`Name`,`Age`)
 ```
 
-After code generation, look up entities by composite indexes by filtering on all index columns:
+### Looking up by a unique index
+
+There is no dedicated `GetBy...` method. Use `SearchOne` with an equality condition per index column; the query is a normal `SELECT ... LIMIT 1` that MySQL answers from the unique index. See [Search](/guide/search.html) for the query API.
 
 ```go
 user, found, err := entities.UserEntityProvider.SearchOne(ctx,
@@ -79,42 +52,28 @@ user, found, err := entities.UserEntityProvider.SearchOne(ctx,
 )
 ```
 
-Here is an example with three columns:
+## Non-Unique Indexes
 
 ```go
-type OrderEntity struct {
-    ID         uint64
-    CustomerID uint64
-    Year       uint16
-    OrderNum   uint32
+type UserEntity struct {
+    ID   uint64
+    Name string `orm:"required"`
+    Age  uint32
 }
 
-func (e OrderEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "CustomerOrder": {"CustomerID", "Year", "OrderNum"},
-    }
+func (e UserEntity) Indexes() [][]string {
+    return [][]string{{"Age"}, {"Name", "Age"}}
 }
 ```
-
-This creates:
 
 ```sql
-UNIQUE KEY `CustomerOrder` (`CustomerID`, `Year`, `OrderNum`)
-```
-
-```go
-order, found, err := entities.OrderEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(
-        entities.OrderEntityProvider.Fields.CustomerID.Eq(customerID),
-        entities.OrderEntityProvider.Fields.Year.Eq(2025),
-        entities.OrderEntityProvider.Fields.OrderNum.Eq(1001),
-    ),
-)
+INDEX `Age` (`Age`),
+INDEX `Name_Age` (`Name`,`Age`)
 ```
 
 ## Cached Unique Indexes
 
-By default, `SearchOne()` with unique index conditions queries MySQL directly every time it is called. For frequently accessed indexes, you can enable caching by implementing the `EntityCachedUniqueIndexes` interface. Every entry in `CachedUniqueIndexes()` must also exist in `UniqueIndexes()`:
+A unique index listed in `CachedUniqueIndexes()` additionally caches the *values -> ID* mapping in Redis, so a `SearchOne` on those columns can skip MySQL. Every cached index must also be present in `UniqueIndexes()`.
 
 ```go
 type UserEntity struct {
@@ -124,146 +83,117 @@ type UserEntity struct {
     Email string `orm:"required"`
 }
 
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "NameAge": {"Name", "Age"},
-        "Email":   {"Email"},
-    }
+func (e UserEntity) UniqueIndexes() [][]string {
+    return [][]string{{"Name", "Age"}, {"Email"}}
 }
 
-func (e UserEntity) CachedUniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "NameAge": {"Name", "Age"},
-        "Email":   {"Email"},
-    }
+func (e UserEntity) CachedUniqueIndexes() [][]string {
+    return [][]string{{"Name", "Age"}, {"Email"}}
 }
 ```
 
-When an index is cached, `SearchOne()` automatically detects that the filter conditions match the cached index and works as follows:
+### How the lookup works
 
-1. Check Redis for the cached index-to-ID mapping
-2. If found, load the entity via `GetByID()` (which itself benefits from Redis entity cache)
-3. If not found, query MySQL, cache the ID mapping in Redis, then return via `GetByID()`
+`SearchOne` inspects the query conditions. When **all** of them are equality conditions and their column set equals a cached unique index, it takes the cached path:
 
-::: tip
-For cached indexes to be most effective, the entity should also have Redis cache enabled (`orm:"redisCache"` on the `ID` field). This way both the index lookup and the entity data are served from Redis.
-:::
+1. Inside a transaction (`ctx.InTransaction()`) the cache is bypassed and the query goes to MySQL.
+2. Otherwise Redis is asked for the key `<prefix>u:<indexName>@<8 hex>:<16 hex>` (see below).
+3. On a hit the entity is loaded with `GetByID` (which itself uses the row cache when `redisCache` is on). The loaded row is then **verified**: every looked-up value must equal the row's value and, for entities with `FakeDelete`, the row must not be soft-deleted. A stale hit falls through to step 4.
+4. On a miss MySQL is queried with `SELECT ID ... WHERE <cols> = ? [AND FakeDelete = 0] LIMIT 1`, the key is set to the ID with the `EntityCacheTTL` (one hour) expiry, and the entity is loaded with `GetByID`.
 
-### Automatic Cache Invalidation
+```go
+user, found, err := entities.UserEntityProvider.SearchOne(ctx,
+    fluxaorm.NewQuery().Filter(entities.UserEntityProvider.Fields.Email.Is("alice@example.com")),
+)
+```
 
-You do not need to manually invalidate cached index entries. FluxaORM automatically handles cache updates when:
+Any other query shape - extra conditions, `Like`, only a subset of the index columns - is executed as a regular SQL query.
 
-- A new entity is **inserted** -- the index key is cached
-- An entity is **updated** and an indexed column changes -- the old cache key is removed and the new one is set
-- An entity is **deleted** (including soft deletes) -- the cache key is removed
+### Cache keys
 
-### Cached Indexes Without Redis Entity Cache
+Keys live in the entity's Redis key space (the same prefix as the [row cache](/guide/redis_cache.html)) and are built from two exported helpers:
 
-Cached unique indexes also work on entities without Redis entity cache. In this case, the index-to-ID mapping is still cached in Redis, but the entity data itself is fetched from MySQL:
+```go
+fluxaorm.UniqueIndexKeySegment(indexName string, columns []string) string // "u:" + name + "@" + sha256(columns joined by ",")[:4 bytes as hex] + ":"
+fluxaorm.UniqueIndexKeyHash(values ...any) string                        // sha256(values formatted with %v, joined by "\x00")[:8 bytes as hex]
+```
+
+The column list is folded into the segment so that changing an index's columns never resolves old keys. The value is the entity ID as a decimal string.
+
+Because these keys share the entity's prefix, an entity with cached unique indexes claims that prefix even without `redisCache`, and takes part in the Redis key namespace check described in [Entities](/guide/entities.html).
+
+### Invalidation
+
+Writes never populate these keys; they only delete them, and the next `SearchOne` repopulates:
+
+- INSERT deletes the keys for the new values;
+- UPDATE that changes an indexed column deletes both the old and the new keys;
+- `Delete` (including soft delete) and `ForceDelete` delete all keys of the row.
+
+Deletion happens before the statement and again after commit, together with the row-cache key (see [Redis Cache](/guide/redis_cache.html)).
+
+### Without `redisCache`
+
+Cached unique indexes work on entities without the row cache: the *values -> ID* key still goes to Redis (the `redisCache` pool if set, otherwise `default`), and the row itself is read from MySQL. A Redis pool named `default` must therefore be registered for such an entity; `Validate()` does not check this.
 
 ```go
 type ProductEntity struct {
-    ID   uint64
-    Code string `orm:"required"`
-    SKU  int32
+    ID    uint64
+    Code  string `orm:"required"`
+    Value int32
 }
 
-func (e ProductEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "Code": {"Code", "SKU"},
-    }
-}
-
-func (e ProductEntity) CachedUniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "Code": {"Code", "SKU"},
-    }
-}
+func (e ProductEntity) UniqueIndexes() [][]string       { return [][]string{{"Code", "Value"}} }
+func (e ProductEntity) CachedUniqueIndexes() [][]string { return [][]string{{"Code", "Value"}} }
 ```
-
-Even without `orm:"redisCache"` on the `ID` field, `SearchOne()` caches the resolved entity ID in Redis when filtering by the `Code` index columns, avoiding repeated MySQL index lookups.
-
-## Non-Unique Indexes
-
-To define non-unique indexes, implement the `EntityIndexes` interface. The method returns a map where each key is the index name and the value is an ordered slice of column names:
-
-```go
-type UserEntity struct {
-    ID   uint64
-    Name string `orm:"required"`
-    Age  uint32
-}
-
-func (e UserEntity) Indexes() map[string][]string {
-    return map[string][]string{
-        "AgeIndex": {"Age"},
-    }
-}
-```
-
-This creates:
-
-```sql
-KEY `AgeIndex` (`Age`)
-```
-
-Non-unique indexes improve query performance but do not enforce uniqueness. They are useful for columns frequently used in `WHERE` clauses or `ORDER BY`.
 
 ## FakeDelete and Indexes
 
-When an entity has a `FakeDelete bool` field, the `FakeDelete` column is automatically appended to all indexes (both unique and non-unique). You do not need to include it in your index definitions.
+When an entity has a `FakeDelete bool` field, `FakeDelete` is appended as the last column of every index that does not already contain it, and a standalone index `FakeDelete` on `(FakeDelete)` is added unless an index already starts with that column. Because the column stores the row's own ID when soft-deleted (and `0` otherwise), unique indexes stay unique among deleted rows while still enforcing uniqueness among live rows. See [Fake Delete](/guide/fake_delete.html).
 
-## Parameter Types
+## Validation Rules
 
-The typed field definitions on the Provider use widened Go types, matching the getter return types:
+`Validate()` rejects the following:
 
-| Field Go Type | Field Type | Eq/Is Parameter Type |
-|--------------|-----------|---------------------|
-| uint8, uint16, uint32, uint64 | `UintField` | uint64 |
-| int8, int16, int32, int64 | `IntField` | int64 |
-| float32, float64 | `FloatField` | float64 |
-| string | `StringField` | string |
-| bool | `BoolField` | bool |
-| time.Time | `TimeField` | time.Time |
-| enum field | `EnumField` | string |
-| Reference (required) | `ReferenceField` | uint64 |
-| *uint, *int, etc. | `NullableUintField`, etc. | uint64, int64, etc. |
-| Reference (optional) | `NullableReferenceField` | uint64 |
+| Rule | Error |
+|------|-------|
+| Two unique indexes with the same columns | `duplicate unique index name '<n>' in entity '<e>'` |
+| Two plain indexes with the same columns | `duplicate index name '<n>' in entity '<e>'` |
+| Cached index missing from `UniqueIndexes()` | `cached unique index '<n>' in entity '<e>' is not defined in UniqueIndexes()` |
+| Unknown column | `unique index column '<c>' not found in entity '<e>'` / `index column '<c>' not found in entity '<e>'` |
+| An index whose columns are a leading prefix of another index (across unique and plain) | `duplicated index <a> with <b> in <e>` |
 
-::: tip Time Truncation
-When a unique index includes a `time.Time` column, the generated code automatically truncates the parameter before querying. DateTime fields (tagged with `orm:"time"`, or the built-in `CreatedAt`/`UpdatedAt` columns) are truncated to second precision. Date fields are truncated to day precision. This matches the truncation applied by setter methods, ensuring lookups always find the stored row regardless of sub-second or sub-day precision in the input value.
-:::
+The prefix rule means `{"Age"}` together with `{"Age", "Name"}` is rejected - MySQL would use the composite index for both. `{"Name", "Age"}` and `{"Age"}` are fine.
+
+## Indexes and Schema Alters
+
+`GetAlters` classifies index changes as follows (see [Schema Update](/guide/schema_update.html)):
+
+| Change | Kind | Safety |
+|--------|------|--------|
+| New plain index | `add_index` | safe |
+| New unique index | `add_unique_index` | destructive - applied mid-rollout it fails the old version's inserts, deferred it lets duplicates in |
+| Same name, different columns or uniqueness | `rebuild_index` | destructive, one statement `DROP INDEX` + `ADD ...` |
+| Index no longer declared (except `PRIMARY`) | `drop_index` | destructive |
+| Plain index over a column that was itself added as NOT NULL without default | `add_index` | destructive |
+
+Reference fields (`fluxaorm.Reference[T]`) do not get an index or a foreign key automatically; declare one in `Indexes()` if you filter by them.
 
 ## Complete Example
 
-Here is a complete example showing entities with various index configurations:
-
 ```go
-package entity
+package model
 
-import (
-    "github.com/latolukasz/fluxaorm/v2"
-)
+import "github.com/latolukasz/fluxaorm/v2"
 
 type CategoryEntity struct {
-    ID   uint64 `orm:"localCache;redisCache"`
+    ID   uint64 `orm:"redisCache"`
     Name string `orm:"required"`
     Slug string `orm:"required"`
 }
 
-func (e CategoryEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "Name": {"Name"},
-        "Slug": {"Slug"},
-    }
-}
-
-func (e CategoryEntity) CachedUniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "Name": {"Name"},
-        "Slug": {"Slug"},
-    }
-}
+func (e CategoryEntity) UniqueIndexes() [][]string       { return [][]string{{"Name"}, {"Slug"}} }
+func (e CategoryEntity) CachedUniqueIndexes() [][]string { return [][]string{{"Name"}, {"Slug"}} }
 
 type UserEntity struct {
     ID      uint64 `orm:"redisCache"`
@@ -273,53 +203,28 @@ type UserEntity struct {
     Age     uint32
 }
 
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "Email":       {"Email"},
-        "NameCountry": {"Name", "Country"},
-    }
-}
-
-func (e UserEntity) CachedUniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "Email":       {"Email"},
-        "NameCountry": {"Name", "Country"},
-    }
-}
-
-func (e UserEntity) Indexes() map[string][]string {
-    return map[string][]string{
-        "Age": {"Age"},
-    }
-}
+func (e UserEntity) UniqueIndexes() [][]string       { return [][]string{{"Email"}, {"Name", "Country"}} }
+func (e UserEntity) CachedUniqueIndexes() [][]string { return [][]string{{"Email"}} }
+func (e UserEntity) Indexes() [][]string             { return [][]string{{"Age"}} }
 
 type ProductEntity struct {
     ID       uint64
-    SKU      string                                `orm:"required"`
-    Category fluxaorm.Reference[CategoryEntity]    `orm:"required"`
-    Slug     string                                `orm:"required"`
+    SKU      string                             `orm:"required"`
+    Category fluxaorm.Reference[CategoryEntity] `orm:"required"`
+    Slug     string                             `orm:"required"`
 }
 
-func (e ProductEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{
-        "SKU":          {"SKU"},
-        "CategorySlug": {"Category", "Slug"},
-    }
-}
+func (e ProductEntity) UniqueIndexes() [][]string { return [][]string{{"SKU"}, {"Category", "Slug"}} }
+func (e ProductEntity) Indexes() [][]string       { return [][]string{{"Category"}} }
 ```
 
-After code generation:
-
 ```go
-// Single-column cached lookups (auto-detected by SearchOne)
+// cached lookup: Redis first, MySQL on miss
 cat, found, err := entities.CategoryEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(entities.CategoryEntityProvider.Fields.Name.Is("Electronics")),
-)
-cat, found, err = entities.CategoryEntityProvider.SearchOne(ctx,
     fluxaorm.NewQuery().Filter(entities.CategoryEntityProvider.Fields.Slug.Is("electronics")),
 )
 
-// Composite cached lookups
+// unique but not cached: plain SQL using the Name_Country index
 user, found, err := entities.UserEntityProvider.SearchOne(ctx,
     fluxaorm.NewQuery().Filter(
         entities.UserEntityProvider.Fields.Name.Is("Alice"),
@@ -327,20 +232,10 @@ user, found, err := entities.UserEntityProvider.SearchOne(ctx,
     ),
 )
 
-// Single-column cached lookup
-user, found, err = entities.UserEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(entities.UserEntityProvider.Fields.Email.Is("alice@example.com")),
-)
-
-// Non-cached lookups (hit MySQL every time)
+// composite unique index with a reference column
 product, found, err := entities.ProductEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(entities.ProductEntityProvider.Fields.SKU.Is("MOUSE-001")),
-)
-
-// Composite with reference
-product, found, err = entities.ProductEntityProvider.SearchOne(ctx,
     fluxaorm.NewQuery().Filter(
-        entities.ProductEntityProvider.Fields.Category.Eq(categoryID),
+        entities.ProductEntityProvider.Fields.Category.Eq(cat.GetID()),
         entities.ProductEntityProvider.Fields.Slug.Is("wireless-mouse"),
     ),
 )

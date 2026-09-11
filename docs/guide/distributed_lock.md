@@ -1,10 +1,10 @@
 # Distributed Lock
 
-In some cases, you may need a mechanism to control access to a shared resource from multiple services. While it is easy to limit access to a resource within a single Go application using [sync.Mutex](https://tour.golang.org/concurrency/9), doing so across multiple instances of an application can be more challenging. FluxaORM's `Locker` feature provides a distributed lock backed by Redis. As long as all your application instances have access to the same Redis instance, you can use `Locker` to synchronize access.
+A `sync.Mutex` only protects a resource inside one process. When several instances of your application must coordinate, FluxaORM provides a distributed lock backed by Redis (implemented with [bsm/redislock](https://github.com/bsm/redislock)). Every instance that shares the same Redis pool can use it.
 
 ## Obtaining a Lock
 
-Get a `Locker` from a Redis pool, then call `Obtain` to acquire a lock:
+Get the `Locker` of a Redis pool and call `Obtain`:
 
 ```go
 import (
@@ -16,174 +16,152 @@ import (
 
 locker := engine.Redis(fluxaorm.DefaultPoolCode).GetLocker()
 
-lock, obtained, err := locker.Obtain(ctx, "my-lock", time.Minute, 0)
+lock, obtained, err := locker.Obtain(ctx, "report:daily", time.Minute, 0)
 if err != nil {
     panic(err)
 }
 if !obtained {
-    fmt.Println("lock is already held by another process")
+    fmt.Println("another instance holds the lock")
     return
 }
 defer lock.Release(ctx)
 
 // critical section
-fmt.Println("lock acquired, doing work...")
 ```
 
-The `Obtain` method accepts four arguments:
+```go
+Obtain(ctx Context, key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool, err error)
+```
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `ctx` | `fluxaorm.Context` | The FluxaORM context |
-| `key` | `string` | Unique name for the lock |
-| `ttl` | `time.Duration` | Time to live -- the lock automatically expires after this duration |
-| `waitTimeout` | `time.Duration` | How long to wait for the lock. `0` means return immediately if the lock is not available |
+| Argument | Description |
+|----------|-------------|
+| `key` | Redis key of the lock. Use a unique name per protected resource |
+| `ttl` | Lifetime of the lock. It expires automatically after this duration unless refreshed |
+| `waitTimeout` | How long to keep retrying when the lock is held by someone else. `0` = a single attempt |
 
-`Obtain` returns:
-- `lock` -- a `*Lock` object used to release, refresh, or check the lock
-- `obtained` -- `true` if the lock was successfully acquired
-- `err` -- any error that occurred
+| Return | Description |
+|--------|-------------|
+| `lock` | `*Lock` used to release, refresh or inspect the lock. `nil` when `obtained` is `false` |
+| `obtained` | `true` when the lock was acquired |
+| `err` | Validation error or Redis error. A lock held by another process is **not** an error: `Obtain` returns `(nil, false, nil)` |
+
+`Obtain` validates its arguments before touching Redis:
+
+| Condition | Error |
+|-----------|-------|
+| `ttl == 0` | `ttl must be higher than zero` |
+| `waitTimeout > ttl` | `waitTimeout can't be higher than ttl` |
 
 ::: warning
-Always use `defer lock.Release(ctx)` after obtaining a lock. Failing to release a lock will cause it to remain held until its TTL expires, blocking other processes.
+Always check `obtained` before using `lock`, and always `defer lock.Release(ctx)` once you have it. An unreleased lock blocks every other instance until the `ttl` elapses.
 :::
 
-::: tip
-The `waitTimeout` must not exceed the `ttl`. If it does, `Obtain` returns an error.
-:::
+`GetLocker()` is part of the `RedisCache` interface; one `Locker` is created lazily per Redis pool and reused.
 
 ## Non-Blocking Lock
 
-When `waitTimeout` is `0`, `Obtain` returns immediately if the lock is already held:
+With `waitTimeout == 0` the lock is attempted exactly once:
 
 ```go
 locker := engine.Redis(fluxaorm.DefaultPoolCode).GetLocker()
 
-func testLock(name string) {
-    fmt.Printf("GETTING LOCK %s\n", name)
-    lock, obtained, err := locker.Obtain(ctx, "test_lock", time.Minute, 0)
+func work(name string) {
+    lock, obtained, err := locker.Obtain(ctx, "job", time.Minute, 0)
     if err != nil {
         panic(err)
     }
     if !obtained {
-        fmt.Printf("UNABLE TO GET LOCK %s\n", name)
+        fmt.Printf("%s: lock busy\n", name)
         return
     }
     defer lock.Release(ctx)
-    fmt.Printf("GOT LOCK %s\n", name)
-    time.Sleep(time.Second * 2)
-    fmt.Printf("RELEASING LOCK %s\n", name)
+    fmt.Printf("%s: got lock\n", name)
+    time.Sleep(2 * time.Second)
 }
-go testLock("A")
-go testLock("B")
+go work("A")
+go work("B")
 ```
 
 ```
-GETTING LOCK A
-GETTING LOCK B
-GOT LOCK A
-UNABLE TO GET LOCK B
-RELEASING LOCK A
+A: got lock
+B: lock busy
 ```
 
 ## Waiting for a Lock
 
-Pass a non-zero `waitTimeout` to have `Obtain` retry with linear backoff until the lock becomes available or the timeout elapses:
+With `waitTimeout > 0`, `Obtain` retries at a fixed interval until it succeeds or the retries are exhausted:
+
+- `waitTimeout < 1s`: one retry after `waitTimeout`.
+- `waitTimeout >= 1s`: a retry every **1 second**, `int(waitTimeout / time.Second)` times (the fraction of a second is dropped: `1500 * time.Millisecond` gives a single retry after 1s).
 
 ```go
-locker := engine.Redis(fluxaorm.DefaultPoolCode).GetLocker()
-
-func testLock(name string) {
-    fmt.Printf("GETTING LOCK %s\n", name)
-    lock, obtained, err := locker.Obtain(ctx, "test_lock", time.Minute, 5*time.Second)
-    if err != nil {
-        panic(err)
-    }
-    if !obtained {
-        fmt.Printf("TIMED OUT WAITING FOR LOCK %s\n", name)
-        return
-    }
-    defer lock.Release(ctx)
-    fmt.Printf("GOT LOCK %s\n", name)
-    time.Sleep(time.Second * 2)
-    fmt.Printf("RELEASING LOCK %s\n", name)
-}
-go testLock("A")
-go testLock("B")
-```
-
-```
-GETTING LOCK A
-GETTING LOCK B
-GOT LOCK A
-RELEASING LOCK A
-GOT LOCK B
-RELEASING LOCK B
-```
-
-## Checking TTL and Refreshing
-
-You can check when a lock will expire using `TTL`, and extend it using `Refresh`:
-
-```go
-locker := engine.Redis(fluxaorm.DefaultPoolCode).GetLocker()
-lock, obtained, err := locker.Obtain(ctx, "test", 5*time.Second, 0)
+lock, obtained, err := locker.Obtain(ctx, "job", time.Minute, 5*time.Second)
 if err != nil {
     panic(err)
 }
 if !obtained {
+    fmt.Println("gave up after 5 retries")
+    return
+}
+defer lock.Release(ctx)
+```
+
+With two goroutines competing as in the previous example, the second one obtains the lock about a second after the first releases it:
+
+```
+A: got lock
+B: got lock
+```
+
+## TTL and Refresh
+
+`TTL` returns how long the lock still lives; `Refresh` **sets** the remaining lifetime to the given value (it does not add to it):
+
+```go
+lock, obtained, err := locker.Obtain(ctx, "job", 5*time.Second, 0)
+if err != nil || !obtained {
     return
 }
 defer lock.Release(ctx)
 
-ttl, err := lock.TTL(ctx)
-fmt.Printf("GOT LOCK FOR %d SECONDS\n", int(ttl.Seconds()))
+ttl, _ := lock.TTL(ctx)
+fmt.Printf("expires in %d seconds\n", int(ttl.Seconds())) // expires in 4 seconds (rounded down)
 
-time.Sleep(time.Second)
-ttl, err = lock.TTL(ctx)
-fmt.Printf("WILL EXPIRE IN %d SECONDS\n", int(ttl.Seconds()))
+time.Sleep(2 * time.Second)
 
-time.Sleep(time.Second)
-ttl, err = lock.TTL(ctx)
-fmt.Printf("WILL EXPIRE IN %d SECONDS\n", int(ttl.Seconds()))
-
-// Extend the lock by 2 more seconds
-ok, err := lock.Refresh(ctx, 2*time.Second)
+// the lock now has ~3s left; set it back to 10s
+ok, err := lock.Refresh(ctx, 10*time.Second)
 if err != nil {
     panic(err)
 }
 if !ok {
-    fmt.Println("LOST LOCK")
+    fmt.Println("lock lost")
     return
 }
-
-ttl, err = lock.TTL(ctx)
-fmt.Printf("WILL EXPIRE IN %d SECONDS\n", int(ttl.Seconds()))
+ttl, _ = lock.TTL(ctx)
+fmt.Printf("expires in %d seconds\n", int(ttl.Seconds())) // expires in 9 seconds
 ```
 
-```
-GOT LOCK FOR 5 SECONDS
-WILL EXPIRE IN 4 SECONDS
-WILL EXPIRE IN 3 SECONDS
-WILL EXPIRE IN 5 SECONDS
-```
+`Refresh` returns `false, nil` when the lock has already expired or been released (Redis no longer holds our token); the `Lock` is then marked as lost and further `Refresh` calls return `false` immediately.
 
-## Lock API Reference
+## API Reference
 
 ### `Locker`
 
-Obtained via `engine.Redis(poolCode).GetLocker()`.
+Returned by `engine.Redis(poolCode).GetLocker()`.
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `Obtain` | `Obtain(ctx Context, key string, ttl time.Duration, waitTimeout time.Duration) (*Lock, bool, error)` | Attempt to acquire a distributed lock |
+| Method | Description |
+|--------|-------------|
+| `Obtain(ctx Context, key string, ttl time.Duration, waitTimeout time.Duration) (lock *Lock, obtained bool, err error)` | Acquire the lock, see above |
 
 ### `Lock`
 
-Returned by a successful `Obtain` call.
+| Method | Description |
+|--------|-------------|
+| `Release(ctx Context)` | Releases the lock. Idempotent: the second and later calls do nothing, and releasing a lock that already expired is silently ignored |
+| `TTL(ctx Context) (time.Duration, error)` | Remaining lifetime. `0` when the lock is not held any more |
+| `Refresh(ctx Context, ttl time.Duration) (bool, error)` | Sets the remaining lifetime to `ttl`. Returns `false, nil` when the lock was lost or already released |
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `Release` | `Release(ctx Context)` | Release the lock. Safe to call even if the lock has already been released or lost. |
-| `TTL` | `TTL(ctx Context) (time.Duration, error)` | Get the remaining time to live of the lock |
-| `Refresh` | `Refresh(ctx Context, ttl time.Duration) (bool, error)` | Extend the lock's TTL. Returns `false` if the lock was already lost. |
+## Logging and Metrics
+
+Lock operations go through the Redis [query log](/guide/queries_log.html) with operations `LOCK OBTAIN`, `LOCK RELEASE`, `LOCK TTL` and `LOCK REFRESH` (`miss="TRUE"` when a lock was not obtained, not held or lost), and are recorded in the `fluxaorm_redis_queries_seconds` histogram with `operation="lock"` -- see [Metrics](/guide/metrics.html) for the label semantics.

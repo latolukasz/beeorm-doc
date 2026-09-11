@@ -1,282 +1,339 @@
 # Search
 
-In the previous section, you learned how to load entities from a database using their primary keys. In this section, we will cover how to search and load entities using the type-safe query builder. This is useful when you need to find entities that match specific criteria or retrieve paginated lists of results.
+[CRUD](/guide/crud.html) covers loading entities by primary key. This section covers finding entities by their column values with the type-safe query builder `fluxaorm.DBQuery`, sorting, pagination, and the generated `SearchOne`, `SearchMany`, `SearchManyWithTotal` and `Count` methods.
 
-In FluxaORM v2, search methods are generated on the entity's Provider. Results are returned as plain slices -- there are no iterators.
+All search methods are generated on the entity's Provider and return plain slices. They select only the `ID` column in SQL and then hydrate the entities through `GetByID`/`GetByIDs`, so results pass through the [context cache](/guide/context_cache.html) and the [Redis row cache](/guide/redis_cache.html) exactly like primary-key loads.
 
-## Typed Field Definitions
+## Typed Field Descriptors
 
-After code generation, each Provider has a `Fields` struct containing typed field definitions for every column. These fields provide type-safe filter methods that eliminate raw SQL strings for common queries.
+After [code generation](/guide/code_generation.html) every Provider has a `Fields` struct with one typed descriptor per column. Descriptors build `fluxaorm.Condition` values for `Filter()` and implement `fluxaorm.Field` for `SortByASC()`/`SortByDESC()`.
 
 ```go
-// Given this entity definition:
+// Entity definition
 type UserEntity struct {
     ID        uint64 `orm:"redisCache"`
     Name      string `orm:"required"`
     Email     string
     Age       uint32
+    Score     *float64
     Status    string `orm:"enum=active,inactive;required"`
+    Country   fluxaorm.Reference[CountryEntity]
     CreatedAt time.Time
 }
 
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{"Email": {"Email"}}
-}
+func (e UserEntity) UniqueIndexes() [][]string       { return [][]string{{"Email"}} }
+func (e UserEntity) CachedUniqueIndexes() [][]string { return [][]string{{"Email"}} }
 
-func (e UserEntity) CachedUniqueIndexes() map[string][]string {
-    return map[string][]string{"Email": {"Email"}}
-}
-
-// After code generation, UserProvider.Fields contains:
-// UserProvider.Fields.ID        → fluxaorm.UintField
-// UserProvider.Fields.Name      → fluxaorm.StringField
-// UserProvider.Fields.Email     → fluxaorm.StringField
-// UserProvider.Fields.Age       → fluxaorm.UintField
-// UserProvider.Fields.Status    → fluxaorm.EnumField
-// UserProvider.Fields.CreatedAt → fluxaorm.TimeField
+// Generated descriptors (package entities):
+// entities.UserEntityProvider.Fields.ID        fluxaorm.UintField
+// entities.UserEntityProvider.Fields.Name      fluxaorm.StringField
+// entities.UserEntityProvider.Fields.Email     fluxaorm.NullableStringField  (string without `required`)
+// entities.UserEntityProvider.Fields.Age       fluxaorm.UintField
+// entities.UserEntityProvider.Fields.Score     fluxaorm.NullableFloatField
+// entities.UserEntityProvider.Fields.Status    fluxaorm.EnumField
+// entities.UserEntityProvider.Fields.Country   fluxaorm.NullableUintField    (Reference without `required`)
+// entities.UserEntityProvider.Fields.CreatedAt fluxaorm.TimeField
 ```
 
-Each field type provides methods appropriate for its data type. See the [Field Types and Methods](#field-types-and-methods) section below for the full reference.
+### Go type to descriptor mapping
+
+| Go field | Tag | Descriptor |
+|----------|-----|------------|
+| `ID uint64` | | `UintField` (always) |
+| `uint8` .. `uint64` | | `UintField` |
+| `int8` .. `int64` | | `IntField` |
+| `float32`, `float64` | | `FloatField` |
+| `bool` | | `BoolField` |
+| `time.Time` (date or `orm:"time"`) | | `TimeField` |
+| `string` | `required` | `StringField` |
+| `string` | (not required) | `NullableStringField` |
+| `string` | `enum=...` or `enumName=...` + `required` | `EnumField` |
+| `string` | `enum=...` or `enumName=...`, not required | `NullableEnumField` |
+| `fluxaorm.Reference[T]` | `required` | `ReferenceField` |
+| `fluxaorm.Reference[T]` | (not required) | `NullableUintField` |
+| `*uint8` .. `*uint64` | | `NullableUintField` |
+| `*int8` .. `*int64` | | `NullableIntField` |
+| `*float32`, `*float64` | | `NullableFloatField` |
+| `*bool` | | `NullableBoolField` |
+| `*time.Time` | | `NullableTimeField` |
+| `*string` | | `NullableStringField` |
+
+Not present in `Fields`: the `FakeDelete` column, `[]uint8` (blob) columns, `set=` columns, `fluxaorm.References[T]` columns and JSON struct pointer columns.
+
+::: tip
+The `fluxaorm.NullableReferenceField` type exists in the library but the generator never emits it: an optional reference is exposed as `NullableUintField`, which has the same `Eq`/`In`/`IsNull`/`IsNotNull` methods.
+:::
+
+### Condition methods per descriptor
+
+Every method returns a `fluxaorm.Condition`. Column names are always back-quoted in the generated SQL.
+
+| Descriptor | Methods | SQL |
+|------------|---------|-----|
+| `UintField` | `Eq(v uint64)`, `Gte(v uint64)`, `Lte(v uint64)`, `Gt(v uint64)`, `Lt(v uint64)`, `In(values ...uint64)` | `` `col` = ? ``, `>=`, `<=`, `>`, `<`, `` `col` IN (?,?,...) `` |
+| `IntField` | `Eq`, `Gte`, `Lte`, `Gt`, `Lt` (`int64`), `In(values ...int64)` | same |
+| `FloatField` | `Eq`, `Gte`, `Lte`, `Gt`, `Lt` (`float64`), `In(values ...float64)` | same |
+| `TimeField` | `Eq`, `Gte`, `Lte`, `Gt`, `Lt` (`time.Time`) | same, no `In` |
+| `StringField` | `Is(v string)`, `Like(v string)`, `In(values ...string)`, `IsEmpty()` | `` `col` = ? ``, `` `col` LIKE ? ``, `IN`, `` `col` = '' `` |
+| `BoolField` | `Is(v bool)` | `` `col` = ? `` |
+| `EnumField` | `Is(v any)`, `In(values ...any)` | `` `col` = ? ``, `IN` |
+| `ReferenceField` | `Eq(v uint64)`, `In(values ...uint64)` | `` `col` = ? ``, `IN` |
+| `NullableUintField` | `UintField` methods + `IsNull()`, `IsNotNull()` | `` `col` IS NULL ``, `` `col` IS NOT NULL `` |
+| `NullableIntField` | `IntField` methods + `IsNull()`, `IsNotNull()` | |
+| `NullableFloatField` | `FloatField` methods + `IsNull()`, `IsNotNull()` | |
+| `NullableTimeField` | `TimeField` methods + `IsNull()`, `IsNotNull()` | |
+| `NullableStringField` | `Is`, `Like`, `In`, `IsEmpty()` + `IsNull()`, `IsNotNull()` | |
+| `NullableBoolField` | `Is(v bool)` + `IsNull()`, `IsNotNull()` | |
+| `NullableEnumField` | `Is(v any)`, `In(values ...any)` + `IsNull()`, `IsNotNull()` | |
+
+`EnumField.Is`/`In` take `any`, so you can pass the generated enum constants directly:
+
+```go
+import "myapp/entities/enums"
+
+entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active)
+entities.UserEntityProvider.Fields.Status.In(enums.UserStatusList.Active, enums.UserStatusList.Inactive)
+```
+
+### Negating a condition
+
+Every `Condition` has `Not() Condition`, which wraps the predicate in `NOT (...)`. Calling `Not()` on an already negated condition returns the original one.
+
+```go
+entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Inactive).Not()
+// NOT (`Status` = ?)
+
+entities.UserEntityProvider.Fields.Name.Like("%test%").Not()
+// NOT (`Name` LIKE ?)
+```
 
 ## Building Queries with NewQuery
 
-Use `fluxaorm.NewQuery()` to build type-safe queries. The query builder supports filtering, sorting, and pagination through a fluent API:
+`fluxaorm.NewQuery()` returns an empty `*fluxaorm.DBQuery`. All builder methods return the query, so they chain:
 
 ```go
 import "github.com/latolukasz/fluxaorm/v2"
 
 query := fluxaorm.NewQuery().
     Filter(
-        entities.UserProvider.Fields.Age.Gte(18),
-        entities.UserProvider.Fields.Status.Is("active"),
+        entities.UserEntityProvider.Fields.Age.Gte(18),
+        entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active),
     ).
-    SortByDESC(entities.UserProvider.Fields.CreatedAt).
+    SortByDESC(entities.UserEntityProvider.Fields.CreatedAt).
     Pager(fluxaorm.NewPager(1, 20))
+// SELECT `ID` FROM `UserEntity` WHERE `Age` >= ? AND `Status` = ? ORDER BY `CreatedAt` DESC LIMIT 0,20
 ```
 
-### Filter
+| Method | Behaviour |
+|--------|-----------|
+| `Filter(conditions ...Condition) *DBQuery` | **Appends** typed conditions. Every call adds to the list; all conditions are joined with `AND`. |
+| `FilterWhere(w Where) *DBQuery` | Sets the single raw `Where` slot. A second call **replaces** the first one. |
+| `SortByASC(f Field) *DBQuery` / `SortByDESC(f Field) *DBQuery` | Append a sort clause; several calls produce `ORDER BY a ASC, b DESC`. |
+| `Pager(p *Pager) *DBQuery` | Sets the `LIMIT` clause. Without a pager `SearchMany` has **no** `LIMIT`. |
+| `GetConditions() []Condition` | Returns the typed conditions (used by generated `SearchOne` for cached unique index detection). |
+| `BuildWhereClause() (string, []any)` | Typed conditions followed by the raw where, joined with `AND`; `""`, `nil` when empty. |
+| `BuildOrderClause() string` | `ORDER BY ...` or `""`. |
+| `BuildLimitClause() string` | `pager.String()` or `""`. |
+| `IsWithFakeDeletes() bool` | `true` only when the raw where was created with `WithFakeDeletes()`. |
 
-`Filter()` accepts one or more typed conditions. Multiple conditions are combined with AND logic:
+### FilterWhere: raw SQL fallback
 
-```go
-query := fluxaorm.NewQuery().Filter(
-    entities.UserProvider.Fields.Age.Gte(18),
-    entities.UserProvider.Fields.Status.Is("active"),
-)
-// WHERE `Age` >= 18 AND `Status` = 'active'
-```
-
-### SortByASC / SortByDESC
-
-Sort results by any field:
+For predicates that the typed descriptors cannot express, pass a `Where` built with `fluxaorm.NewWhere()`. Typed conditions and the raw where are combined with `AND`:
 
 ```go
 query := fluxaorm.NewQuery().
-    SortByASC(entities.UserProvider.Fields.Name)
-
-query = fluxaorm.NewQuery().
-    SortByDESC(entities.UserProvider.Fields.CreatedAt)
-
-// Multiple sort clauses
-query = fluxaorm.NewQuery().
-    SortByASC(entities.UserProvider.Fields.Status).
-    SortByDESC(entities.UserProvider.Fields.CreatedAt)
+    Filter(entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active)).
+    FilterWhere(fluxaorm.NewWhere("(`Name` LIKE ? OR `Email` LIKE ?)", "%john%", "%john%"))
+// WHERE `Status` = ? AND (`Name` LIKE ? OR `Email` LIKE ?)
 ```
 
-### Pager
+::: warning
+`FilterWhere` holds one `Where`. If you need several raw fragments, build one `Where` and extend it with `Append()` instead of calling `FilterWhere` twice.
+:::
 
-Use `fluxaorm.NewPager()` to define pagination:
+### The Where object
+
+`func fluxaorm.NewWhere(query string, parameters ...any) *fluxaorm.BaseWhere` creates a raw SQL fragment with `?` placeholders. `*BaseWhere` implements the `fluxaorm.Where` interface (`String()`, `GetParameters()`, `IsWithFakeDeletes()`).
 
 ```go
-import "github.com/latolukasz/fluxaorm/v2"
+where := fluxaorm.NewWhere("`Email` = ? AND `Age` >= ?", "alice@example.com", 18)
+where.String()        // "`Email` = ? AND `Age` >= ?"
+where.GetParameters() // []any{"alice@example.com", 18}
 
-// Load first 100 rows
-pager := fluxaorm.NewPager(1, 100) // LIMIT 0,100
+// A slice or array parameter expands the first "IN ?" into "IN (?,?,...)":
+where = fluxaorm.NewWhere("`Age` IN ?", []int{18, 20, 30})
+where.String()        // "`Age` IN (?,?,?)"
+where.GetParameters() // []any{18, 20, 30}
+
+// Extend an existing where (a leading space is added when missing):
+where.Append("AND `Status` = ?", "active")
+where.String()        // "`Age` IN (?,?,?) AND `Status` = ?"
+
+// Replace parameters after construction:
+where.SetParameter(1, 21)          // 1-based index
+where.SetParameters(21, 22, 23, "active")
+```
+
+| Method | Description |
+|--------|-------------|
+| `String() string` | The SQL fragment |
+| `GetParameters() []any` | The bound parameters |
+| `Append(query string, parameters ...any)` | Appends another fragment and its parameters |
+| `SetParameter(index int, param any) *BaseWhere` | Replaces one parameter (1-based) |
+| `SetParameters(params ...any) *BaseWhere` | Replaces all parameters |
+| `WithFakeDeletes() *BaseWhere` | Marks the query to include fake-deleted rows (see below) |
+| `IsWithFakeDeletes() bool` | Whether `WithFakeDeletes()` was called |
+
+## Pager
+
+`fluxaorm.NewPager(currentPage, pageSize int) *fluxaorm.Pager` describes one page. Pages are 1-based; `String()` renders `LIMIT <(page-1)*size>,<size>`.
+
+```go
+pager := fluxaorm.NewPager(1, 100)
 pager.GetPageSize()    // 100
 pager.GetCurrentPage() // 1
 pager.String()         // "LIMIT 0,100"
 
-// Load next 100 rows (page 2)
-pager = fluxaorm.NewPager(2, 100) // LIMIT 100,100
-pager.GetPageSize()    // 100
+pager.IncrementPage()
 pager.GetCurrentPage() // 2
 pager.String()         // "LIMIT 100,100"
 
-// Move to the next page
-pager.IncrementPage()
-pager.GetCurrentPage() // 3
+// The fields are exported as well:
+pager.CurrentPage = 5
+pager.PageSize = 25
 ```
 
-### FilterWhere (Raw SQL Fallback)
+The pager performs no validation: page `0` or a negative page produces a negative offset, so always start from page `1`.
 
-For complex queries that cannot be expressed with typed fields, use `FilterWhere()` with a raw `Where` clause:
+## SearchMany
 
 ```go
-query := fluxaorm.NewQuery().
-    FilterWhere(fluxaorm.NewWhere("`Age` > ? AND `Name` LIKE ?", 18, "%john%"))
+func (p userEntityProvider) SearchMany(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*entities.UserEntity, error)
 ```
 
-You can combine `Filter()` and `FilterWhere()` in the same query. All conditions are joined with AND:
+Runs `SELECT ID FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT ...]` and hydrates the ids with `GetByIDs`. Without a `Pager` there is no `LIMIT`, so an empty query loads the whole table.
 
 ```go
-query := fluxaorm.NewQuery().
-    Filter(entities.UserProvider.Fields.Status.Is("active")).
-    FilterWhere(fluxaorm.NewWhere("`Name` LIKE ?", "%john%"))
-```
-
-#### Where Object
-
-`fluxaorm.NewWhere()` defines raw SQL conditions:
-
-```go
-import "github.com/latolukasz/fluxaorm/v2"
-
-// WHERE Email = "alice@example.com" AND Age >= 18
-where := fluxaorm.NewWhere("`Email` = ? AND `Age` >= ?", "alice@example.com", 18)
-where.String()        // "`Email` = ? AND `Age` >= ?"
-where.GetParameters() // []any{"alice@example.com", 18}
-```
-
-If you pass a slice as a parameter, FluxaORM automatically expands it into `IN (?,?,...)` syntax:
-
-```go
-where := fluxaorm.NewWhere("`Age` IN ?", []int{18, 20, 30})
-where.String()        // "`Age` IN (?,?,?)"
-where.GetParameters() // []any{18, 20, 30}
-```
-
-## Searching for Multiple Entities
-
-Use `SearchMany()` on the Provider to find entities matching a query:
-
-```go
-import "github.com/latolukasz/fluxaorm/v2"
-
-users, err := entities.UserProvider.SearchMany(ctx,
+users, err := entities.UserEntityProvider.SearchMany(ctx,
     fluxaorm.NewQuery().
-        Filter(entities.UserProvider.Fields.Age.Gte(18)).
-        SortByASC(entities.UserProvider.Fields.Name).
+        Filter(entities.UserEntityProvider.Fields.Age.Gte(18)).
+        SortByASC(entities.UserEntityProvider.Fields.Name).
         Pager(fluxaorm.NewPager(1, 100)),
 )
 if err != nil {
-    // handle error
+    return err
 }
 for _, user := range users {
-    fmt.Printf("User: %s\n", user.GetName())
+    fmt.Println(user.GetName())
 }
 ```
 
-Pass an empty query to load all rows (with optional pagination):
+The returned slice keeps the SQL order. Entities are hydrated through `GetByIDs`, so each one is served from the context cache when already loaded, from the Redis row cache when the entity has `redisCache`, and otherwise loaded with a single `SELECT ... WHERE ID IN (...)`. Every loaded entity is placed in the context cache, so two searches in one `Context` that return the same row give you the same pointer.
+
+## SearchManyWithTotal
 
 ```go
-users, err := entities.UserProvider.SearchMany(ctx,
-    fluxaorm.NewQuery().Pager(fluxaorm.NewPager(1, 100)),
-)
+func (p userEntityProvider) SearchManyWithTotal(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*entities.UserEntity, int, error)
 ```
 
-**Signature:**
-```go
-func (p XxxProvider) SearchMany(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*XxxEntity, error)
-```
-
-## Searching with Total Count
-
-If you need the total number of matching rows (useful for pagination UIs), use `SearchManyWithTotal()`:
+Runs `SELECT COUNT(*)` with the query's `WHERE` first. When the count is `0` it returns `nil, 0, nil` without a second query; otherwise it runs the same id query as `SearchMany` (with the pager) and returns the page plus the total.
 
 ```go
-users, total, err := entities.UserProvider.SearchManyWithTotal(ctx,
+users, total, err := entities.UserEntityProvider.SearchManyWithTotal(ctx,
     fluxaorm.NewQuery().
-        Filter(
-            entities.UserProvider.Fields.Age.Gte(18),
-            entities.UserProvider.Fields.Status.Is("active"),
-        ).
-        SortByDESC(entities.UserProvider.Fields.CreatedAt).
+        Filter(entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active)).
+        SortByDESC(entities.UserEntityProvider.Fields.CreatedAt).
         Pager(fluxaorm.NewPager(1, 20)),
 )
-if err != nil {
-    // handle error
-}
-fmt.Printf("Showing %d of %d total users\n", len(users), total)
+fmt.Printf("showing %d of %d users\n", len(users), total)
 ```
 
-This executes a `SELECT COUNT(*)` query first, then fetches the page of results.
+## Count
 
-**Signature:**
 ```go
-func (p XxxProvider) SearchManyWithTotal(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*XxxEntity, int, error)
+func (p userEntityProvider) Count(ctx fluxaorm.Context, query *fluxaorm.DBQuery) (int, error)
 ```
 
-## Searching for a Single Entity
-
-Use `SearchOne()` to find a single entity matching the query. This method automatically adds `LIMIT 1`:
+Runs only `SELECT COUNT(*) FROM <table> [WHERE ...]`. Sort clauses and the pager are ignored.
 
 ```go
-user, found, err := entities.UserProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(
-        entities.UserProvider.Fields.Email.Is("alice@example.com"),
-    ),
+active, err := entities.UserEntityProvider.Count(ctx,
+    fluxaorm.NewQuery().Filter(entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active)),
+)
+```
+
+## SearchOne
+
+```go
+func (p userEntityProvider) SearchOne(ctx fluxaorm.Context, query *fluxaorm.DBQuery) (*entities.UserEntity, bool, error)
+```
+
+Runs the id query with `LIMIT 1` (honouring `ORDER BY`) and returns `GetByID` of the found id. `found` is `false` with a `nil` error when no row matches. A `Pager` on the query is ignored.
+
+```go
+user, found, err := entities.UserEntityProvider.SearchOne(ctx,
+    fluxaorm.NewQuery().
+        Filter(entities.UserEntityProvider.Fields.Email.Is("alice@example.com")),
 )
 if err != nil {
-    // handle error
+    return err
 }
 if !found {
-    fmt.Println("User not found")
-    return
+    fmt.Println("not found")
+    return nil
 }
-fmt.Printf("Found user: %s\n", user.GetName())
+fmt.Println(user.GetName())
 ```
 
-::: tip Smart Unique Index Detection
-When `SearchOne()` detects that the filter conditions match a cached unique index (e.g., filtering by `Email` when the entity implements `CachedUniqueIndexes()` for that field), it automatically uses the cached index lookup instead of executing a SQL query. This gives you the same performance as `GetByIndexEmail()` with the convenience of the query builder API.
-:::
+### Cached unique index detection
 
-**Signature:**
+When the entity declares `CachedUniqueIndexes()`, `SearchOne` inspects `query.GetConditions()` before building SQL. If the query has exactly as many typed conditions as an index has columns, and every one of them is an equality (`Eq`/`Is`) on exactly those columns, the lookup goes through the Redis unique-index key instead of a `SELECT`:
+
+1. Outside a transaction (`ctx.InTransaction() == false`) the key `<redisCachePrefix>u:<IndexName>@<hash>:<value hash>` is read with `GET`. On a hit the id is loaded with `GetByID`, and the loaded row's column values (and `FakeDelete == 0` when present) are verified against the query before it is returned.
+2. On a miss (or a failed verification) `SELECT ID ... WHERE <cols> = ? LIMIT 1` runs, the id is written back to the key with `fluxaorm.EntityCacheTTL`, and `GetByID` returns the entity.
+3. Inside `ctx.Transaction` Redis is neither read nor written; the `SELECT` runs on the transaction.
+
+Only `GetConditions()` participates in the detection. `FilterWhere`, sort clauses and `WithFakeDeletes()` are ignored on that path, and any non-equality condition (or an extra condition) falls back to the regular `SELECT ID ... LIMIT 1`. The key format and invalidation rules are described in [Redis Cache](/guide/redis_cache.html).
+
 ```go
-func (p XxxProvider) SearchOne(ctx fluxaorm.Context, query *fluxaorm.DBQuery) (*XxxEntity, bool, error)
+// Uses the cached unique index "Email":
+entities.UserEntityProvider.SearchOne(ctx, fluxaorm.NewQuery().
+    Filter(entities.UserEntityProvider.Fields.Email.Is("alice@example.com")))
+
+// Regular SQL (Like is not an equality):
+entities.UserEntityProvider.SearchOne(ctx, fluxaorm.NewQuery().
+    Filter(entities.UserEntityProvider.Fields.Email.Like("alice%")))
 ```
 
-## Including Fake-Deleted Entities
+## Fake-Deleted Rows
 
-If your entity has a `FakeDelete` field, all search methods automatically filter out soft-deleted rows. To include them, use `WithFakeDeletes()` on the `Where` clause via `FilterWhere()`:
+When the entity has a `FakeDelete` field, `SearchOne`, `SearchMany`, `SearchManyWithTotal` and `Count` append `FakeDelete = 0` to the `WHERE` clause. To include fake-deleted rows, pass a `Where` created with `WithFakeDeletes()` through `FilterWhere`; `DBQuery` has no other switch for it:
 
 ```go
-users, err := entities.UserProvider.SearchMany(ctx,
+users, err := entities.UserEntityProvider.SearchMany(ctx,
     fluxaorm.NewQuery().
-        Filter(entities.UserProvider.Fields.Status.Is("active")).
+        Filter(entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active)).
         FilterWhere(fluxaorm.NewWhere("1").WithFakeDeletes()),
 )
 ```
 
-## Field Types and Methods
+See [Fake Delete](/guide/fake_delete.html).
 
-### Standard Field Types
+## Transactions and Caches
 
-| Type | Methods |
-|------|---------|
-| `UintField` | `Eq(uint64)`, `In(...uint64)`, `Gte(uint64)`, `Lte(uint64)`, `Gt(uint64)`, `Lt(uint64)` |
-| `IntField` | `Eq(int64)`, `In(...int64)`, `Gte(int64)`, `Lte(int64)`, `Gt(int64)`, `Lt(int64)` |
-| `StringField` | `Is(string)`, `In(...string)`, `Like(string)` |
-| `BoolField` | `Is(bool)` |
-| `FloatField` | `Eq(float64)`, `In(...float64)`, `Gte(float64)`, `Lte(float64)`, `Gt(float64)`, `Lt(float64)` |
-| `TimeField` | `Eq(time.Time)`, `Gte(time.Time)`, `Lte(time.Time)`, `Gt(time.Time)`, `Lt(time.Time)` |
-| `EnumField` | `Is(string)`, `In(...string)` |
-| `ReferenceField` | `Eq(uint64)`, `In(...uint64)` |
+All search SQL runs through `ctx.DB(pool)`, which is the open transaction for that pool when the context is inside `ctx.Transaction` and a write has already opened one, otherwise the plain pool (see [Transactions](/guide/transactions.html)). Inside a transaction the Redis row cache and cached unique index keys are bypassed, so results reflect uncommitted writes of the same transaction.
 
-### Nullable Field Types
+Search never caches the list of ids; only the individual entities are cached (context cache and, with `redisCache`, the Redis row cache).
 
-Nullable variants have all the same methods as their non-nullable counterparts, plus:
+## Loading by IDs
 
-| Additional Methods |
-|---|
-| `IsNull()` |
-| `IsNotNull()` |
-
-The nullable types are: `NullableUintField`, `NullableIntField`, `NullableStringField`, `NullableBoolField`, `NullableFloatField`, `NullableEnumField`, `NullableReferenceField`, `NullableTimeField`.
+`GetByIDs(ctx fluxaorm.Context, id ...uint64) ([]*entities.UserEntity, error)` is what every search uses for hydration. It de-duplicates the ids, keeps the input order, serves context-cache hits first, then Redis row-cache hits (outside transactions), and loads the rest with a single `SELECT ... WHERE ID IN (...)`. Ids that do not exist are silently dropped from the result (and, for entities with `redisCache`, negatively cached in Redis outside a transaction). Details are in [CRUD](/guide/crud.html).
 
 ## Summary
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `SearchMany` | `([]*XxxEntity, error)` | Entities matching the query |
-| `SearchManyWithTotal` | `([]*XxxEntity, int, error)` | Entities + total count |
-| `SearchOne` | `(*XxxEntity, bool, error)` | Single entity (LIMIT 1), with smart cached index detection |
+| `SearchMany(ctx, query)` | `([]*E, error)` | Entities matching the query, SQL order, no `LIMIT` without a pager |
+| `SearchManyWithTotal(ctx, query)` | `([]*E, int, error)` | `COUNT(*)` first, then the page; `nil, 0, nil` when the count is 0 |
+| `SearchOne(ctx, query)` | `(*E, bool, error)` | `LIMIT 1`; cached unique index fast path when the conditions match one |
+| `Count(ctx, query)` | `(int, error)` | `COUNT(*)` only |

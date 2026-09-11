@@ -1,166 +1,132 @@
-# Entity Lifecycle Callbacks
+# Lifecycle Callbacks
 
-FluxaORM supports registering callback functions that execute after successful INSERT, UPDATE, or DELETE operations. Callbacks fire after both the MySQL write and the Redis cache update have completed, inside `Flush()` only.
+FluxaORM offers two kinds of hooks around entity writes. **Before** callbacks run synchronously while the SQL statement is being prepared and may still change the entity. **After** handlers run once the rows are durable and are meant for side effects. Both are triggered by `ctx.Save`, `ctx.Delete` and `ctx.ForceDelete`.
 
-## Registering Callbacks
+## Before callbacks
 
-Callbacks are registered on the generated Provider singletons after calling `registry.Validate()`. Each registration method is type-safe -- the callback receives the concrete entity type, not a generic interface.
-
-### AfterInsert
-
-Register a callback that fires after a new entity is successfully inserted:
+For every entity the generator emits three package-level registration functions:
 
 ```go
-engine, _ := registry.Validate()
-
-entities.CategoryEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-    // entity has all saved values including auto-set timestamps
-    fmt.Printf("Category %d created: %s\n", entity.GetID(), entity.GetName())
-    return nil
-})
+func RegisterUserEntityBeforeInsert(cb func(entity *UserEntity))
+func RegisterUserEntityBeforeUpdate(cb func(entity *UserEntity))
+func RegisterUserEntityBeforeDelete(cb func(entity *UserEntity))
 ```
 
-The entity passed to the callback reflects the fully persisted state, including any auto-set fields such as `CreatedAt` and `UpdatedAt`.
-
-### AfterUpdate
-
-Register a callback that fires after an existing entity is successfully updated:
+Callbacks are appended to a package-level list and called in registration order at the very start of the entity's `INSERT`, `UPDATE` or `DELETE` branch, before the statement is built. Anything a callback sets through the entity's setters lands in that same statement. They cannot return an error and cannot veto the write — panic if you must abort.
 
 ```go
-entities.CategoryEntityProvider.OnAfterUpdate(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity, changes map[string]any) error {
-    // entity getters return NEW values
-    // changes["FieldName"] contains the OLD value for each changed field
-    for field, oldValue := range changes {
-        fmt.Printf("Field %s changed from %v to current value\n", field, oldValue)
-    }
-    return nil
-})
-```
-
-The `entity` parameter reflects the new (post-update) state. The `changes` map contains only the fields that were modified, where each key is the field name (e.g., `"Name"`, `"Price"`) and each value is the **old** value before the update.
-
-The values in the `changes` map are simple Go types:
-
-| Type | Description |
-|:-----|:------------|
-| `string` | String fields |
-| `uint64` | Unsigned integer fields |
-| `int64` | Signed integer fields |
-| `float64` | Float fields |
-| `bool` | Boolean fields |
-| `time.Time` | Time and date fields |
-| `nil` | NULL values |
-
-There are no pointer types in the `changes` map -- NULL values are represented as `nil`.
-
-Auto-set timestamp fields (`CreatedAt` and `UpdatedAt`) are excluded from the `changes` map.
-
-### AfterDelete
-
-Register a callback that fires after an entity is successfully deleted:
-
-```go
-entities.CategoryEntityProvider.OnAfterDelete(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-    // entity as it was before deletion
-    fmt.Printf("Category %d deleted: %s\n", entity.GetID(), entity.GetName())
-    return nil
-})
-```
-
-The entity passed to the callback represents the state of the entity as it was before deletion.
-
-### Error Propagation
-
-All callback functions return an `error`. If a callback returns a non-nil error, it is propagated back through `Flush()` to the caller. Note that by the time callbacks execute, the database write and Redis cache update have already completed successfully -- the error only affects the return value of `Flush()`.
-
-```go
-entities.CategoryEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-    err := publishEvent("category_created", entity.GetID())
-    if err != nil {
-        return fmt.Errorf("failed to publish event: %w", err)
-    }
-    return nil
-})
-
-// Later...
-err := ctx.Flush()
-if err != nil {
-    // Could be a DB error, Redis error, or a callback error
-    log.Error(err)
+func init() {
+    entities.RegisterUserEntityBeforeInsert(func(user *entities.UserEntity) {
+        user.SetEmail(strings.ToLower(user.GetEmail()))
+    })
+    entities.RegisterUserEntityBeforeUpdate(func(user *entities.UserEntity) {
+        user.SetEmail(strings.ToLower(user.GetEmail()))
+    })
 }
 ```
 
-## Key Behavior
+Because the lists are package globals, register Before callbacks once (an `init` function is the natural place), not per `Engine` or per request.
 
-### One Callback Per Event Type
+Which callback fires:
 
-Only one callback can be registered per event type per entity type. Re-registering a callback for the same event type overwrites the previous one:
+| Write | Callback |
+|:------|:---------|
+| `ctx.Save` of a new entity | `BeforeInsert` |
+| `ctx.Save` of an entity with changes | `BeforeUpdate` |
+| `ctx.ForceDelete`, or `ctx.Delete` on an entity without `FakeDelete` | `BeforeDelete` |
+| `ctx.Delete` on a [fake-delete](/guide/fake_delete.html) entity | `BeforeUpdate` — the statement is an `UPDATE` |
+
+## After handlers
+
+After handlers are registered through the provider on the `Engine` and receive the concrete entity type:
 
 ```go
-// This callback is overwritten by the one below
-entities.CategoryEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-    fmt.Println("first handler")
+engine, err := registry.Validate()
+
+entities.UserEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, user *entities.UserEntity) error {
+    log.Printf("user %d created: %s", user.GetID(), user.GetName())
     return nil
 })
 
-// This callback replaces the one above
-entities.CategoryEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-    fmt.Println("second handler") // only this one fires
+entities.UserEntityProvider.OnAfterUpdate(engine, func(ctx fluxaorm.Context, user *entities.UserEntity, changes map[string]any) error {
+    for column, oldValue := range changes {
+        log.Printf("user %d: %s changed from %v", user.GetID(), column, oldValue)
+    }
+    return nil
+})
+
+entities.UserEntityProvider.OnAfterDelete(engine, func(ctx fluxaorm.Context, user *entities.UserEntity) error {
+    log.Printf("user %d deleted", user.GetID())
     return nil
 })
 ```
 
-### FakeDelete Triggers AfterDelete
-
-When an entity has [Fake Delete](/guide/fake_delete) enabled, calling `entity.Delete()` (soft delete) triggers the `AfterDelete` callback, **not** `AfterUpdate`. This is true even though the underlying SQL operation is an UPDATE statement. Similarly, `entity.ForceDelete()` also triggers `AfterDelete`.
-
-### FlushAsync Fires Callbacks in the Consumer
-
-`ctx.FlushAsync(true)` and `ctx.FlushAsync(false)` do **not** fire lifecycle callbacks at the time they are called. Instead, callbacks are fired later by the `AsyncSQLConsumer` after the SQL has been executed against MySQL. This means callbacks always run after the database write has completed, whether synchronously via `Flush()` or asynchronously via `FlushAsync(true)` / `FlushAsync(false)` + consumer.
-
-When `FlushAsync(true)` or `FlushAsync(false)` is used, the entity event metadata (entity type, ID, and changes map for updates) is serialized alongside the SQL queries in the Kafka record. When the consumer processes the event:
-
-1. The SQL is executed against MySQL.
-2. The event is acknowledged (SQL is committed and safe).
-3. The entity is loaded from the database using `GetByID`.
-4. The registered callback is invoked with the loaded entity.
-
-For **hard deletes**, the consumer pre-loads the entity from the database *before* executing the SQL (since the row will be gone after deletion). For **soft deletes** (FakeDelete), the entity is loaded after SQL execution since it still exists in the database.
-
-If a callback returns an error during async consumption, the error is returned by `Consume()`. The SQL has already been committed and the event has been acknowledged, so the SQL will not be re-executed.
-
-### Avoid Flush and Track Inside Callbacks
-
-Callbacks fire inside the flush mutex. Calling `ctx.Flush()` or `ctx.Track()` on the same context from within a callback will cause a deadlock. If you need to perform additional persistence operations from a callback, create a new context:
+The provider methods are thin typed wrappers over the engine-level functions, which you can call directly when writing generic code:
 
 ```go
-entities.CategoryEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-    // DO NOT call ctx.Flush() or ctx.Track() here -- deadlock!
+func RegisterAfterInsertHandler(engine Engine, cacheIndex string, handler func(Context, Entity) error)
+func RegisterAfterUpdateHandler(engine Engine, cacheIndex string, handler func(Context, Entity, map[string]any) error)
+func RegisterAfterDeleteHandler(engine Engine, cacheIndex string, handler func(Context, Entity) error)
+```
 
-    // Instead, create a new context for any persistence operations
-    newCtx := engine.NewContext(ctx.Context())
-    auditLog := entities.AuditLogEntityProvider.New(newCtx)
-    auditLog.SetAction("category_created")
-    auditLog.SetEntityID(entity.GetID())
-    return newCtx.Flush()
+`cacheIndex` is the entity's fully qualified type name (`model.UserEntity`), the same value the provider stores.
+
+### When they run
+
+After handlers are part of the post-commit phase of `Save` (see [Transactions](/guide/transactions.html#post-commit-work-and-postcommiterror)). Outside a transaction that is right after the statement executed; inside one it is right after `COMMIT`, for every entity saved in that transaction. Within the phase the order is: second cache invalidation, Redis pipelines (search hashes), [entity events](/guide/entity_events.html), **After handlers**, then the entities are marked clean. Consequences:
+
+- The rows are durable when a handler runs. A handler never sees a write that will be rolled back.
+- Getters on the entity return the **new** values; for updates the `changes` map holds the **old** value of every changed column, keyed by column name. `CreatedAt`, `UpdatedAt` and `FakeDelete` are never in `changes`. Values are plain `uint64`, `int64`, `float64`, `bool`, `string`, `time.Time`, or `nil` for NULL — never pointers.
+- `ctx` is the very `Context` that performed the write, with its context cache and, at this point, no open transaction.
+
+### Which handler fires
+
+| Write | Handler |
+|:------|:--------|
+| `ctx.Save` of a new entity | `OnAfterInsert` |
+| `ctx.Save` of an entity with changes | `OnAfterUpdate` |
+| `ctx.Delete`, `ctx.ForceDelete` — including a fake delete, which is an `UPDATE` in SQL | `OnAfterDelete` |
+
+### One handler per event
+
+The engine keeps one handler per event per entity type; registering again replaces the previous one. Fan out inside your handler if several parties need the event. When no handler is registered for any entity the post-commit phase skips this step entirely.
+
+### Errors
+
+A handler error is returned by `Save`, `Delete`, `ForceDelete` or `Transaction` wrapped in `*fluxaorm.PostCommitError`, because the rows are already committed. Remaining handlers of that write are not run. `errors.Is` still matches the original error through the wrapper:
+
+```go
+var ErrNotify = errors.New("notification failed")
+
+entities.UserEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, user *entities.UserEntity) error {
+    if err := notify(user); err != nil {
+        return fmt.Errorf("%w: %v", ErrNotify, err)
+    }
+    return nil
+})
+
+err := ctx.Save(user)
+var postCommit *fluxaorm.PostCommitError
+if errors.As(err, &postCommit) {
+    // the user row is committed; errors.Is(err, ErrNotify) == true
+}
+```
+
+### Writing from a handler
+
+Handlers may use `ctx` to read and to save **other** entities — there is no lock held while they run, and their `Save` is a normal, immediate write:
+
+```go
+entities.UserEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, user *entities.UserEntity) error {
+    audit := entities.AuditLogEntityProvider.New(ctx)
+    audit.SetAction("user_created").SetEntityID(user.GetID())
+    return ctx.Save(audit)
 })
 ```
 
-### Zero Overhead When Unused
+Do not save the entity being handled from its own handler: it has not been marked clean yet, so the write would be staged a second time. Keep handlers short and fail-safe; for work that must survive a crash between commit and handler, use [entity events](/guide/entity_events.html) with the [outbox](/guide/outbox.html) instead of a handler.
 
-If no callbacks are registered for an entity type, there is zero overhead. The flush path skips callback invocation entirely when no handlers are present.
-
-## Use Cases
-
-Lifecycle callbacks are useful for reacting to entity state changes without coupling the persistence logic to side effects. Common use cases include:
-
-- **Audit logging** -- record who changed what and when
-- **Event publishing** -- publish domain events to a message broker (e.g., Kafka) after successful writes
-- **Notifications** -- send emails, push notifications, or webhooks when entities change
-- **Search index updates** -- update external search indexes (e.g., Elasticsearch) when entities are modified
-- **Cache invalidation** -- invalidate or update external caches that depend on entity data
-
-## Full Example
+## Full example
 
 ```go
 package main
@@ -168,53 +134,50 @@ package main
 import (
     "context"
     "fmt"
+    "strings"
 
     "github.com/latolukasz/fluxaorm/v2"
+
     "myapp/entities"
+    "myapp/model"
 )
 
 func main() {
     registry := fluxaorm.NewRegistry()
-    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, nil)
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, &fluxaorm.MySQLOptions{})
     registry.RegisterRedis("localhost:6379", 0, fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(&CategoryEntity{})
+    registry.RegisterEntity(model.CategoryEntity{})
     engine, err := registry.Validate()
     if err != nil {
         panic(err)
     }
 
-    // Register lifecycle callbacks
-    entities.CategoryEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-        fmt.Printf("INSERT: Category %d created with name %q\n", entity.GetID(), entity.GetName())
+    entities.RegisterCategoryEntityBeforeInsert(func(cat *entities.CategoryEntity) {
+        cat.SetCode(strings.ToLower(cat.GetCode()))
+    })
+
+    entities.CategoryEntityProvider.OnAfterInsert(engine, func(ctx fluxaorm.Context, cat *entities.CategoryEntity) error {
+        fmt.Printf("INSERT: category %d %q\n", cat.GetID(), cat.GetName())
+        return nil
+    })
+    entities.CategoryEntityProvider.OnAfterUpdate(engine, func(ctx fluxaorm.Context, cat *entities.CategoryEntity, changes map[string]any) error {
+        fmt.Printf("UPDATE: category %d, old values %v\n", cat.GetID(), changes)
+        return nil
+    })
+    entities.CategoryEntityProvider.OnAfterDelete(engine, func(ctx fluxaorm.Context, cat *entities.CategoryEntity) error {
+        fmt.Printf("DELETE: category %d\n", cat.GetID())
         return nil
     })
 
-    entities.CategoryEntityProvider.OnAfterUpdate(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity, changes map[string]any) error {
-        fmt.Printf("UPDATE: Category %d modified\n", entity.GetID())
-        for field, oldValue := range changes {
-            fmt.Printf("  %s: %v -> (new value via getter)\n", field, oldValue)
-        }
-        return nil
-    })
-
-    entities.CategoryEntityProvider.OnAfterDelete(engine, func(ctx fluxaorm.Context, entity *entities.CategoryEntity) error {
-        fmt.Printf("DELETE: Category %d removed\n", entity.GetID())
-        return nil
-    })
-
-    // Use the ORM as usual -- callbacks fire automatically on Flush
     ctx := engine.NewContext(context.Background())
 
     cat := entities.CategoryEntityProvider.New(ctx)
-    cat.SetCode("electronics")
-    cat.SetName("Electronics")
-    _ = ctx.Flush() // prints: INSERT: Category 1 created with name "Electronics"
+    cat.SetCode("BOOKS").SetName("Books")
+    _ = ctx.Save(cat)   // BeforeInsert lower-cases the code; prints INSERT: category ... "Books"
 
-    cat.SetName("Consumer Electronics")
-    _ = ctx.Flush() // prints: UPDATE: Category 1 modified
-                     //           Name: Electronics -> (new value via getter)
+    cat.SetName("Books & Comics")
+    _ = ctx.Save(cat)   // prints UPDATE: category ..., old values map[Name:Books]
 
-    cat.Delete()
-    _ = ctx.Flush() // prints: DELETE: Category 1 removed
+    _ = ctx.Delete(cat) // prints DELETE: category ...
 }
 ```

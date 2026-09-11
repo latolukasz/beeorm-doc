@@ -4,7 +4,7 @@ heroText:
 siteTitle:
 heroImage: logo2.svg
 heroImageDark: logoDark2.svg
-tagline: Code-generation-based Go ORM for MySQL, Redis, ClickHouse, Kafka, and Debezium CDC with type-safe Providers, dirty tracking, and three-tier caching
+tagline: Code-generation-based Go ORM for MySQL and Redis with ClickHouse queries, NATS JetStream entity change events, background tasks and a transactional outbox — type-safe Providers, dirty tracking and two-tier caching
 actionText: Quick Start →
 actionLink: /guide/
 footer: MIT Licensed | Copyright © 2024-present Łukasz Lato
@@ -13,17 +13,16 @@ actions:
   link: /guide/
   type: primary
 features:
-- title: Three-Tier Caching
-  details: Transparent caching across Context (per-request), Local (in-process LRU), and Redis layers. Entity reads are automatically cached and invalidated — no manual cache management needed.
-- title: MySQL
-  details: Full MySQL support with type-safe queries, automatic schema migrations, unique index lookups, fake-delete, timestamps, and async flush to Kafka for deferred writes.
+- title: Code Generation
+  details: Define entities as plain Go structs with orm tags and run Generate() to emit a typed Provider, Entity, getters and setters with dirty tracking, and typed field descriptors — no reflection at runtime.
+- title: MySQL Schema & Transactions
+  details: GetAlters() diffs your entities against the live schema and returns one Alter per change, each classified as safe or destructive; ctx.Transaction() gives lazy per-pool BEGIN, nesting and post-commit work.
+- title: Two-Tier Caching + Redis Search
+  details: A per-Context identity map plus a Redis row cache that writes invalidate and never write back, cached unique index lookups, and FT.SEARCH indexes maintained automatically on every Save.
 - title: ClickHouse
-  details: Query-only ClickHouse integration for analytics workloads. Register ClickHouse tables, run aggregation queries, and combine results with your MySQL entities.
-- title: Redis Search
-  details: Lightning-fast full-text and numeric searches powered by Redis Search. Tag entity fields as searchable or sortable, and query them with a fluent API — no external search engine needed.
-- title: Kafka
-  details: Built-in Kafka producer and consumer support with managed topics, consumer groups, and async SQL flush. Produce and consume events with type-safe records and automatic offset management.
-- title: Debezium CDC
-  details: Built-in Change Data Capture via Debezium. Tag entities with debezium, and FluxaORM auto-manages Kafka Connect connectors, streams MySQL row changes to Kafka topics, and provides typed helpers for consuming CDC events.
-  footer: MIT Licensed | Copyright © 2024-present Łukasz Lato
+  details: Query-only ClickHouse pools for analytics, plus a table builder that reconciles ClickHouse schema with GetClickhouseAlters() alongside your MySQL alters.
+- title: NATS Entity Events & Consumers
+  details: Tag an entity orm:"cdc" and every committed insert, update or delete is published once to JetStream; declare a ConsumerDef and get a generated, typed consumer with per-entity handlers and replay.
+- title: Tasks & Outbox
+  details: Dispatch plain task structs through JetStream queues with a retry ladder and a JobRunEntity audit row, and tag entities orm:"outbox" so the change event is written in the same transaction as the row.
 ---

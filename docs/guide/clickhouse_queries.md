@@ -1,14 +1,12 @@
 # ClickHouse Queries
 
-FluxaORM provides ClickHouse support for analytics, reporting, and direct SQL operations. For schema management, see [ClickHouse Schema Management](/guide/clickhouse_schema.html).
-
-First, configure a ClickHouse pool and create an engine:
+FluxaORM can hold ClickHouse connection pools next to MySQL and Redis and run raw SQL on them. ClickHouse is a query-only integration: there are no ClickHouse entities, and `Save`, `Transaction` and the pipelines never touch it. Table definitions and alters are covered in [ClickHouse Schema](/guide/clickhouse_schema.html).
 
 ```go
 import fluxaorm "github.com/latolukasz/fluxaorm/v2"
 
 registry := fluxaorm.NewRegistry()
-registry.RegisterClickhouse("clickhouse://localhost:9000/default", "analytics", nil)
+registry.RegisterClickhouse("clickhouse://localhost:9000/analytics", "analytics", &fluxaorm.ClickhouseOptions{})
 engine, err := registry.Validate()
 if err != nil {
     panic(err)
@@ -16,92 +14,101 @@ if err != nil {
 ctx := engine.NewContext(context.Background())
 ```
 
-## ClickHouse Data Pool
+`RegisterClickhouse(dataSourceName string, poolCode string, poolOptions *ClickhouseOptions)` accepts these options:
 
-Access the ClickHouse pool through `engine.Clickhouse()`:
+| Field | Type | Description |
+|-------|------|-------------|
+| `ConnMaxLifetime` | `time.Duration` | Maximum lifetime of a pooled connection |
+| `MaxOpenConnections` | `int` | Maximum number of open connections |
+| `MaxIdleConnections` | `int` | Maximum number of idle connections |
+| `IgnoredTables` | `[]string` | Tables the ClickHouse schema alters must leave alone |
+
+## The Clickhouse Handle
+
+The pool is available only from the engine: `engine.Clickhouse(code string) fluxaorm.Clickhouse`. There is no `ctx.Clickhouse`; the `Context` is passed to each call for logging and metrics. All registered pools can be listed with `engine.Registry().ClickhousePools()`.
+
+```go
+type Clickhouse interface {
+    GetConfig() ClickhouseConfig
+    GetDBClient() DBClient
+    SetMockDBClient(mock DBClient)
+    Exec(ctx Context, query string, args ...any) (ExecResult, error)
+    QueryRow(ctx Context, query Where, toFill ...any) (found bool, err error)
+    Query(ctx Context, query string, args ...any) (rows Rows, close func(), err error)
+}
+```
+
+`ExecResult`, `Rows`, `Where` and `DBClient` are the same types used by [MySQL Queries](/guide/mysql_queries.html). There is no `Begin`: ClickHouse queries never run inside a transaction.
 
 ```go
 ch := engine.Clickhouse("analytics")
 config := ch.GetConfig()
 config.GetCode()          // "analytics"
-config.GetDataSourceURI() // "clickhouse://localhost:9000/default"
-config.GetOptions()       // *ClickhouseOptions with MaxOpenConnections, etc.
+config.GetDatabaseName()  // "analytics"
+config.GetDataSourceURI() // "clickhouse://localhost:9000/analytics"
+config.GetOptions()       // *fluxaorm.ClickhouseOptions
 ```
 
-## Clickhouse Interface Methods
-
-The `Clickhouse` interface returned by `engine.Clickhouse(code)` provides the following methods:
-
-| Method | Description |
-|--------|-------------|
-| `GetConfig() ClickhouseConfig` | Returns the ClickHouse pool configuration |
-| `GetDBClient() DBClient` | Returns the underlying `database/sql` client |
-| `SetMockDBClient(mock DBClient)` | Replaces the DB client with a mock (useful for testing) |
-| `Exec(ctx, query, args...) (ExecResult, error)` | Executes a query (DDL, INSERT, etc.) |
-| `QueryRow(ctx, query Where, toFill...) (bool, error)` | Queries a single row using a `Where` object, returns `false` if not found |
-| `Query(ctx, query, args...) (Rows, close, error)` | Queries multiple rows |
-
-Note that unlike the MySQL `DB` interface, `Clickhouse` does not support transactions.
-
-## Executing Queries
-
-Use the `Exec()` method to run DDL statements and data modifications:
+## Exec
 
 ```go
 ch := engine.Clickhouse("analytics")
 
-// Create a table
 _, err := ch.Exec(ctx, "CREATE TABLE IF NOT EXISTS events (id UInt64, name String, ts DateTime) ENGINE = MergeTree() ORDER BY id")
-
-// Insert data
-_, err = ch.Exec(ctx, "INSERT INTO events (id, name, ts) VALUES (?, ?, ?)", 1, "page_view", time.Now())
+if err != nil {
+    return err
+}
+_, err = ch.Exec(ctx, "INSERT INTO events (id, name, ts) VALUES (1, 'page_view', now()), (2, 'click', now())")
 ```
 
-## Querying a Single Row
+`args` are handed to the ClickHouse driver unchanged. The returned `ExecResult` (`LastInsertId()`, `RowsAffected()`) exists for interface compatibility; ClickHouse does not report meaningful values for either.
 
-Use `QueryRow()` to fetch a single row. Like the MySQL `DB.QueryRow`, this method takes a `Where` object for automatic parameter binding:
+## QueryRow
+
+`QueryRow` takes a `fluxaorm.Where` (see [Search](/guide/search.html#the-where-object)) and scans the first row into `toFill`:
 
 ```go
-ch := engine.Clickhouse("analytics")
 var count uint64
-found, err := ch.QueryRow(ctx, fluxaorm.NewWhere("SELECT count() FROM events WHERE name = ?", "page_view"), &count)
+found, err := ch.QueryRow(ctx,
+    fluxaorm.NewWhere("SELECT count() FROM events WHERE name = ?", "page_view"),
+    &count)
+if err != nil {
+    return err
+}
 if found {
-    fmt.Printf("Page views: %d\n", count)
+    fmt.Printf("page views: %d\n", count)
 }
 ```
 
-If no row matches, `found` is `false` and `err` is `nil`.
+`found` is `false` with a `nil` error when the query returns no rows.
 
-## Querying Multiple Rows
-
-Use `Query()` to fetch multiple rows:
+## Query
 
 ```go
-ch := engine.Clickhouse("analytics")
-var id uint64
-var name string
 rows, close, err := ch.Query(ctx, "SELECT id, name FROM events ORDER BY id LIMIT 100")
+if err != nil {
+    return err
+}
 defer close()
 for rows.Next() {
-    err = rows.Scan(&id, &name)
+    var id uint64
+    var name string
+    if err = rows.Scan(&id, &name); err != nil {
+        return err
+    }
 }
 ```
 
-The `Rows` interface returned by `Query()` provides:
+`Rows` provides `Next() bool`, `Scan(dest ...any) error` and `Columns() ([]string, error)`. When `Next()` returns `false` the underlying rows are closed automatically.
 
-- `Next() bool` — advances to the next row, returns `false` when done.
-- `Scan(dest ...any) error` — scans the current row into the provided variables.
-- `Columns() ([]string, error)` — returns the column names.
-
-:::warning
-Always include a `defer close()` after every `ch.Query()` call to release the underlying database connection.
+::: warning
+On error `Query` returns `nil, nil, err`, so check `err` before deferring `close`. When it succeeds, always `defer close()` to release the connection even if you stop iterating early.
 :::
 
-## Mocking the DB Client
+## Mocking the Client
 
-For unit testing, you can replace the underlying database client with a mock:
+`GetDBClient() DBClient` returns the underlying client and `SetMockDBClient(mock DBClient)` replaces it for unit tests that must not reach ClickHouse. See [Testing](/guide/testing.html).
 
-```go
-ch := engine.Clickhouse("analytics")
-ch.SetMockDBClient(myMockClient) // myMockClient must implement the DBClient interface
-```
+## Logging and Metrics
+
+ClickHouse queries are reported to loggers registered with `ctx.RegisterQueryLogger(handler, fluxaorm.QueryLoggerOptions{Clickhouse: true})` (see [Queries Log](/guide/queries_log.html)) and, when a metrics registry is configured, to the ClickHouse query histograms and error counters described in [Metrics](/guide/metrics.html).

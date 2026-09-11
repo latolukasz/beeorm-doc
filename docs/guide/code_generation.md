@@ -1,323 +1,269 @@
 # Code Generation
 
-FluxaORM v2 is built around **code generation**. You define entities as plain Go structs, register them with a `Registry`, validate into an `Engine`, and then call `fluxaorm.Generate()` to produce fully typed Provider and Entity code. The generated code handles all database scanning, dirty tracking, caching, and query building -- with zero reflection at runtime.
+FluxaORM uses no reflection at runtime. You describe entities as plain Go structs (see [Entities](/guide/entities.html)), register them in a `Registry`, and run `fluxaorm.Generate()`. The generator emits one Go file per entity containing a typed **Provider** (loading, searching, factory and metadata methods) and a typed **Entity** (getters, setters, dirty tracking and the SQL it needs to persist itself), plus a shared `enums` package. This page is a reference for what is generated and how to call it.
 
-## Overview
-
-The code generation workflow has three steps:
-
-1. **Define** entity structs with struct tags (`orm:"..."`)
-2. **Validate** the registry to produce an `Engine`
-3. **Generate** typed Go code by calling `fluxaorm.Generate(engine, outputDir)`
-
-The generated output includes:
-
-| Generated type | Naming pattern | Purpose |
-|---|---|---|
-| **Provider** | `XxxProvider` | Singleton with table metadata and all query/factory methods |
-| **Entity** | `XxxEntity` | Struct with context, ID, dirty tracking, getters/setters |
-| **SQLRow** | `xxxSQLRow` | Flat struct for reflection-free database scanning |
-| **Enums** | `enums/XxxName` | Type-safe string enum constants (separate package) |
-
-## Calling Generate
+## Running the generator
 
 ```go
+func Generate(engine Engine, outputDirectory string) error
+```
+
+`Generate` needs a validated `Engine`. Use `registry.ValidateForCodeGen()` rather than `Validate()`: it builds the entity schemas without opening a single connection to MySQL, Redis or NATS, so the generator can run on a machine that has no access to the databases (a developer laptop, CI). Pools still have to be registered so that tags such as `orm:"mysql=logs"` or `orm:"redisCache"` can be resolved, but the addresses are never dialled.
+
+Put the call in a small program and run it whenever an entity struct changes:
+
+```go
+// cmd/generate/main.go
 package main
 
 import (
+    "os"
+
     "github.com/latolukasz/fluxaorm/v2"
+
+    "myapp/model"
 )
 
 func main() {
     registry := fluxaorm.NewRegistry()
-    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, nil)
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, &fluxaorm.MySQLOptions{})
     registry.RegisterRedis("localhost:6379", 0, fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(UserEntity{})
-    registry.RegisterEntity(ProductEntity{})
-    registry.RegisterEntity(CategoryEntity{})
+    registry.RegisterEntity(model.CategoryEntity{}, model.UserEntity{})
 
-    engine, err := registry.Validate()
+    engine, err := registry.ValidateForCodeGen()
     if err != nil {
         panic(err)
     }
-
-    err = fluxaorm.Generate(engine, "./entities")
-    if err != nil {
+    if err = os.MkdirAll("entities", 0o755); err != nil {
+        panic(err)
+    }
+    if err = fluxaorm.Generate(engine, "entities"); err != nil {
         panic(err)
     }
 }
 ```
 
-`Generate` accepts two arguments:
-
-| Parameter | Type | Description |
-|---|---|---|
-| `engine` | `fluxaorm.Engine` | A validated engine containing all registered entity schemas |
-| `outputDirectory` | `string` | An existing, writable directory where generated files will be placed |
-
-The function will:
-
-1. Resolve the output directory to an absolute path and verify it exists and is writable.
-2. Find the nearest `go.mod` to determine the module name (used for the `enums` import path).
-3. **Remove all existing `.go` files** in the output directory (but not subdirectories).
-4. Generate one `.go` file per entity, named after the table name (e.g., `user.go`, `product.go`).
-5. Generate enum type definitions in an `enums/` subdirectory if any entity uses enum or set fields.
-
-::: warning
-`Generate` deletes all `.go` files in the output directory before writing new ones. Do not place hand-written Go files in the same directory as generated output.
-:::
-
-::: tip
-Run `Generate` as part of a dedicated `cmd/generate/main.go` program or a `go generate` directive. It should be executed whenever entity definitions change, not at application startup.
-:::
-
-## Output Structure
-
-Given three entities `UserEntity`, `ProductEntity`, and `CategoryEntity`, the output directory will look like:
-
-```
-entities/
-  user.go
-  product.go
-  category.go
-  enums/
-    UserStatus.go
-    ProductType.go
+```bash
+go run ./cmd/generate
 ```
 
-Each generated file belongs to the package derived from the output directory name (e.g., `package entities`). The `enums/` subdirectory is created only if at least one entity has enum or set fields.
+What `Generate` does, in order:
 
-## Generated Provider
+1. Checks the output directory: it must be non-empty (`output directory is empty`), exist (`output directory does not exist: <path>`), be a directory and be writable.
+2. Walks up from the output directory until it finds a `go.mod` and reads its `module` line. The import path of the generated `enums` package is `<module>/<relative path of the output dir>/enums`, so the output directory must live inside a Go module.
+3. **Deletes every regular file in the output directory**, whatever its extension. Sub-directories (such as `enums/`) are kept, but the enum files inside are rewritten. Never put hand-written files in the output directory.
+4. Writes one file per registered entity, then `providers.go`, then the consumer files when consumers or tasks are registered.
+5. Runs every file through `go/format`.
 
-For each registered entity, the generator creates a **Provider** -- a package-level singleton variable that holds table metadata and provides all query and factory methods for that entity.
+The package name of the generated code is the base name of the output directory (`entities` in the example above). Commit the generated files together with the entity structs that produced them.
 
-For a struct named `UserEntity` mapped to table `user`, the generator produces:
+## Output layout
+
+| File | Content |
+|:-----|:--------|
+| `<TableName>.go` | One file per entity. The file name is the table name verbatim: `UserEntity.go` for a struct `UserEntity`, `users.go` when the struct carries `orm:"table=users"`. |
+| `providers.go` | `var AllProviders = []fluxaorm.EntityProvider{...}`, pointers to every provider sorted by table name. |
+| `consumers.go`, `<consumer>_consumer.go` | Only when consumers or tasks are registered. See [Consumers](/guide/consumers.html) and [Tasks](/guide/tasks.html). |
+| `enums/<EnumName>.go` | Package `enums`, one file per enum name (see [Enums](#enums)). |
+
+## Naming rules
+
+- The **table name** is the struct type name unless the `ID` field carries `orm:"table=..."`.
+- The **entity type** is the table name with its first letter capitalised and underscores removed, capitalising each segment: `UserEntity` stays `UserEntity`, a table `user_accounts` becomes `UserAccounts`.
+- The **provider variable** is `<Entity>Provider` (`UserEntityProvider`). Its type, the fields struct and the SQL row struct are unexported (`userEntityProvider`, `userEntityFields`, `userEntitySQLRow`).
+- The **cache index** stored in the provider is the fully qualified Go type name of the source struct (`model.UserEntity`). It is assigned at validation time and used as the key of the [context cache](/guide/context_cache.html) and of the [lifecycle handlers](/guide/lifecycle_callbacks.html).
+
+The examples on this and the following pages use these two structs, defined in a package `model` and generated into a package `entities`:
 
 ```go
-// Private type with table metadata
-type userProvider struct {
-    tableName         string
-    dbCode            string
-    redisCode         string
-    cacheIndex        uint64
-    uuidRedisKeyMutex *sync.Mutex
-    // ... additional fields for Redis cache/search if configured
+package model
+
+import (
+    "time"
+
+    "github.com/latolukasz/fluxaorm/v2"
+)
+
+type CategoryEntity struct {
+    ID   uint64 `orm:"redisCache"`
+    Code string `orm:"required;length=10"`
+    Name string `orm:"required;length=100"`
 }
 
-// Public singleton -- use this in your application code
-var UserProvider = userProvider{
-    tableName: "user",
-    dbCode:    "default",
-    redisCode: "default",
-    // ...
+func (e CategoryEntity) UniqueIndexes() [][]string {
+    return [][]string{{"Code"}}
 }
-```
 
-You never create a Provider yourself. Simply reference the exported variable (e.g., `entities.UserProvider`) and call methods on it.
-
-### Query Methods
-
-Every Provider has the following methods:
-
-#### GetByID
-
-Fetches a single entity by its primary key. Returns the entity, a boolean indicating whether it was found, and an error.
-
-```go
-user, found, err := entities.UserProvider.GetByID(ctx, 42)
-if err != nil {
-    return err
+func (e CategoryEntity) CachedUniqueIndexes() [][]string {
+    return [][]string{{"Code"}}
 }
-if !found {
-    // user with ID 42 does not exist
-}
-fmt.Println(user.GetName())
-```
 
-**Signature:**
-```go
-func (p userProvider) GetByID(ctx fluxaorm.Context, id uint64) (entity *UserEntity, found bool, err error)
-```
-
-The method checks the context cache first, then Redis cache (if configured), and falls back to MySQL.
-
-#### MustGetByID
-
-A convenience wrapper around `GetByID` that panics if the entity is not found. The `bool` return value is removed; errors are still returned normally.
-
-```go
-user, err := entities.UserProvider.MustGetByID(ctx, 42)
-if err != nil {
-    return err
-}
-// No need to check "found" -- panics if user with ID 42 does not exist
-fmt.Println(user.GetName())
-```
-
-**Signature:**
-```go
-func (p userProvider) MustGetByID(ctx fluxaorm.Context, id uint64) (entity *UserEntity, err error)
-```
-
-Use `MustGetByID` when a missing entity indicates a programming error or data inconsistency. It calls `GetByID` internally and panics with a descriptive message if the entity is not found.
-
-#### GetByIDs
-
-Fetches multiple entities by their primary keys. Returns a slice containing only the found entities (missing IDs are silently skipped), preserving the order of the input IDs.
-
-```go
-users, err := entities.UserProvider.GetByIDs(ctx, 1, 2, 3, 10, 20)
-if err != nil {
-    return err
-}
-for _, user := range users {
-    fmt.Println(user.GetID(), user.GetName())
+type UserEntity struct {
+    ID        uint64 `orm:"redisCache"`
+    Name      string `orm:"required;length=100"`
+    Email     string `orm:"length=255"`
+    Age       *uint8
+    Status    string `orm:"enum=active,blocked;required;enumName=UserStatus"`
+    Category  fluxaorm.Reference[CategoryEntity] `orm:"required"`
+    CreatedAt time.Time
+    UpdatedAt time.Time
 }
 ```
 
-**Signature:**
+## Anatomy of a generated file
+
+The excerpt below is what `entities/UserEntity.go` looks like (the hex values are computed from the table and column names and differ for every entity; method bodies are omitted).
+
 ```go
-func (p userProvider) GetByIDs(ctx fluxaorm.Context, id ...uint64) ([]*UserEntity, error)
+// Code generated by fluxaorm; DO NOT EDIT.
+
+package entities
+
+type userEntityFields struct {
+    ID        fluxaorm.UintField
+    Category  fluxaorm.ReferenceField
+    CreatedAt fluxaorm.TimeField
+    UpdatedAt fluxaorm.TimeField
+    Name      fluxaorm.StringField
+    Email     fluxaorm.NullableStringField
+    Age       fluxaorm.NullableUintField
+    Status    fluxaorm.EnumField
+}
+
+type userEntityProvider struct {
+    tableName        string
+    dbCode           string
+    redisCode        string
+    cacheIndex       string
+    redisCachePrefix string
+    redisCacheStamp  string
+    redisCacheTTL    int
+    Fields           userEntityFields
+}
+
+var UserEntityProvider = userEntityProvider{
+    tableName:        "UserEntity",
+    dbCode:           "default",
+    redisCode:        "default",
+    cacheIndex:       "model.UserEntity",
+    redisCachePrefix: "e11dd246:",
+    redisCacheStamp:  "e69f360206e0533c",
+    redisCacheTTL:    0,
+    Fields: userEntityFields{
+        ID:       fluxaorm.UintField{Column: "ID"},
+        Category: fluxaorm.ReferenceField{Column: "Category"},
+        // ...
+    },
+}
+
+func (p userEntityProvider) TableName() string { return p.tableName }
+func (p userEntityProvider) DBCode() string    { return p.dbCode }
+
+func (p userEntityProvider) RedisCode() string        { return p.redisCode }
+func (p userEntityProvider) RedisCachePrefix() string { return p.redisCachePrefix }
+func (p userEntityProvider) ClearRedisCache(ctx fluxaorm.Context) (int, error)
+
+type userEntitySQLRow struct {
+    F0 uint64
+    F1 uint64
+    F2 time.Time
+    F3 time.Time
+    F4 string
+    F5 sql.NullString
+    F6 sql.NullInt64
+    F7 string
+}
+
+func (p userEntityProvider) OnAfterInsert(engine fluxaorm.Engine, handler func(ctx fluxaorm.Context, entity *UserEntity) error)
+func (p userEntityProvider) OnAfterUpdate(engine fluxaorm.Engine, handler func(ctx fluxaorm.Context, entity *UserEntity, changes map[string]any) error)
+func (p userEntityProvider) OnAfterDelete(engine fluxaorm.Engine, handler func(ctx fluxaorm.Context, entity *UserEntity) error)
+
+func RegisterUserEntityBeforeInsert(cb func(entity *UserEntity))
+func RegisterUserEntityBeforeUpdate(cb func(entity *UserEntity))
+func RegisterUserEntityBeforeDelete(cb func(entity *UserEntity))
+
+func (p userEntityProvider) GetByID(ctx fluxaorm.Context, id uint64) (entity *UserEntity, found bool, err error)
+func (p userEntityProvider) MustGetByID(ctx fluxaorm.Context, id uint64) (entity *UserEntity, err error)
+func (p userEntityProvider) GetByIDs(ctx fluxaorm.Context, id ...uint64) ([]*UserEntity, error)
+func (p userEntityProvider) New(ctx fluxaorm.Context) *UserEntity
+func (p userEntityProvider) NewWithID(ctx fluxaorm.Context, id uint64) *UserEntity
+func (p userEntityProvider) SearchOne(ctx fluxaorm.Context, query *fluxaorm.DBQuery) (*UserEntity, bool, error)
+func (p userEntityProvider) SearchMany(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*UserEntity, error)
+func (p userEntityProvider) SearchManyWithTotal(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*UserEntity, int, error)
+func (p userEntityProvider) Count(ctx fluxaorm.Context, query *fluxaorm.DBQuery) (int, error)
+
+type UserEntity struct {
+    ctx                  fluxaorm.Context
+    id                   uint64
+    new                  bool
+    deleted              bool
+    originDatabaseValues *userEntitySQLRow
+    databaseBind         map[string]any
+    originRedisValues    []string
+    flushType            uint8
+    flushChanges         map[string]any
+}
+
+func (e *UserEntity) GetID() uint64
+
+func (e *UserEntity) GetName() string
+func (e *UserEntity) SetName(value string) *UserEntity
+func (e *UserEntity) GetEmail() string
+func (e *UserEntity) SetEmail(value string) *UserEntity
+func (e *UserEntity) GetAge() *uint64
+func (e *UserEntity) SetAge(value *uint64) *UserEntity
+func (e *UserEntity) GetStatus() enums.UserStatus
+func (e *UserEntity) SetStatus(value enums.UserStatus) *UserEntity
+func (e *UserEntity) GetCategoryID() uint64
+func (e *UserEntity) SetCategory(value uint64) *UserEntity
+func (e *UserEntity) GetCategory(ctx fluxaorm.Context) (reference *CategoryEntity, found bool, err error)
+func (e *UserEntity) MustGetCategory(ctx fluxaorm.Context) (reference *CategoryEntity, err error)
+func (e *UserEntity) GetCreatedAt() time.Time
+func (e *UserEntity) SetCreatedAt(value time.Time) *UserEntity
+func (e *UserEntity) GetUpdatedAt() time.Time
+func (e *UserEntity) SetUpdatedAt(value time.Time) *UserEntity
 ```
 
-Duplicated IDs in the input are automatically deduplicated. The method uses context cache, Redis cache (if configured), and MySQL in a batched query for any remaining IDs.
+Methods whose name starts with `Private` (`PrivateFlush`, `PrivateFlushed`, `PrivateReload`, `PrivateDelete`, `PrivateForceDelete` - only on `FakeDelete` entities, `PrivateFlushEvent`, `PrivateGetDatabaseBind`, `PrivateCacheIndex`, `PrivateIsNew`, `PrivateContext`) implement the `fluxaorm.Entity` interface and are called by `ctx.Save`, `ctx.Delete` and `ctx.Reload`. They are exported only because the ORM lives in another package; never call them yourself.
 
-#### New
+## The Provider
 
-Creates a new entity instance with an auto-generated UUID. The entity is automatically tracked for flushing.
+### Field descriptors
 
-```go
-user := entities.UserProvider.New(ctx)
-user.SetName("Alice")
-user.SetEmail("alice@example.com")
-err := ctx.Flush()
-```
-
-**Signature:**
-```go
-func (p userProvider) New(ctx fluxaorm.Context) *UserEntity
-```
-
-UUIDs are generated via Redis INCR, initialized from the current MAX(ID) in MySQL on first use. This guarantees unique, monotonically increasing IDs across all application instances.
-
-#### NewWithID
-
-Creates a new entity instance with a specific ID. Use this when you need to control the ID value.
+`Provider.Fields` holds one typed descriptor per column. Descriptors build the conditions passed to `fluxaorm.NewQuery().Filter(...)` and the sort arguments of `SortByASC`/`SortByDESC`:
 
 ```go
-user := entities.UserProvider.NewWithID(ctx, 1000)
-user.SetName("Bob")
-err := ctx.Flush()
-```
-
-**Signature:**
-```go
-func (p userProvider) NewWithID(ctx fluxaorm.Context, id uint64) *UserEntity
-```
-
-#### SearchMany
-
-Queries for entities matching a type-safe query built with `fluxaorm.NewQuery()`.
-
-```go
-users, err := entities.UserProvider.SearchMany(ctx,
+users, err := entities.UserEntityProvider.SearchMany(ctx,
     fluxaorm.NewQuery().
         Filter(
-            entities.UserProvider.Fields.Age.Gt(18),
-            entities.UserProvider.Fields.Status.Is("active"),
+            entities.UserEntityProvider.Fields.Category.Eq(categoryID),
+            entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active),
         ).
-        SortByDESC(entities.UserProvider.Fields.CreatedAt).
+        SortByASC(entities.UserEntityProvider.Fields.Name).
         Pager(fluxaorm.NewPager(1, 20)),
 )
-if err != nil {
-    return err
-}
-for _, user := range users {
-    fmt.Println(user.GetName())
-}
 ```
 
-**Signature:**
-```go
-func (p userProvider) SearchMany(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*UserEntity, error)
-```
+| Go field | Descriptor |
+|:---------|:-----------|
+| `uint*` (including `ID`) | `fluxaorm.UintField` |
+| `*uint*` | `fluxaorm.NullableUintField` |
+| `int*` / `*int*` | `fluxaorm.IntField` / `fluxaorm.NullableIntField` |
+| `float*` / `*float*` | `fluxaorm.FloatField` / `fluxaorm.NullableFloatField` |
+| `bool` / `*bool` | `fluxaorm.BoolField` / `fluxaorm.NullableBoolField` |
+| `time.Time` / `*time.Time` | `fluxaorm.TimeField` / `fluxaorm.NullableTimeField` |
+| `string` with `required` | `fluxaorm.StringField` |
+| `string` without `required` | `fluxaorm.NullableStringField` |
+| `string` with `enum=` and `required` | `fluxaorm.EnumField` |
+| `string` with `enum=` without `required` | `fluxaorm.NullableEnumField` |
+| `fluxaorm.Reference[T]` with `required` | `fluxaorm.ReferenceField` |
+| `fluxaorm.Reference[T]` without `required` | `fluxaorm.NullableUintField` |
 
-#### SearchOne
+`FakeDelete`, `[]uint8`, `set=` fields, `fluxaorm.References[T]` and JSON struct fields have **no** descriptor: they cannot be used in `Filter`. Fields of embedded or nested structs are flattened with the nested field name as prefix (`TestSubSize` for `TestSub.Size`), anonymous embedding adds no prefix. The available condition methods are documented in [Search](/guide/search.html).
 
-Queries for a single entity matching the query. Adds `LIMIT 1` automatically. When the filter conditions match a cached unique index, the cached index lookup is used automatically.
+### Metadata methods and interfaces
 
-```go
-user, found, err := entities.UserProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(
-        entities.UserProvider.Fields.Email.Is("alice@example.com"),
-    ),
-)
-```
-
-**Signature:**
-```go
-func (p userProvider) SearchOne(ctx fluxaorm.Context, query *fluxaorm.DBQuery) (*UserEntity, bool, error)
-```
-
-#### SearchManyWithTotal
-
-Like `SearchMany`, but also returns the total number of matching rows (before pagination). Useful for building paginated UIs.
-
-```go
-users, total, err := entities.UserProvider.SearchManyWithTotal(ctx,
-    fluxaorm.NewQuery().
-        Filter(entities.UserProvider.Fields.Status.Is("active")).
-        Pager(fluxaorm.NewPager(2, 10)),
-)
-// total = 150 (all matching rows), len(users) = 10 (current page)
-```
-
-**Signature:**
-```go
-func (p userProvider) SearchManyWithTotal(ctx fluxaorm.Context, query *fluxaorm.DBQuery) ([]*UserEntity, int, error)
-```
-
-### Typed Fields
-
-Every Provider has a `Fields` struct containing typed field definitions for each column. These are used with `fluxaorm.NewQuery()` to build type-safe filters and sort clauses:
-
-```go
-// Access typed fields on the Provider
-entities.UserProvider.Fields.ID        // fluxaorm.UintField
-entities.UserProvider.Fields.Name      // fluxaorm.StringField
-entities.UserProvider.Fields.Email     // fluxaorm.StringField
-entities.UserProvider.Fields.Age       // fluxaorm.UintField
-entities.UserProvider.Fields.Status    // fluxaorm.EnumField
-entities.UserProvider.Fields.CreatedAt // fluxaorm.TimeField
-```
-
-See the [Search](/guide/search.html) page for the full list of field types and their available methods.
-
-### Redis Search Methods
-
-If an entity has Redis Search configured, additional methods and fields are generated:
-
-- `SearchManyInRedis(ctx, query)` -- search using Redis Search, returns full entities
-- `SearchOneInRedis(ctx, query)` -- search for a single entity using Redis Search
-- `SearchManyInRedisWithTotal(ctx, query)` -- search with total count
-- `ReindexRedisSearch(ctx)` -- rebuild the entire Redis Search index from MySQL data
-
-These methods use `*fluxaorm.RedisSearchQuery` built with `fluxaorm.NewRedisSearchQuery()`.
-
-The Provider also has a `FieldsRedisSearch` struct containing typed Redis Search field definitions:
-
-```go
-entities.ProductProvider.FieldsRedisSearch.Name   // fluxaorm.RedisSearchTextField
-entities.ProductProvider.FieldsRedisSearch.Price  // fluxaorm.RedisSearchNumericField (float64 → float64 params)
-entities.ProductProvider.FieldsRedisSearch.Age    // fluxaorm.RedisSearchUintField    (uint32 → uint64 params)
-entities.ProductProvider.FieldsRedisSearch.Status // fluxaorm.RedisSearchTagField
-```
-
-See the [Redis Search](/guide/redis_search.html) page for details.
-
-### Provider Interfaces
-
-All generated Providers implement the `fluxaorm.EntityProvider` interface, which exposes common metadata:
+Every provider implements `fluxaorm.EntityProvider`:
 
 ```go
 type EntityProvider interface {
@@ -326,7 +272,7 @@ type EntityProvider interface {
 }
 ```
 
-Providers with Redis caching (`redisCache` tag) additionally implement `fluxaorm.RedisCacheEntityProvider`:
+Entities with `orm:"redisCache"` **or** with `CachedUniqueIndexes()` additionally implement `fluxaorm.RedisCacheEntityProvider` (an entity that only caches unique index lookups still needs a way to clear those keys):
 
 ```go
 type RedisCacheEntityProvider interface {
@@ -336,7 +282,7 @@ type RedisCacheEntityProvider interface {
 }
 ```
 
-Providers with Redis Search indexing additionally implement `fluxaorm.RedisSearchEntityProvider`:
+Entities with `searchable` fields implement `fluxaorm.RedisSearchEntityProvider`:
 
 ```go
 type RedisSearchEntityProvider interface {
@@ -347,348 +293,118 @@ type RedisSearchEntityProvider interface {
 }
 ```
 
-These interfaces are independent (they do not embed each other). Use type assertions to check capabilities at runtime:
+`providers.go` collects every provider so that tooling can iterate over them and pick the capabilities it needs:
 
 ```go
-for _, p := range entities.AllProviders {
-    fmt.Println("Table:", p.TableName(), "DB:", p.DBCode())
-
-    if rp, ok := p.(fluxaorm.RedisCacheEntityProvider); ok {
-        fmt.Println("  Redis cache prefix:", rp.RedisCachePrefix())
-    }
-    if sp, ok := p.(fluxaorm.RedisSearchEntityProvider); ok {
-        fmt.Println("  Redis search index:", sp.RedisSearchIndexName())
+for _, provider := range entities.AllProviders {
+    if cached, ok := provider.(fluxaorm.RedisCacheEntityProvider); ok {
+        deleted, err := cached.ClearRedisCache(ctx)
+        // ...
     }
 }
 ```
 
-::: tip
-Entities with cached unique indexes (via `CachedUniqueIndexes()`) but **without** `redisCache` do **not** implement `RedisCacheEntityProvider`. The Redis cache interface is only for entities that have the full entity-level Redis cache enabled.
-:::
+### Loading, factory and search methods
 
-### AllProviders Registry
+| Method | Notes |
+|:-------|:------|
+| `GetByID(ctx, id) (*E, bool, error)` | Context cache, then Redis row cache, then MySQL. See [CRUD](/guide/crud.html). |
+| `MustGetByID(ctx, id) (*E, error)` | Like `GetByID` but panics with `<Entity> with id <id> not found` when the row does not exist. |
+| `GetByIDs(ctx, id ...uint64) ([]*E, error)` | Input order preserved, duplicates collapsed, missing ids skipped. |
+| `New(ctx) *E` | New entity with a snowflake ID from `ctx.Engine().NextID()`; never fails. |
+| `NewWithID(ctx, id) *E` | New entity with a caller-chosen ID. |
+| `SearchOne(ctx, *DBQuery) (*E, bool, error)` | Uses the cached unique index fast path when the filter matches one exactly. |
+| `SearchMany(ctx, *DBQuery) ([]*E, error)` | |
+| `SearchManyWithTotal(ctx, *DBQuery) ([]*E, int, error)` | |
+| `Count(ctx, *DBQuery) (int, error)` | |
+| `SearchOneInRedis(ctx, *RedisSearchQuery) (*E, bool, error)` | Only with `searchable` fields. |
+| `SearchManyInRedis(ctx, *RedisSearchQuery) ([]*E, error)` | Only with `searchable` fields. |
+| `SearchManyInRedisWithTotal(ctx, *RedisSearchQuery) ([]*E, int, error)` | Only with `searchable` fields. |
+| `ReindexRedisSearch(ctx) error` | Only with `searchable` fields. |
 
-The generator also produces a `providers.go` file containing an `AllProviders` variable -- a slice of all generated providers typed as `fluxaorm.EntityProvider`:
+`GetByID`, `GetByIDs`, `New`, `NewWithID` are described in [CRUD](/guide/crud.html); the `Search*` and `Count` methods in [Search](/guide/search.html); the `*InRedis` methods and `ReindexRedisSearch` in [Redis Search](/guide/redis_search.html). There is no generated `Delete` on the provider and no `GetBy<Index>` methods: deleting goes through `ctx.Delete`, unique index lookups through `SearchOne`.
+
+### Lifecycle registration
+
+`OnAfterInsert`, `OnAfterUpdate` and `OnAfterDelete` register one post-commit handler per event on the `Engine`. The package-level `Register<Entity>BeforeInsert`, `Register<Entity>BeforeUpdate` and `Register<Entity>BeforeDelete` functions register synchronous callbacks that run before the SQL statement is built. Both families are documented in [Lifecycle Callbacks](/guide/lifecycle_callbacks.html).
+
+## The Entity
+
+An entity remembers the `Context` that created or loaded it, its ID, the values as they were read from MySQL or Redis (`originDatabaseValues` / `originRedisValues`) and the columns changed since (`databaseBind`). It can only be saved on that context; see [CRUD](/guide/crud.html) for the write rules.
+
+### Getters and setters
+
+Every setter returns the entity, so calls chain:
 
 ```go
-var AllProviders = []fluxaorm.EntityProvider{
-    &UserProvider,
-    &ProductProvider,
-    &CategoryProvider,
-}
+user := entities.UserEntityProvider.New(ctx)
+user.SetName("Alice").
+    SetEmail("alice@example.com").
+    SetStatus(enums.UserStatusList.Active).
+    SetCategory(category.GetID())
 ```
 
-The providers are sorted alphabetically by table name for deterministic output. Use `AllProviders` to iterate over all entity providers at runtime for tasks like health checks, migrations, or building admin interfaces.
+| Go field | Getter | Setter |
+|:---------|:-------|:-------|
+| `uint*` | `Get<F>() uint64` | `Set<F>(value uint64)` |
+| `int*` | `Get<F>() int64` | `Set<F>(value int64)` |
+| `float*` | `Get<F>() float64` | `Set<F>(value float64)` |
+| `bool` | `Get<F>() bool` | `Set<F>(value bool)` |
+| `time.Time` | `Get<F>() time.Time` | `Set<F>(value time.Time)` — truncated to the second (`orm:"time"`) or to the day (date) |
+| `string` with `required` | `Get<F>() string` | `Set<F>(value string)` |
+| `string` without `required` | `Get<F>() string` — `""` for NULL | `Set<F>(value string)` — `""` stores NULL |
+| `*uint*` | `Get<F>() *uint64` | `Set<F>(value *uint64)` — `nil` stores NULL |
+| `*int*` | `Get<F>() *int64` | `Set<F>(value *int64)` |
+| `*float*` | `Get<F>() *float64` | `Set<F>(value *float64)` |
+| `*bool` | `Get<F>() *bool` | `Set<F>(value *bool)` |
+| `*time.Time` | `Get<F>() *time.Time` | `Set<F>(value *time.Time)` |
+| `[]uint8` | `Get<F>() []uint8` — `nil` for NULL | `Set<F>(value []uint8)` |
+| enum with `required` | `Get<F>() enums.X` | `Set<F>(value enums.X)` |
+| enum without `required` | `Get<F>() *enums.X` | `Set<F>(value *enums.X)` |
+| set with `required` | `Get<F>() []enums.X` | `Set<F>(value ...enums.X)` — stored sorted, comma-joined |
+| set without `required` | `Get<F>() []enums.X` — `nil` for NULL | `Set<F>(value ...enums.X)` — no arguments stores NULL |
+| JSON struct `*pkg.T` | `Get<F>() *pkg.T` | `Set<F>(value *pkg.T)` — `nil` stores NULL |
+| `fluxaorm.Reference[T]` | `Get<F>ID() uint64` (`0` for NULL), `Get<F>(ctx) (*T, bool, error)`, `MustGet<F>(ctx) (*T, error)` | `Set<F>(value uint64)` — `0` stores NULL on an optional reference |
+| `fluxaorm.References[T]` | `Get<F>IDs() []uint64`, `Get<F>(ctx) ([]*T, error)` | `Set<F>IDs(ids []uint64)` — empty stores `[]`; `nil` stores NULL on an optional field |
 
-## Generated Entity
+Narrow Go integers widen in the API: a `uint32` column has `Get<F>() uint64`, a `*uint8` column has `Get<F>() *uint64`. The `ID` field has only `GetID()`.
 
-For each registered entity, the generator creates an **Entity struct** that wraps the raw database data with context awareness and dirty tracking.
+Reference getters load lazily through the referenced provider: `Get<F>(ctx)` returns `nil, false, nil` when the ID is `0`, otherwise `<Ref>Provider.GetByID(ctx, id)`. `MustGet<F>(ctx)` panics with `<F> not found in <Entity>` when the referenced row is missing. `Get<F>(ctx)` on a `References[T]` field calls `<Ref>Provider.GetByIDs(ctx, ids...)`.
 
-```go
-type UserEntity struct {
-    ctx                  fluxaorm.Context
-    id                   uint64
-    new                  bool
-    deleted              bool
-    originDatabaseValues *userSQLRow
-    databaseBind         map[string]any
-    // ... additional fields for Redis cache if configured
-}
-```
+### Change events
 
-### Core Methods
+Entities tagged `orm:"cdc"` also get a `<Entity>DirtyEvent` type (an alias of `fluxaorm.DirtyEvent[map[string]any]`) and the publisher registration that emits one event per committed write. See [Entity Events](/guide/entity_events.html).
 
-Every generated entity has these methods:
+## Enums
 
-```go
-// Returns the entity's primary key
-func (e *UserEntity) GetID() uint64
-
-// Marks the entity for deletion on next Flush()
-func (e *UserEntity) Delete()
-```
-
-If the entity has a `FakeDelete` field, `Delete()` performs a soft delete by setting `FakeDelete = true`. A separate `ForceDelete()` method is also generated for hard deletes.
-
-### Getters and Setters
-
-For each field in the entity struct, the generator creates typed getter and setter methods. The naming pattern is:
-
-| Method | Description |
-|---|---|
-| `Get<Field>()` | Returns the current value (checks dirty map first, then origin) |
-| `Set<Field>(value)` | Sets a new value; automatically tracks the entity for flushing if the value changed |
-
-**Example for a `Name` field of type `string`:**
+Every `enum=` or `set=` field produces a file in the `enums` package. The type name is the `enumName=` tag value; without it the generator derives one from the entity and field name. Several fields — in the same or in different entities — may share one enum by giving them the same `enumName`; a field may even reference an enum that is defined elsewhere with `orm:"enumName=UserStatus"` alone.
 
 ```go
-name := user.GetName()      // returns string
-user.SetName("New Name")    // sets a new value, marks entity as dirty
-```
+// Code generated by fluxaorm; DO NOT EDIT.
 
-**Setter dirty tracking:** When you call a setter, it compares the new value against the original value. If they are the same, the field is removed from the dirty map (no-op). If they differ, the field is added to the dirty map and the entity is automatically tracked for the next `Flush()` call.
-
-### Field Type Mapping
-
-The generated getters and setters use Go-native types:
-
-| Entity field type | Getter return type | Setter parameter type |
-|---|---|---|
-| `uint`, `uint8`, ..., `uint64` | `uint64` | `uint64` |
-| `int`, `int8`, ..., `int64` | `int64` | `int64` |
-| `float32`, `float64` | `float64` | `float64` |
-| `bool` | `bool` | `bool` |
-| `string` | `string` | `string` |
-| `time.Time` | `time.Time` | `time.Time` |
-| `*uint64` (nullable) | `*uint64` | `*uint64` |
-| Enum field | `enums.XxxName` | `enums.XxxName` |
-| Set field | `[]enums.XxxName` | `...enums.XxxName` (variadic) |
-
-### Reference Fields
-
-For reference (foreign key) fields, the generator creates three methods:
-
-```go
-// Returns the raw foreign key value
-func (e *ProductEntity) GetCategoryID() uint64
-
-// Sets the raw foreign key value
-func (e *ProductEntity) SetCategory(value uint64)
-
-// Loads the referenced entity (calls GetByID on the referenced Provider)
-func (e *ProductEntity) GetCategory(ctx fluxaorm.Context) (*CategoryEntity, bool, error)
-
-// Loads the referenced entity, panics if not found
-func (e *ProductEntity) MustGetCategory(ctx fluxaorm.Context) (*CategoryEntity, error)
-```
-
-The `MustGet<Reference>` method is a convenience wrapper around `Get<Reference>`. It removes the `bool` return value and panics if the referenced entity is not found. Errors are still returned normally. This works the same way for both required and optional references.
-
-For optional (non-required) references, the ID getter also returns `uint64`, with `0` representing NULL (no reference set). The setter accepts `uint64` and treats `0` as NULL.
-
-## Generated SQLRow
-
-The `SQLRow` struct is a flat, unexported type used internally for reflection-free database scanning. Each field is named `F0`, `F1`, `F2`, etc., matching the column order.
-
-```go
-type userSQLRow struct {
-    F0 uint64         // ID
-    F1 string         // Name
-    F2 sql.NullString // Email (nullable)
-    F3 time.Time      // CreatedAt
-    // ...
-}
-```
-
-You do not interact with `SQLRow` directly. It is used by the generated Provider methods to scan query results and by the Entity methods to read original values.
-
-## Generated Enums
-
-When an entity field uses the `enum` or `set` struct tag, the generator creates type-safe enum definitions in the `enums/` subdirectory.
-
-For example, given an entity field:
-
-```go
-type UserEntity struct {
-    ID     uint64
-    Status string `orm:"enum=active,inactive,banned;required"`
-}
-```
-
-The generator creates `enums/UserStatus.go`:
-
-```go
 package enums
 
 type UserStatus string
 
 var UserStatusList = struct {
-    Active   UserStatus
-    Inactive UserStatus
-    Banned   UserStatus
+    Active  UserStatus
+    Blocked UserStatus
 }{
-    Active:   "active",
-    Inactive: "inactive",
-    Banned:   "banned",
+    Active:  "active",
+    Blocked: "blocked",
+}
+
+func (e UserStatus) Valid() bool {
+    switch e {
+    case "active", "blocked":
+        return true
+    }
+    return false
+}
+
+func (e UserStatus) Values() []UserStatus {
+    return []UserStatus{"active", "blocked"}
 }
 ```
 
-Use enum values in your application code:
-
-```go
-import "your/module/entities/enums"
-
-user := entities.UserProvider.New(ctx)
-user.SetStatus(enums.UserStatusList.Active)
-
-status := user.GetStatus() // returns enums.UserStatus
-if status == enums.UserStatusList.Banned {
-    // handle banned user
-}
-```
-
-## Practical Workflow
-
-Here is a complete example showing the typical development workflow with FluxaORM code generation.
-
-### Step 1: Define Entities
-
-```go
-package main
-
-import "time"
-
-type UserEntity struct {
-    ID        uint64
-    Name      string    `orm:"required;length=200"`
-    Email     string    `orm:"required;length=255"`
-    Age       uint8
-    Status    string    `orm:"enum=active,inactive,banned;required"`
-    CreatedAt time.Time `orm:"time"`
-}
-
-func (e UserEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{"Email": {"Email"}}
-}
-
-type ProductEntity struct {
-    ID          uint64
-    Name        string `orm:"required;length=200"`
-    Category    *CategoryEntity
-    Price       float64 `orm:"decimal=10,2"`
-}
-
-type CategoryEntity struct {
-    ID   uint64
-    Name string `orm:"required;length=100"`
-}
-```
-
-### Step 2: Generate Code
-
-Create a generation program (e.g., `cmd/generate/main.go`):
-
-```go
-package main
-
-import (
-    "github.com/latolukasz/fluxaorm/v2"
-)
-
-func main() {
-    registry := fluxaorm.NewRegistry()
-    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterRedis("localhost:6379", 0, fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(UserEntity{})
-    registry.RegisterEntity(ProductEntity{})
-    registry.RegisterEntity(CategoryEntity{})
-
-    engine, err := registry.Validate()
-    if err != nil {
-        panic(err)
-    }
-
-    err = fluxaorm.Generate(engine, "./entities")
-    if err != nil {
-        panic(err)
-    }
-}
-```
-
-Run it:
-
-```bash
-go run cmd/generate/main.go
-```
-
-### Step 3: Use Generated Code
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-
-    "github.com/latolukasz/fluxaorm/v2"
-    "your/module/entities"
-    "your/module/entities/enums"
-)
-
-func main() {
-    // ... setup registry and engine (same as above)
-    ctx := engine.NewContext(context.Background())
-
-    // Create a new user
-    user := entities.UserProvider.New(ctx)
-    user.SetName("Alice")
-    user.SetEmail("alice@example.com")
-    user.SetAge(30)
-    user.SetStatus(enums.UserStatusList.Active)
-
-    // Create a category and product
-    category := entities.CategoryProvider.New(ctx)
-    category.SetName("Electronics")
-
-    product := entities.ProductProvider.New(ctx)
-    product.SetName("Laptop")
-    product.SetCategoryID(category.GetID())
-    product.SetPrice(999.99)
-
-    // Persist all changes in a single flush
-    err := ctx.Flush()
-    if err != nil {
-        panic(err)
-    }
-
-    // Query entities
-    foundUser, exists, err := entities.UserProvider.GetByID(ctx, user.GetID())
-    if err != nil {
-        panic(err)
-    }
-    if exists {
-        fmt.Println("Found user:", foundUser.GetName())
-    }
-
-    // Search with type-safe query builder
-    users, err := entities.UserProvider.SearchMany(ctx,
-        fluxaorm.NewQuery().
-            Filter(entities.UserProvider.Fields.Age.Gte(18)).
-            SortByASC(entities.UserProvider.Fields.Name).
-            Pager(fluxaorm.NewPager(1, 10)),
-    )
-    if err != nil {
-        panic(err)
-    }
-    for _, u := range users {
-        fmt.Println(u.GetName(), u.GetEmail())
-    }
-
-    // Search by unique index (auto-detected via SearchOne)
-    userByEmail, found, err := entities.UserProvider.SearchOne(ctx,
-        fluxaorm.NewQuery().Filter(
-            entities.UserProvider.Fields.Email.Is("alice@example.com"),
-        ),
-    )
-    if err != nil {
-        panic(err)
-    }
-    if found {
-        fmt.Println("Found by email:", userByEmail.GetName())
-    }
-
-    // Update an entity
-    foundUser.SetName("Alice Updated")
-    err = ctx.Flush()
-    if err != nil {
-        panic(err)
-    }
-
-    // Delete an entity
-    foundUser.Delete()
-    err = ctx.Flush()
-    if err != nil {
-        panic(err)
-    }
-}
-```
+The constant names are the values with the first letter of every `_`-separated segment capitalised (`in_review` becomes `InReview`). A required enum or set field of a freshly created entity defaults to the first declared value, so `entities.UserEntityProvider.New(ctx).GetStatus()` is `enums.UserStatusList.Active`.

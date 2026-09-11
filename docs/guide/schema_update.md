@@ -1,10 +1,14 @@
 # Schema Update
 
-One of the main benefits of using an ORM is the ability to generate and update a database schema based on the data structures in your code. In FluxaORM, these data structures are represented as registered entities.
+FluxaORM derives the MySQL schema from the registered entities and computes the statements needed to bring the live database in line with it. Nothing is executed implicitly: `GetAlters` returns a plan, every statement is classified as **safe** or **destructive**, and your deploy code decides what to run and when.
 
-## MySQL Schema Alterations
+## GetAlters
 
-The recommended approach is to use the `GetAlters()` function. This function compares the current MySQL schema in all MySQL databases used by the registered entities and returns detailed information that can be used to update the schema:
+```go
+func GetAlters(ctx Context) (alters []Alter, err error)
+```
+
+`GetAlters` inspects every registered MySQL pool (`SHOW FULL TABLES`, `SHOW CREATE TABLE`, `SHOW INDEXES`), diffs each entity against its table, adds a `DROP TABLE` for every table without an entity, and returns the result sorted deterministically by pool, table, kind rank and SQL.
 
 ```go
 package main
@@ -16,15 +20,10 @@ import (
     "github.com/latolukasz/fluxaorm/v2"
 )
 
-type CategoryEntity struct {
-    ID   uint64 `orm:"mysql=products"`
-    Name string `orm:"required"`
-}
-
 func main() {
     registry := fluxaorm.NewRegistry()
-    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterEntity(&CategoryEntity{})
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/app", fluxaorm.DefaultPoolCode, &fluxaorm.MySQLOptions{})
+    registry.RegisterEntity(&UserEntity{}, &ProductEntity{})
     engine, err := registry.Validate()
     if err != nil {
         panic(err)
@@ -36,196 +35,194 @@ func main() {
         panic(err)
     }
     for _, alter := range alters {
-        fmt.Println(alter.SQL)  // e.g. "CREATE TABLE `CategoryEntity` ..."
-        fmt.Println(alter.Pool) // e.g. "products"
+        fmt.Printf("[%s] %s %s.%s: %s\n", alter.Safety, alter.Kind, alter.Pool, alter.Table, alter.Reason)
+        fmt.Println(alter.SQL)
     }
 }
 ```
 
-Each `fluxaorm.Alter` has the following fields:
-
-| Field  | Type     | Description |
-|--------|----------|-------------|
-| `SQL`  | `string` | The SQL statement to execute |
-| `Pool` | `string` | The MySQL pool code this alter belongs to |
-
-To execute all the alters, use the `Exec()` method, passing the context:
+### The `Alter` type
 
 ```go
-for _, alter := range alters {
-    err = alter.Exec(ctx)
+type Alter struct {
+    SQL    string      // statement to execute, database-qualified
+    Pool   string      // MySQL pool code
+    Kind   AlterKind   // what the statement does
+    Table  string      // table name
+    Entity string      // Go type of the entity, e.g. "model.UserEntity"; empty for a table with no registered entity
+    Safety AlterSafety // AlterSafe or AlterDestructive
+    Reason string      // why it was emitted / why it is destructive; empty for plain safe statements
+}
+
+func (a Alter) Exec(ctx Context) error // ctx.Engine().DB(a.Pool).Exec(ctx, a.SQL)
+func (a Alter) IsSafe() bool           // a.Safety == AlterSafe
+```
+
+### `AlterSafety`
+
+```go
+type AlterSafety uint8
+
+const (
+    AlterDestructive AlterSafety = iota // zero value: an unclassified statement fails closed
+    AlterSafe
+)
+
+func (s AlterSafety) String() string // "safe" or "destructive"
+```
+
+`AlterSafe` answers one question: *can the previous code version keep running against this statement?* Adding a nullable column or a plain index is safe. Changing a column type, dropping anything, or adding a unique index is destructive.
+
+```go
+func SplitAlters(in []Alter) (safe, destructive []Alter)
+```
+
+### `AlterKind`
+
+`AlterKind` is a `string` used for metric labels and for ordering. The rank column is the execution order within one table:
+
+| Constant | Value | Rank | Typical safety |
+|----------|-------|------|----------------|
+| `AlterKindCreateTable` | `create_table` | 0 | safe |
+| `AlterKindAddColumn` | `add_column` | 10 | safe (destructive when `NOT NULL` without `DEFAULT`) |
+| `AlterKindSetDefault` | `set_default` | 11 | safe |
+| `AlterKindAddIndex` | `add_index` | 20 | safe (destructive when it indexes a deferred column) |
+| `AlterKindAddUniqueIndex` | `add_unique_index` | 20 | destructive |
+| `AlterKindRebuildIndex` | `rebuild_index` | 30 | destructive |
+| `AlterKindModifyTable` | `modify_table` | 35 | (ClickHouse only) |
+| `AlterKindChangeColumn` | `change_column` | 40 | destructive |
+| `AlterKindDropForeignKey` | `drop_foreign_key` | 45 | destructive |
+| `AlterKindDropIndex` | `drop_index` | 50 | destructive |
+| `AlterKindDropColumn` | `drop_column` | 60 | destructive |
+| `AlterKindConvertTable` | `convert_table` | 70 | destructive |
+| `AlterKindDropTable` | `drop_table` | 80 | destructive |
+
+```go
+func AllAlterKinds() []AlterKind // every kind, sorted, for building a policy over them
+```
+
+## The Rolling-Deploy Contract
+
+The plan is designed for deployments where the old and the new code version run side by side for a while:
+
+1. **During the rollout** (old pods still live) apply only the safe alters, in the returned order. The previous version keeps inserting and reading without errors.
+2. **After the fleet is uniform** (only the new version is running) apply the destructive alters.
+
+Because the plan is recomputed from the live schema every time, running `GetAlters` again after step 1 returns exactly the destructive remainder.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+
+    "github.com/latolukasz/fluxaorm/v2"
+)
+
+// applySchema runs on boot. Destructive alters run only when APPLY_DESTRUCTIVE_ALTERS=1,
+// which the pipeline sets for the post-rollout job.
+func applySchema(ctx fluxaorm.Context) error {
+    alters, err := fluxaorm.GetAlters(ctx)
     if err != nil {
-        panic(err)
+        return err
     }
-}
-```
+    safe, destructive := fluxaorm.SplitAlters(alters)
 
-::: tip
-Make sure to execute all the alters in the exact order they are returned by the `GetAlters()` function.
-:::
-
-::: warning
-FluxaORM generates `DROP TABLE ...` queries for all tables in the registered MySQL database that are not mapped as entities.
-See [ignored tables](/guide/data_pools.html#ignored-tables) section for how to register ignored MySQL tables.
-:::
-
-## Updating a Single Entity Schema
-
-You can also update the schema for a single entity using the `entitySchema` object. This is useful when you want to update only one table rather than all tables at once:
-
-```go
-ctx := engine.NewContext(context.Background())
-
-// GetSchemaChanges returns pending alterations for this entity
-alters, hasChanges, err := entitySchema.GetSchemaChanges(ctx)
-if err != nil {
-    panic(err)
-}
-if hasChanges {
-    for _, alter := range alters {
-        fmt.Println(alter.SQL)  // "CREATE TABLE `CategoryEntity` ..."
-        fmt.Println(alter.Pool) // "products"
-        err = alter.Exec(ctx)
-        if err != nil {
-            panic(err)
+    for _, alter := range safe {
+        if err := alter.Exec(ctx); err != nil {
+            return fmt.Errorf("%s on %s.%s: %w", alter.Kind, alter.Pool, alter.Table, err)
         }
     }
+
+    if os.Getenv("APPLY_DESTRUCTIVE_ALTERS") != "1" {
+        for _, alter := range destructive {
+            fmt.Printf("pending destructive alter %s on %s.%s (%s)\n", alter.Kind, alter.Pool, alter.Table, alter.Reason)
+        }
+        return nil
+    }
+    for _, alter := range destructive {
+        if err := alter.Exec(ctx); err != nil {
+            return fmt.Errorf("%s on %s.%s: %w", alter.Kind, alter.Pool, alter.Table, err)
+        }
+    }
+    return nil
 }
-```
 
-For convenience, you can use the following shorthand methods:
-
-```go
-// Executes all pending schema alters
-err = entitySchema.UpdateSchema(ctx)
-
-// Updates schema and then truncates the table (deletes all rows, resets auto-increment)
-err = entitySchema.UpdateSchemaAndTruncateTable(ctx)
-```
-
-The `entitySchema` also provides methods for managing the entity table directly:
-
-```go
-err = entitySchema.DropTable(ctx)     // drops the entire table
-err = entitySchema.TruncateTable(ctx) // truncates the table
-```
-
-## Redis Search Index Alterations
-
-If you use Redis Search indexing (via the `searchable` struct tag on entity fields), you can retrieve and apply pending Redis Search index changes with `GetRedisSearchAlters()`:
-
-```go
-alters, err := fluxaorm.GetRedisSearchAlters(ctx)
-if err != nil {
-    panic(err)
-}
-for _, alter := range alters {
-    fmt.Println(alter.IndexName) // e.g. "UserEntity_a1b2c3d4"
-    fmt.Println(alter.RedisPool) // e.g. "default"
-    err = alter.Exec(ctx)
+func main() {
+    registry := fluxaorm.NewRegistry()
+    registry.RegisterMySQL("user:password@tcp(localhost:3306)/app", fluxaorm.DefaultPoolCode, &fluxaorm.MySQLOptions{})
+    registry.RegisterEntity(&UserEntity{}, &ProductEntity{})
+    engine, err := registry.Validate()
     if err != nil {
+        panic(err)
+    }
+    if err := applySchema(engine.NewContext(context.Background())); err != nil {
         panic(err)
     }
 }
 ```
 
-Each `fluxaorm.RedisSearchAlter` has the following fields:
-
-| Field       | Type     | Description |
-|-------------|----------|-------------|
-| `IndexName` | `string` | The Redis Search index name |
-| `RedisPool` | `string` | The Redis pool code this index belongs to |
-
-The `Exec(ctx)` method executes the `FT.CREATE` command to create the index. Only indexes that do not yet exist are returned by `GetRedisSearchAlters()` -- existing indexes with a matching name are skipped.
-
 ::: tip
-Call `GetRedisSearchAlters()` after `GetAlters()` in your migration flow to ensure both MySQL tables and Redis Search indexes are up to date.
+Keep the returned order inside each group. `set_default` is ranked directly after `add_column` because between the two statements a required text column exists without a default, and an INSERT that omits it fails with MySQL error 1364.
 :::
 
-## ClickHouse Schema Alterations
+## What the Diff Emits
 
-If you register ClickHouse table definitions using `RegisterClickhouseTable()`, you can retrieve and apply pending ClickHouse DDL changes with `GetClickhouseAlters()`:
+### New table
 
-```go
-alters, err := fluxaorm.GetClickhouseAlters(ctx)
-if err != nil {
-    panic(err)
-}
-for _, alter := range alters {
-    fmt.Println(alter.SQL)  // e.g. "CREATE TABLE events ..."
-    fmt.Println(alter.Pool) // e.g. "analytics"
-    err = alter.Exec(ctx)
-    if err != nil {
-        panic(err)
-    }
-}
+A missing table produces a single safe `create_table`:
+
+```sql
+CREATE TABLE `app`.`UserEntity` (
+  `ID` bigint unsigned NOT NULL,
+  `Name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '',
+  `Age` tinyint unsigned NOT NULL DEFAULT '0',
+  UNIQUE INDEX `Name` (`Name`),
+ PRIMARY KEY (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 ```
 
-Each `fluxaorm.ClickhouseAlter` has the following fields:
+Columns follow struct field order; the charset and collation come from `MySQLOptions.DefaultEncoding` (`utf8mb4`) and `DefaultCollate` (`0900_ai_ci`).
 
-| Field  | Type     | Description |
-|--------|----------|-------------|
-| `SQL`  | `string` | The DDL statement to execute |
-| `Pool` | `string` | The ClickHouse pool code this alter belongs to |
+### Existing table
 
-`GetClickhouseAlters()` generates `CREATE TABLE`, `ALTER TABLE` (add/modify/drop columns, TTL, settings, comment), and `DROP TABLE` statements. ENGINE, ORDER BY, and PARTITION BY mismatches produce warning comments since ClickHouse does not support altering these properties.
+The diff emits **one `Alter` per unit of work** and is keyed by **column name, never position** - reordering struct fields emits nothing.
 
-::: tip
-See the [ClickHouse Schema Management](/guide/clickhouse_schema.html) page for the full builder API and detailed documentation.
+| Situation | Kind / safety | Statement | Reason |
+|-----------|---------------|-----------|--------|
+| New column | `add_column`, safe | ``ALTER TABLE `db`.`t`\n    ADD COLUMN <def> [AFTER `prev`], ALGORITHM=INSTANT;`` - `AFTER` only when the preceding struct column already exists | - |
+| New `NOT NULL` column without a `DEFAULT` | `add_column`, **destructive** | as above; the column is marked *deferred* | `NOT NULL without DEFAULT` |
+| New required text/blob column | `add_column` safe + `set_default` safe | the `DEFAULT ('')` expression cannot ride on an INSTANT `ADD COLUMN`, so it is split into a following `MODIFY <def>, ALGORITHM=INSTANT` | `adding the column default the ADD could not carry` |
+| Same column, only the `DEFAULT` differs | `set_default`, safe | `MODIFY <def>, ALGORITHM=INSTANT` | `column default changed` |
+| Same column, any other difference | `change_column`, destructive | ``CHANGE COLUMN `c` <def>`` | `CHANGED FROM <live definition>` |
+| Column not in the entity | `drop_column`, destructive | ``DROP COLUMN `c` `` | `column is no longer part of the entity` |
+| `CONSTRAINT` (foreign key) on the table | `drop_foreign_key`, destructive | `DROP FOREIGN KEY <name>` - reported on every run until dropped | `foreign keys are not part of the entity schema` |
+| New plain index | `add_index`, safe | ``ADD INDEX `n` (`a`,`b`)`` | - |
+| New unique index | `add_unique_index`, destructive | ``ADD UNIQUE INDEX `n` (`a`)`` | `unique index cannot be added during a rollout` |
+| Plain index over a deferred column | `add_index`, destructive | as above | `indexes a column that is itself deferred` |
+| Index with same name, different definition | `rebuild_index`, destructive | ``DROP INDEX `n`,\n    ADD ... `n` (...)`` in one statement | `index definition changed` |
+| Index not in the entity (except `PRIMARY`) | `drop_index`, destructive | ``DROP INDEX `n` `` | `index is no longer part of the entity` |
+| Table charset differs from `DefaultEncoding` or engine is not InnoDB | `convert_table`, destructive | ``ALTER TABLE `db`.`t`\n ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;`` | `table rebuild: engine or charset conversion` |
+| Table without a registered entity | `drop_table`, destructive, `Entity == ""` | ``DROP TABLE IF EXISTS `db`.`t`;`` | `table has no registered entity` |
+
+Notes:
+
+- `ALGORITHM=INSTANT` is pinned on every `ADD COLUMN` and `MODIFY`, so MySQL fails loudly instead of silently falling back to a table rebuild.
+- Column equivalence tolerates MySQL's rendering differences: a missing `DEFAULT NULL` on a nullable column and the charset introducer in `DEFAULT (_utf8mb4'')` are not reported as changes. Applying the plan and calling `GetAlters` again must yield nothing.
+- `FakeDelete` handling (appending the column to indexes and adding a `FakeDelete` index) happens before the diff; see [MySQL Indexes](/guide/mysql_indexes.html).
+
+::: warning
+Every table in a registered MySQL database that has no entity is scheduled for `DROP TABLE`. List tables the ORM should leave alone in `MySQLOptions.IgnoredTables` (see [Data Pools](/guide/data_pools.html)).
 :::
 
-## Kafka Topic Alterations
+## Other Alter Families
 
-If you register Kafka topic definitions using `RegisterKafkaTopic()`, you can retrieve and apply pending topic changes with `GetKafkaAlters()`:
+The same `Kind` / `Safety` / `IsSafe()` / `Exec(ctx)` shape exists for the other stores. They are described on their own pages; call them alongside `GetAlters` in your deploy flow.
 
-```go
-alters, err := fluxaorm.GetKafkaAlters(ctx)
-if err != nil {
-    panic(err)
-}
-for _, alter := range alters {
-    fmt.Println(alter.Description) // e.g. "Create topic 'orders' with 6 partitions"
-    fmt.Println(alter.Pool)        // e.g. "default"
-    err = alter.Exec(ctx)
-    if err != nil {
-        panic(err)
-    }
-}
-```
-
-Each `fluxaorm.KafkaAlter` has the following fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `Description` | `string` | Human-readable description of the pending operation |
-| `Pool` | `string` | The Kafka pool code this alter belongs to |
-
-`GetKafkaAlters()` creates missing topics, increases partition counts, alters topic configurations, deletes unregistered topics, and deletes orphaned consumer groups. Partition decreases and replication factor changes produce warnings since Kafka does not support these operations. If you have registered async flush via `RegisterAsyncFlush()`, the internal topics (`_fluxa_async_sql` and `_fluxa_async_sql_failed`) and the consumer group are included automatically.
-
-::: tip
-See the [Kafka Topic Registration](/guide/kafka.html#topic-registration) page for the full builder API and detailed documentation.
-:::
-
-## Debezium Connector Alterations
-
-If you use Debezium CDC (via the `debezium` struct tag on entity ID fields), you can retrieve and apply pending Debezium connector changes with `GetDebeziumAlters()`:
-
-```go
-alters, err := fluxaorm.GetDebeziumAlters(ctx)
-if err != nil {
-    panic(err)
-}
-for _, alter := range alters {
-    fmt.Println(alter.Description) // e.g. "Create connector 'fluxa_default'"
-    err = alter.Exec(ctx)
-    if err != nil {
-        panic(err)
-    }
-}
-```
-
-`GetDebeziumAlters()` compares the desired Debezium connector state (based on registered entities with the `debezium` tag) against the actual state in Kafka Connect, and returns operations to create, update, or delete connectors. One connector is created per MySQL pool.
-
-::: tip
-See the [Debezium CDC](/guide/debezium.html) page for full details on setup, configuration, and consuming CDC events.
-:::
+| Function | Alter type | Page |
+|----------|------------|------|
+| `func GetRedisSearchAlters(ctx Context) ([]RedisSearchAlter, error)` | `RedisSearchAlter{IndexName, RedisPool, Kind, Safety}` - creates missing `FT` indexes (safe) and drops stale ones (destructive) | [Redis Search](/guide/redis_search.html) |
+| `func GetClickhouseAlters(ctx Context) ([]ClickhouseAlter, error)` | `ClickhouseAlter{SQL, Pool, Kind, Safety}` | [ClickHouse Schema](/guide/clickhouse_schema.html) |
+| `func GetNatsAlters(ctx Context) ([]NatsAlter, error)` | `NatsAlter{Description, PoolCode, Kind, Safety}` - streams and consumers | [NATS](/guide/nats.html) |

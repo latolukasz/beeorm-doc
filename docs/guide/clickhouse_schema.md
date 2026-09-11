@@ -1,14 +1,12 @@
-# ClickHouse Schema Management
+# ClickHouse Schema
 
-FluxaORM provides schema management for ClickHouse tables, similar to the MySQL [schema update](/guide/schema_update.html) feature. Define your ClickHouse tables using a fluent builder API, register them with the registry, and use `GetClickhouseAlters()` to generate the DDL statements needed to synchronize your database.
+FluxaORM manages ClickHouse tables the same way it manages MySQL tables: you declare the table with a builder, register it, and `GetClickhouseAlters` returns the DDL needed to bring the live database in line, every statement classified as **safe** or **destructive**. Nothing is executed implicitly. Querying ClickHouse is covered in [ClickHouse Queries](/guide/clickhouse_queries.html); the MySQL counterpart of this page is [Schema Update](/guide/schema_update.html).
 
-## Defining a ClickHouse Table
+## Defining a Table
 
-Use `NewClickhouseTable()` to create a table definition with a fluent builder:
+`fluxaorm.NewClickhouseTable(tableName, poolCode)` returns a `*ClickhouseTableBuilder`. Every method returns the builder, so a definition is one chain:
 
 ```go
-import fluxaorm "github.com/latolukasz/fluxaorm/v2"
-
 table := fluxaorm.NewClickhouseTable("events", "analytics").
     Column("id", "UInt64").
     Column("event_name", "String").
@@ -23,44 +21,35 @@ table := fluxaorm.NewClickhouseTable("events", "analytics").
     Setting("index_granularity", "8192")
 ```
 
-## Registering Tables
+which produces this `CREATE TABLE` (the table name is not database-qualified; the pool's DSN selects the database):
 
-Register ClickHouse table definitions with the registry before calling `Validate()`:
-
-```go
-registry := fluxaorm.NewRegistry()
-registry.RegisterClickhouse("clickhouse://localhost:9000/default", "analytics", nil)
-registry.RegisterClickhouseTable(
-    fluxaorm.NewClickhouseTable("events", "analytics").
-        Column("id", "UInt64").
-        Column("event_name", "String").
-        Column("ts", "DateTime").
-        Engine("MergeTree").
-        OrderBy("id", "ts"),
-)
-engine, err := registry.Validate()
+```sql
+CREATE TABLE events (
+  id UInt64,
+  event_name String,
+  user_id UInt64,
+  ts DateTime,
+  processed UInt8 DEFAULT 0,
+  payload String CODEC(ZSTD(1))
+) ENGINE = MergeTree()
+ORDER BY (id, ts)
+PARTITION BY toYYYYMM(ts)
+TTL ts + INTERVAL 90 DAY
+SETTINGS index_granularity = 8192;
 ```
 
-## Builder API Reference
+### Column methods
 
-### Column Methods
-
-All column methods return `*ClickhouseTableBuilder` for fluent chaining:
-
-| Method | Description |
-|--------|-------------|
-| `Column(name, typeName)` | Simple column |
-| `ColumnDefault(name, typeName, defaultExpr)` | Column with DEFAULT expression |
-| `ColumnMaterialized(name, typeName, expr)` | Column with MATERIALIZED expression |
-| `ColumnAlias(name, typeName, expr)` | Column with ALIAS expression |
-| `ColumnCodec(name, typeName, codec)` | Column with compression CODEC |
-| `ColumnTTL(name, typeName, ttl)` | Column with column-level TTL |
-| `ColumnComment(name, typeName, comment)` | Column with a comment |
-| `ColumnFull(name, typeName, opts)` | Column with all options via `ClickhouseColumnOptions` |
-
-### ClickhouseColumnOptions
-
-Used with `ColumnFull()` to set multiple column options at once:
+| Method | Column SQL |
+|--------|------------|
+| `Column(name, typeName)` | `name type` |
+| `ColumnDefault(name, typeName, defaultExpr)` | `name type DEFAULT expr` |
+| `ColumnMaterialized(name, typeName, expr)` | `name type MATERIALIZED expr` |
+| `ColumnAlias(name, typeName, expr)` | `name type ALIAS expr` |
+| `ColumnCodec(name, typeName, codec)` | `name type CODEC(codec)` |
+| `ColumnTTL(name, typeName, ttl)` | `name type TTL ttl` |
+| `ColumnComment(name, typeName, comment)` | `name type COMMENT 'comment'` |
+| `ColumnFull(name, typeName, opts ClickhouseColumnOptions)` | all of the above combined |
 
 ```go
 type ClickhouseColumnOptions struct {
@@ -73,21 +62,70 @@ type ClickhouseColumnOptions struct {
 }
 ```
 
-### Table-Level Methods
+`ColumnFull` emits at most one default clause, with precedence `Materialized` > `Alias` > `Default`. The rendered order is `name type [DEFAULT|MATERIALIZED|ALIAS expr] [CODEC(...)] [TTL ...] [COMMENT '...']`; single quotes in comments are escaped as `\'`.
 
-| Method | Description |
-|--------|-------------|
-| `Engine(engine)` | Table engine, e.g. `"MergeTree"`, `"ReplacingMergeTree(Version)"` |
-| `OrderBy(columns...)` | ORDER BY columns (required) |
-| `PartitionBy(expr)` | PARTITION BY expression |
-| `PrimaryKey(columns...)` | PRIMARY KEY columns (defaults to ORDER BY if not set) |
-| `TTL(expr)` | Table-level TTL expression |
-| `Setting(key, value)` | Add a SETTINGS key=value pair |
-| `Comment(comment)` | Table comment |
+```go
+table.ColumnFull("amount", "Decimal(18,2)", fluxaorm.ClickhouseColumnOptions{
+    Default: "0",
+    Codec:   "ZSTD(3)",
+    Comment: "order total",
+})
+// amount Decimal(18,2) DEFAULT 0 CODEC(ZSTD(3)) COMMENT 'order total'
+```
 
-## Getting Schema Alters
+### Table-level methods
 
-Use `GetClickhouseAlters()` to compare registered table definitions with the actual ClickHouse database and get the DDL statements needed:
+| Method | Effect |
+|--------|--------|
+| `Engine(engine)` | `ENGINE = <engine>`; `()` is appended when the value has no parenthesis (`MergeTree` -> `MergeTree()`, `ReplacingMergeTree(Version)` is kept). Required. |
+| `OrderBy(columns...)` | `ORDER BY (a, b)`. Required. |
+| `PartitionBy(expr)` | `PARTITION BY <expr>` |
+| `PrimaryKey(columns...)` | `PRIMARY KEY (a, b)`; ClickHouse defaults it to the `ORDER BY` key when omitted |
+| `TTL(expr)` | table-level `TTL <expr>` |
+| `Setting(key, value)` | appends one `SETTINGS k = v` pair; call repeatedly for several |
+| `Comment(comment)` | `COMMENT '<comment>'` |
+
+## Registering Tables
+
+Register the pool and the table before `Validate()`:
+
+```go
+registry := fluxaorm.NewRegistry()
+registry.RegisterClickhouse("clickhouse://localhost:9000/analytics", "analytics", nil)
+registry.RegisterClickhouseTable(table)
+
+engine, err := registry.Validate()
+```
+
+`Validate()` checks every registered builder and fails with the first problem:
+
+| Rule | Error |
+|------|-------|
+| table name empty | `clickhouse table name is required` |
+| pool code empty | `clickhouse pool code is required for table '<t>'` |
+| no columns | `clickhouse table '<t>' must have at least one column` |
+| no engine | `clickhouse table '<t>' must have an engine` |
+| no `OrderBy` | `clickhouse table '<t>' must have ORDER BY` |
+| pool not registered | `clickhouse pool '<pool>' not registered for table '<t>'` |
+| same table registered twice in one pool | `duplicate clickhouse table '<t>' in pool '<pool>' (already registered in pool '<pool>')` |
+
+## GetClickhouseAlters
+
+```go
+func GetClickhouseAlters(ctx Context) ([]ClickhouseAlter, error)
+
+type ClickhouseAlter struct {
+    SQL    string      // statement to execute
+    Pool   string      // ClickHouse pool code
+    Kind   AlterKind   // create_table, add_column, change_column, drop_column, modify_table, convert_table, drop_table
+    Safety AlterSafety // AlterSafe or AlterDestructive
+}
+
+func (a ClickhouseAlter) IsSafe() bool         // a.Safety == AlterSafe
+func (a ClickhouseAlter) Exec(ctx Context) error // ctx.Engine().Clickhouse(a.Pool).Exec(ctx, a.SQL)
+```
+
+`AlterKind` and `AlterSafety` are the same types the MySQL diff uses; see [Schema Update](/guide/schema_update.html) for their values. The result is sorted by the `SQL` string only, so unlike MySQL alters it is **not** ordered for execution - apply the safe alters first and the destructive ones once the fleet is uniform:
 
 ```go
 ctx := engine.NewContext(context.Background())
@@ -97,55 +135,52 @@ if err != nil {
     panic(err)
 }
 for _, alter := range alters {
-    fmt.Println(alter.SQL)  // e.g. "CREATE TABLE events ..."
-    fmt.Println(alter.Pool) // e.g. "analytics"
-}
-```
-
-Each `fluxaorm.ClickhouseAlter` has the following fields:
-
-| Field  | Type     | Description |
-|--------|----------|-------------|
-| `SQL`  | `string` | The DDL statement to execute |
-| `Pool` | `string` | The ClickHouse pool code this alter belongs to |
-
-To execute all alters:
-
-```go
-for _, alter := range alters {
-    err = alter.Exec(ctx)
-    if err != nil {
+    if !alter.IsSafe() {
+        fmt.Printf("pending destructive %s on %s: %s\n", alter.Kind, alter.Pool, alter.SQL)
+        continue
+    }
+    if err := alter.Exec(ctx); err != nil {
         panic(err)
     }
 }
 ```
 
-## What Gets Compared
+## What the Diff Emits
 
-`GetClickhouseAlters()` generates the following types of DDL:
+For every pool that has registered tables the ORM lists `system.tables` (excluding views), then compares each registered table with `system.columns` and `system.tables`.
 
-| Scenario | Generated DDL |
-|----------|---------------|
-| Table not in database | `CREATE TABLE ...` |
-| New column | `ALTER TABLE ... ADD COLUMN ...` |
-| Changed column (type, default, codec, comment) | `ALTER TABLE ... MODIFY COLUMN ...` |
-| Removed column | `ALTER TABLE ... DROP COLUMN ...` |
-| Table in database but not registered | `DROP TABLE IF EXISTS ...` |
-| TTL defined in builder | `ALTER TABLE ... MODIFY TTL ...` |
-| SETTINGS defined in builder | `ALTER TABLE ... MODIFY SETTING ...` |
-| COMMENT defined in builder | `ALTER TABLE ... MODIFY COMMENT ...` |
-| ENGINE or ORDER BY mismatch | Warning comment (manual recreation required) |
+| Situation | Statement | Kind | Safety |
+|-----------|-----------|------|--------|
+| Table missing | `CREATE TABLE ...` (as above) | `create_table` | safe |
+| Column in the builder, not in the table | `ALTER TABLE t ADD COLUMN <column sql>;` | `add_column` | safe |
+| Column differs in type, default kind (case-insensitive), default expression, comment or codec | `ALTER TABLE t MODIFY COLUMN <column sql>;` | `change_column` | destructive |
+| Column in the table, not in the builder | `ALTER TABLE t DROP COLUMN c;` | `drop_column` | destructive |
+| `ORDER BY` differs from `system.tables.sorting_key` | `-- TABLE t: ORDER BY mismatch. Current: (...), Expected: (...). Manual recreation required.` | `convert_table` | destructive |
+| Engine name differs (compared before the parenthesis) | `-- TABLE t: ENGINE mismatch. Current: X, Expected: Y. Manual recreation required.` | `convert_table` | destructive |
+| `PartitionBy` set and differs from `partition_key` | `-- TABLE t: PARTITION BY mismatch. Current: X, Expected: Y. Manual recreation required.` | `convert_table` | destructive |
+| `TTL` set and differs (whitespace-collapsed, case-insensitive) from the table's `create_table_query` | `ALTER TABLE t MODIFY TTL <expr>;` | `convert_table` | destructive |
+| Builder has any `Setting` | `ALTER TABLE t MODIFY SETTING k = v, ...;` - emitted on **every** run, nothing is compared | `modify_table` | safe |
+| `Comment` set and differs from the table comment | `ALTER TABLE t MODIFY COMMENT '...';` | `modify_table` | safe |
+| Table exists (engine other than `View`) but is not registered and not ignored | `DROP TABLE IF EXISTS t;` | `drop_table` | destructive |
+
+Notes:
+
+- Codec comparison expects `system.columns.compression_codec` to equal `CODEC(<codec>)`; a column that has a codec in ClickHouse while the builder declares none is also reported as `change_column`. `PrimaryKey` and column-level `TTL` are not compared.
+- `MODIFY COLUMN` is destructive because a narrowing type change loses data and the diff cannot tell it from a widening one; `MODIFY TTL` is destructive because shortening a TTL deletes rows. A TTL mismatch additionally prints `TABLE t: TTL mismatch. Current: ..., Expected: ... Manual recreation required.` to stdout.
+- The `-- TABLE ...` alters are SQL comments: `Exec` runs them harmlessly and they come back on every run until you recreate the table by hand, because `ENGINE`, `ORDER BY` and `PARTITION BY` cannot be altered in ClickHouse.
+- A pool that is registered with `RegisterClickhouse` but has **no** registered tables gets a `DROP TABLE IF EXISTS` for every table it contains, except ignored ones.
 
 ::: warning
-ENGINE, ORDER BY, and PARTITION BY **cannot** be altered in ClickHouse. If these differ between the registered definition and the actual table, `GetClickhouseAlters()` returns a SQL comment describing the mismatch. You must manually recreate the table to fix these.
+Every table the ORM does not know about is scheduled for `DROP TABLE`. Protect tables owned by other systems with `ClickhouseOptions.IgnoredTables` when registering the pool (see [Data Pools](/guide/data_pools.html)):
+
+```go
+registry.RegisterClickhouse("clickhouse://localhost:9000/analytics", "analytics", &fluxaorm.ClickhouseOptions{
+    IgnoredTables: []string{"raw_imports", "legacy_events"},
+})
+```
 :::
 
-::: warning
-FluxaORM generates `DROP TABLE ...` queries for all tables in the ClickHouse database that are not registered.
-See [ignored tables](/guide/data_pools.html#clickhouse-ignored-tables) for how to protect tables from being dropped.
-:::
-
-## Full Example
+## Complete Example
 
 ```go
 package main
@@ -159,9 +194,10 @@ import (
 
 func main() {
     registry := fluxaorm.NewRegistry()
-    registry.RegisterClickhouse("clickhouse://localhost:9000/analytics", "analytics", nil)
+    registry.RegisterClickhouse("clickhouse://localhost:9000/analytics", "analytics", &fluxaorm.ClickhouseOptions{
+        IgnoredTables: []string{"raw_imports"},
+    })
 
-    // Define tables
     registry.RegisterClickhouseTable(
         fluxaorm.NewClickhouseTable("events", "analytics").
             Column("id", "UInt64").
@@ -179,35 +215,34 @@ func main() {
         fluxaorm.NewClickhouseTable("metrics", "analytics").
             Column("id", "UInt64").
             Column("name", "String").
-            Column("value", "Float64").
-            Column("ts", "DateTime").
             ColumnCodec("value", "Float64", "Gorilla").
-            Engine("MergeTree").
-            OrderBy("id"),
+            Column("ts", "DateTime").
+            Engine("ReplacingMergeTree(ts)").
+            OrderBy("id").
+            Comment("aggregated metrics"),
     )
 
     engine, err := registry.Validate()
     if err != nil {
         panic(err)
     }
-
     ctx := engine.NewContext(context.Background())
 
-    // Get and apply alters
     alters, err := fluxaorm.GetClickhouseAlters(ctx)
     if err != nil {
         panic(err)
     }
     for _, alter := range alters {
-        fmt.Println(alter.SQL)
-        err = alter.Exec(ctx)
-        if err != nil {
-            panic(err)
+        fmt.Printf("[%s] %s %s: %s\n", alter.Safety, alter.Kind, alter.Pool, alter.SQL)
+        if alter.IsSafe() {
+            if err := alter.Exec(ctx); err != nil {
+                panic(err)
+            }
         }
     }
 }
 ```
 
 ::: tip
-Call `GetClickhouseAlters()` alongside `GetAlters()` and `GetRedisSearchAlters()` in your migration flow to keep all data stores in sync.
+Run `GetClickhouseAlters` next to `GetAlters` (MySQL), `GetRedisSearchAlters` and `GetNatsAlters` in one deploy step so every store follows the same safe-first, destructive-later rollout; see [Schema Update](/guide/schema_update.html).
 :::

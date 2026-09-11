@@ -1,13 +1,17 @@
 # MySQL Queries
 
-In this section, you will learn how to run SQL queries in MySQL. First, we need to configure the MySQL data pools and engine. In our example, we will create two pools - one with the name `default` and another with the name `users`:
+Besides entities, FluxaORM lets you run raw SQL against any registered MySQL pool. This page covers the two ways to obtain a database handle, the `Exec`/`QueryRow`/`Query` methods, manual transactions, and the `DatabasePipeline` for batching statements.
 
 ```go
-import fluxaorm "github.com/latolukasz/fluxaorm/v2"
+import (
+    "context"
+
+    "github.com/latolukasz/fluxaorm/v2"
+)
 
 registry := fluxaorm.NewRegistry()
-registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, nil)
-registry.RegisterMySQL("user:password@tcp(localhost:3306)/users", "users", nil)
+registry.RegisterMySQL("user:password@tcp(localhost:3306)/app", fluxaorm.DefaultPoolCode, &fluxaorm.MySQLOptions{})
+registry.RegisterMySQL("user:password@tcp(localhost:3306)/users", "users", &fluxaorm.MySQLOptions{})
 engine, err := registry.Validate()
 if err != nil {
     panic(err)
@@ -15,193 +19,208 @@ if err != nil {
 ctx := engine.NewContext(context.Background())
 ```
 
-## MySQL Data Pool
+Pool options (`ConnMaxLifetime`, `MaxOpenConnections`, `MaxIdleConnections`, `DefaultEncoding`, `DefaultCollate`, `IgnoredTables`) are described in [Data Pools](/guide/data_pools.html).
 
-Now we are ready to get the MySQL data pool that will be used to execute all queries. Access it through `engine.DB()`:
+## Two Handles: ctx.DB and engine.DB
+
+| Accessor | Returns | Use it for |
+|----------|---------|------------|
+| `ctx.DB(pool string) fluxaorm.DBBase` | The pool's **open transaction** when this context is inside `ctx.Transaction` and a write on that pool has already opened one; otherwise the pool itself. | Application queries. This is the handle every generated entity method uses. |
+| `engine.DB(code string) fluxaorm.DB` | Always the plain pool; `DB` adds `Begin`. | Manual transactions, DDL, `GetDBClient`/`SetMockDBClient`, anything that must not join a transaction. |
 
 ```go
-db := engine.DB(fluxaorm.DefaultPoolCode)
-config := db.GetConfig()
+type DBBase interface {
+    GetConfig() MySQLConfig
+    GetDBClient() DBClient
+    SetMockDBClient(mock DBClient)
+    Exec(ctx Context, query string, args ...any) (ExecResult, error)
+    QueryRow(ctx Context, query Where, toFill ...any) (found bool, err error)
+    Query(ctx Context, query string, args ...any) (rows Rows, close func(), err error)
+}
+
+type DB interface {
+    DBBase
+    Begin(ctx Context) (DBTransaction, error)
+}
+
+type DBTransaction interface {
+    DBBase
+    Commit(ctx Context) error
+    Rollback(ctx Context) error
+}
+```
+
+`DBTransaction` extends `DBBase`, not `DB`: a transaction has no `Begin`.
+
+::: warning Lazy BEGIN
+`ctx.Transaction` opens a pool's transaction lazily, on the first entity write or `DatabasePipeline.Exec` for that pool. A `ctx.DB(pool).Exec(...)` issued inside `ctx.Transaction` **before** any such write runs on the plain pool, outside the transaction. Queue raw statements on `ctx.DatabasePipeLine(pool)` (below) when they must be part of the transaction. See [Transactions](/guide/transactions.html).
+:::
+
+### Pool configuration
+
+```go
+config := ctx.DB(fluxaorm.DefaultPoolCode).GetConfig()
 config.GetCode()          // "default"
-config.GetDatabaseName()  // "db"
-config.GetDataSourceURI() // "user:password@tcp(localhost:3306)/db"
-config.GetOptions()       // *MySQLOptions with MaxOpenConnections, DefaultEncoding, etc.
+config.GetDatabaseName()  // "app"
+config.GetDataSourceURI() // "user:password@tcp(localhost:3306)/app"
+config.GetOptions()       // *fluxaorm.MySQLOptions
 ```
 
-## DB Interface Methods
-
-The `DB` interface returned by `engine.DB(code)` provides the following methods:
-
-| Method | Description |
-|--------|-------------|
-| `GetConfig() MySQLConfig` | Returns the MySQL pool configuration |
-| `GetDBClient() DBClient` | Returns the underlying `database/sql` client |
-| `SetMockDBClient(mock DBClient)` | Replaces the DB client with a mock (useful for testing) |
-| `Exec(ctx, query, args...) (ExecResult, error)` | Executes an INSERT, UPDATE, or DELETE query |
-| `QueryRow(ctx, where, toFill...) (bool, error)` | Queries a single row, returns `false` if not found |
-| `Query(ctx, query, args...) (Rows, close, error)` | Queries multiple rows |
-| `Begin(ctx) (DBTransaction, error)` | Starts a new transaction |
-
-The `DBTransaction` interface extends `DB` with transaction control:
-
-| Method | Description |
-|--------|-------------|
-| `Commit(ctx) error` | Commits the transaction |
-| `Rollback(ctx) error` | Rolls back the transaction |
-
-## Executing Modification Queries
-
-To run queries that modify data in MySQL, use the `Exec()` method:
+## Exec
 
 ```go
-db := engine.DB(fluxaorm.DefaultPoolCode)
+Exec(ctx Context, query string, args ...any) (ExecResult, error)
+```
+
+Runs an `INSERT`, `UPDATE`, `DELETE` or DDL statement with `?` placeholders.
+
+```go
+db := ctx.DB(fluxaorm.DefaultPoolCode)
+
 result, err := db.Exec(ctx, "INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?)", "Berlin", 12)
-id, _ := result.LastInsertId()   // 1
-rows, _ := result.RowsAffected() // 1
+if err != nil {
+    return err
+}
+id, _ := result.LastInsertId()   // uint64
+rows, _ := result.RowsAffected() // uint64
 
-result, err = db.Exec(ctx, "INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?),(?, ?)", "Amsterdam", 13, "Warsaw", 14)
-id, _ = result.LastInsertId()   // 3
-rows, _ = result.RowsAffected() // 2
+result, err = db.Exec(ctx, "UPDATE `Cities` SET `Name` = ? WHERE `ID` = ?", "Munich", id)
 
-result, err = db.Exec(ctx, "UPDATE `Cities` SET `Name` = ? WHERE ID = ?", "New York", 1)
-id, _ = result.LastInsertId()   // 0
-rows, _ = result.RowsAffected() // 1
-
-dbUsers := engine.DB("users")
+dbUsers := ctx.DB("users")
 result, err = dbUsers.Exec(ctx, "DELETE FROM `Users` WHERE `Status` = ?", "rejected")
-id, _ = result.LastInsertId()   // 0
-rows, _ = result.RowsAffected() // 0
 ```
 
-The `ExecResult` interface provides two methods:
+`ExecResult` has two methods, both returning `uint64`:
 
-- `LastInsertId() (uint64, error)` -- returns the last auto-increment ID inserted.
-- `RowsAffected() (uint64, error)` -- returns the number of rows affected by the query.
+- `LastInsertId() (uint64, error)`
+- `RowsAffected() (uint64, error)`
 
-## Querying a Single Row
-
-To run a query that returns only one row, use the `QueryRow()` method. It takes a `Where` object instead of a raw query string:
+## QueryRow
 
 ```go
-db := engine.DB(fluxaorm.DefaultPoolCode)
-where := fluxaorm.NewWhere("SELECT `ID`, `Name` FROM `Cities` WHERE `ID` = ?", 12)
+QueryRow(ctx Context, query Where, toFill ...any) (found bool, err error)
+```
+
+Runs a query expected to return at most one row and scans it into `toFill`. The statement is passed as a `fluxaorm.Where` (see [Search](/guide/search.html#the-where-object)), created with `fluxaorm.NewWhere(query, params...)`.
+
+```go
 var id uint64
 var name string
-found, err := db.QueryRow(ctx, where, &id, &name)
-if found {
-    fmt.Printf("City: %d %s\n", id, name)
+found, err := ctx.DB(fluxaorm.DefaultPoolCode).QueryRow(ctx,
+    fluxaorm.NewWhere("SELECT `ID`, `Name` FROM `Cities` WHERE `ID` = ?", 12),
+    &id, &name)
+if err != nil {
+    return err
+}
+if !found {
+    fmt.Println("no such city")
 }
 ```
 
-If no row matches, `found` is `false` and `err` is `nil`.
+`found` is `false` with a `nil` error when no row matches; any other scan or driver error is returned as `err`.
 
-## Querying Multiple Rows
-
-To run a query that returns multiple rows, use the `Query()` method:
+## Query
 
 ```go
-db := engine.DB(fluxaorm.DefaultPoolCode)
-var id uint64
-var name string
-results, close, err := db.Query(ctx, "SELECT `ID`, `Name` FROM `Cities` WHERE `ID` > ? LIMIT 100", 20)
+Query(ctx Context, query string, args ...any) (rows Rows, close func(), err error)
+```
+
+Runs a query that returns many rows.
+
+```go
+rows, close, err := ctx.DB(fluxaorm.DefaultPoolCode).Query(ctx,
+    "SELECT `ID`, `Name` FROM `Cities` WHERE `ID` > ? LIMIT 100", 20)
+if err != nil {
+    return err
+}
 defer close()
-columns, _ := results.Columns() // []string{"ID", "Name"}
-for results.Next() {
-    err = results.Scan(&id, &name)
+columns, _ := rows.Columns() // []string{"ID", "Name"}
+for rows.Next() {
+    var id uint64
+    var name string
+    if err = rows.Scan(&id, &name); err != nil {
+        return err
+    }
 }
 ```
 
-The `Rows` interface returned by `Query()` provides:
+`Rows` has three methods:
 
-- `Next() bool` -- advances to the next row, returns `false` when done (automatically closes the underlying rows).
-- `Scan(dest ...any) error` -- scans the current row into the provided variables.
-- `Columns() ([]string, error)` -- returns the column names.
+- `Next() bool` -- advances to the next row; when it returns `false` the underlying `*sql.Rows` is closed automatically.
+- `Scan(dest ...any) error`
+- `Columns() ([]string, error)`
 
-:::warning
-Always include a `defer close()` after every `db.Query()` call. Failing to do so will result in the inability to run queries to MySQL, as all open database connections will be occupied.
+There is no `Err()` or `Close()` on `Rows`; use the returned `close` function.
+
+::: warning
+Check `err` before calling `close`: on error `Query` returns `nil, nil, err` and the `close` function is `nil`. When `Query` succeeds, always `defer close()` so the connection is released even if you stop iterating early.
 :::
 
 ## Transactions
 
-Working with transactions is straightforward. `Begin()` returns a `DBTransaction` that has all the same query methods (`Exec`, `QueryRow`, `Query`) plus `Commit` and `Rollback`:
+The preferred way is `ctx.Transaction(func(tx fluxaorm.Context) error)`: entity writes, `DatabasePipeline.Exec` and reads through `tx.DB(pool)` join one transaction per pool, nested calls join the outer one, and post-commit work (Redis pipelines, callbacks) runs after `COMMIT`. See [Transactions](/guide/transactions.html).
+
+A manual transaction on a single pool is also available through `engine.DB(pool).Begin(ctx)`:
 
 ```go
 db := engine.DB(fluxaorm.DefaultPoolCode)
+tx, err := db.Begin(ctx)
+if err != nil {
+    return err
+}
+defer tx.Rollback(ctx)
 
-func() {
-    tx, err := db.Begin(ctx)
-    defer tx.Rollback(ctx)
-    // execute some queries using tx.Exec(), tx.QueryRow(), tx.Query()
-    _, err = tx.Exec(ctx, "UPDATE `Cities` SET `Name` = ? WHERE `ID` = ?", "Munich", 5)
-    err = tx.Commit(ctx)
-}()
+if _, err = tx.Exec(ctx, "UPDATE `Cities` SET `Name` = ? WHERE `ID` = ?", "Munich", 5); err != nil {
+    return err
+}
+return tx.Commit(ctx)
 ```
 
-:::tip
-Always put `defer tx.Rollback()` immediately after `Begin()`. If `Commit()` has already been called, `Rollback()` is a no-op.
-:::
-
-## Mocking the DB Client
-
-For unit testing, you can replace the underlying database client with a mock:
-
-```go
-db := engine.DB(fluxaorm.DefaultPoolCode)
-db.SetMockDBClient(myMockClient) // myMockClient must implement the DBClient interface
-```
-
-You can also retrieve the underlying client with `db.GetDBClient()`.
+`Commit` and `Rollback` are no-ops when the handle is not (or no longer) in a transaction, so `defer tx.Rollback(ctx)` right after `Begin` is safe. A manual transaction is invisible to entity methods and to `ctx.DB(pool)`.
 
 ## DatabasePipeline
 
-A `DatabasePipeline` lets you batch multiple SQL modification queries and execute them together. When more than one query is added, the pipeline wraps them in a transaction automatically.
-
-### Creating a Pipeline
-
-Access a pipeline through the context:
-
-```go
-pipeline := ctx.DatabasePipeLine(fluxaorm.DefaultPoolCode)
-```
-
-The pipeline is cached per pool on the context -- calling `DatabasePipeLine()` with the same pool code returns the same pipeline instance.
-
-### Adding Queries
-
-Use `AddQuery()` to enqueue SQL statements:
+A `DatabasePipeline` collects SQL modification statements for one pool and executes them together.
 
 ```go
 pipeline := ctx.DatabasePipeLine(fluxaorm.DefaultPoolCode)
 pipeline.AddQuery("INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?)", "Berlin", 12)
 pipeline.AddQuery("INSERT INTO `Cities`(`Name`, `CountryID`) VALUES(?, ?)", "Munich", 12)
 pipeline.AddQuery("UPDATE `Countries` SET `CityCount` = `CityCount` + 2 WHERE `ID` = ?", 12)
-```
-
-### Executing the Pipeline
-
-Call `Exec()` to run all enqueued queries:
-
-```go
 err := pipeline.Exec(ctx)
 ```
 
-Execution behavior:
-- If the pipeline has **no queries**, `Exec()` is a no-op and returns `nil`.
-- If the pipeline has **one query**, it is executed directly with `db.Exec()`.
-- If the pipeline has **two or more queries**, they are wrapped in a transaction -- if any query fails, the transaction is rolled back and the error is returned.
+| Method | Description |
+|--------|-------------|
+| `ctx.DatabasePipeLine(pool string) *DatabasePipeline` | Returns the context's pipeline for the pool; one instance per pool per context. |
+| `AddQuery(query string, parameters ...any)` | Enqueues a statement. |
+| `AddQueryForTable(table, query string, parameters ...any)` | Same, additionally recording the target table name (used by generated entity code). |
+| `Exec(ctx Context) error` | Executes and clears the queue (also on error). |
 
-After `Exec()` completes (successfully or not), the pipeline is cleared and ready for new queries.
+`Exec` behaviour:
 
-### Pipeline and Flush
+- No statements: returns `nil`.
+- Inside `ctx.Transaction`: the statements join the context's transaction for that pool, opening it if needed. No separate commit happens here.
+- Otherwise, one statement: executed directly with `Exec`.
+- Otherwise, two or more statements: `Begin`, `Exec` each, `Commit`; on the first error the transaction is rolled back and the error returned.
 
-Database pipelines are also executed automatically as part of `ctx.Flush()`. When you call `ctx.Flush()`, all entity changes are flushed first, then all database pipelines are executed, then all Redis pipelines are executed. This means you can combine entity operations and raw SQL in a single flush cycle:
+### Pipelines and Save
+
+`ctx.Save(entities...)` queues the entity `INSERT`/`UPDATE`/`DELETE` statements on the same per-pool pipelines and then executes **every** database pipeline of the context, so raw statements added before `Save` are written in the same unit of work (and in the same transaction when `Save` opens one for several entities):
 
 ```go
-pipeline := ctx.DatabasePipeLine(fluxaorm.DefaultPoolCode)
-pipeline.AddQuery("UPDATE `Counters` SET `Value` = `Value` + 1 WHERE `Name` = ?", "page_views")
-
-// Also track some entity changes...
+ctx.DatabasePipeLine(fluxaorm.DefaultPoolCode).
+    AddQuery("UPDATE `Counters` SET `Value` = `Value` + 1 WHERE `Name` = ?", "page_views")
 user.SetName("Alice")
-
-err := ctx.Flush() // flushes entity changes, then executes the database pipeline
+err := ctx.Save(user) // UPDATE Counters + UPDATE user
 ```
+
+`Save` with no entities to write (called with none, or only with entities already staged in the current transaction) returns before touching the pipelines. When you only have raw statements, call `pipeline.Exec(ctx)` yourself.
+
+## Mocking the Client
+
+`GetDBClient() DBClient` returns the underlying `*sql.DB`-compatible client and `SetMockDBClient(mock DBClient)` replaces it, for unit tests that must not hit MySQL. Use the pool handle from `engine.DB(pool)`; see [Testing](/guide/testing.html).
+
+## Logging and Metrics
+
+Every `Exec`, `QueryRow`, `Query`, `Begin`, `Commit` and `Rollback` is reported to the query loggers registered on the context (`ctx.RegisterQueryLogger(handler, fluxaorm.QueryLoggerOptions{MySQL: true})`, see [Queries Log](/guide/queries_log.html)) and to the Prometheus metrics when a metrics registry is configured (see [Metrics](/guide/metrics.html)).

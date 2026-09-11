@@ -1,393 +1,225 @@
 # CRUD Operations
 
-In the previous sections, you learned how to configure FluxaORM and update the MySQL schema. Now it is time to perform CRUD (Create, Read, Update, and Delete) operations.
+All reads and writes go through the generated code described in [Code Generation](/guide/code_generation.html): the provider loads and creates entities, the entity records what you change, and the `Context` persists it. There is no unit-of-work to flush at the end of a request — `ctx.Save` writes exactly the entities you pass and nothing else.
 
-In FluxaORM v2, all CRUD operations go through **generated Provider singletons** and **entity methods**. After defining your entity structs and running the code generator, each entity gets:
-
-- A `XxxProvider` variable with methods like `New()`, `GetByID()`, `GetByIDs()`, `SearchMany()`, `SearchOne()`, etc.
-- A `XxxEntity` struct with typed getter/setter methods like `GetName()`, `SetName()`, `Delete()`, etc.
-
-The following examples build upon this code base:
+The examples use the `model.CategoryEntity` / `model.UserEntity` structs from the code generation page, generated into a package `entities`, with the `enums` package next to it:
 
 ```go
-package main
-
 import (
     "context"
 
     "github.com/latolukasz/fluxaorm/v2"
+
+    "myapp/entities"
+    "myapp/entities/enums"
 )
 
-type CategoryEntity struct {
-    ID   uint64 `orm:"localCache;redisCache"`
-    Code string `orm:"required;length=10"`
-    Name string `orm:"required;length=100"`
-}
-
-func (e CategoryEntity) UniqueIndexes() map[string][]string {
-    return map[string][]string{"Code": {"Code"}}
-}
-
-type ProductEntity struct {
-    ID       uint64 `orm:"redisCache"`
-    Name     string `orm:"required;length=100"`
-    Price    float64
-    Category uint64 `orm:"required"` // reference to CategoryEntity
-}
-
-func main() {
-    registry := fluxaorm.NewRegistry()
-    registry.RegisterMySQL("user:password@tcp(localhost:3306)/db", fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterRedis("localhost:6379", 0, fluxaorm.DefaultPoolCode, nil)
-    registry.RegisterLocalCache(fluxaorm.DefaultPoolCode, 0)
-    registry.RegisterEntity(&CategoryEntity{}, &ProductEntity{})
-    engine, err := registry.Validate()
-    if err != nil {
-        panic(err)
-    }
-
-    // Generate code (typically done once, output committed to your repo)
-    err = fluxaorm.Generate(engine, "entities")
-    if err != nil {
-        panic(err)
-    }
-
-    ctx := engine.NewContext(context.Background())
-    // Use ctx with generated Providers for all CRUD operations
-    _ = ctx
-}
+ctx := engine.NewContext(context.Background())
 ```
 
-After running the code generator, you will have `CategoryEntityProvider` and `ProductEntityProvider` singletons in the `entities` package, along with `CategoryEntity` and `ProductEntity` structs with typed getters and setters.
+## Creating entities
 
-## Creating Entities
-
-To insert a new entity into the database, use the Provider's `New()` method and then call `ctx.Flush()`:
+`Provider.New(ctx)` returns a new entity with its ID already assigned:
 
 ```go
 category := entities.CategoryEntityProvider.New(ctx)
-category.SetCode("electronics")
-category.SetName("Electronics")
-err := ctx.Flush()
+category.SetCode("books").SetName("Books")
+
+user := entities.UserEntityProvider.New(ctx)
+user.SetName("Alice").
+    SetEmail("alice@example.com").
+    SetStatus(enums.UserStatusList.Active).
+    SetCategory(category.GetID())
+
+err := ctx.Save(category, user)
 ```
 
-The `New()` method automatically generates a unique ID for the entity using Redis-backed UUID generation. The entity is registered with the context immediately upon creation, so `ctx.Flush()` knows about it.
+- The ID comes from `ctx.Engine().NextID()`, an in-process snowflake generator (41 bits of milliseconds since 2024-01-01, 11 bits of node, 11 bits of sequence). It needs neither Redis nor MySQL and never fails, which is why `New` returns only `*Entity`. Because the ID exists before the INSERT, you can reference a new entity from another one (`SetCategory(category.GetID())`) and save both in one call. When several processes create rows of the same table, give each one a distinct node with `engine.SetNodeID(node int64)`; see [Engine](/guide/engine.html).
+- The new entity is put into the [context cache](/guide/context_cache.html) immediately, so `GetByID` on the same context returns the same pointer even before it is saved.
+- Required `enum` and `set` fields start with their first declared value; everything else starts as the Go zero value (NULL for nullable columns).
+- Nothing is written until `ctx.Save`.
 
-### Creating with a Specific ID
+`Provider.NewWithID(ctx, id)` does the same with an ID you choose.
 
-If you need to set the ID yourself, use `NewWithID()`:
+## Setters and dirty tracking
+
+Setters return the entity, so calls chain. On a new entity a setter simply writes the value. On a loaded entity it compares the value with what was read from MySQL or Redis: an identical value is a no-op (and undoes an earlier change to the same column), a different value is recorded in the entity's change set. Only recorded columns end up in the `UPDATE` statement.
 
 ```go
-category := entities.CategoryEntityProvider.NewWithID(ctx, 42)
-category.SetCode("books")
-category.SetName("Books")
-err := ctx.Flush()
+user, found, err := entities.UserEntityProvider.GetByID(ctx, id)
+user.SetName("Alice")          // no-op if Name already is "Alice"
+user.SetEmail("")              // nullable string: "" stores NULL
+user.SetName(user.GetName())   // undoes a pending Name change
 ```
 
-### Batch Inserts
+Floats are compared after rounding to the column's precision, times are truncated to the second (`orm:"time"`) or to the day (date columns) before comparison and storage. There is no validation of `required` fields on save: `required` only decides whether a column is `NOT NULL`; saving a required string as `""` is allowed.
 
-You can create multiple entities before calling `Flush()`. All inserts are batched into a single transaction:
+## Saving
 
 ```go
-cat1 := entities.CategoryEntityProvider.New(ctx)
-cat1.SetCode("electronics")
-cat1.SetName("Electronics")
-
-cat2 := entities.CategoryEntityProvider.New(ctx)
-cat2.SetCode("books")
-cat2.SetName("Books")
-
-product := entities.ProductEntityProvider.New(ctx)
-product.SetName("Laptop")
-product.SetPrice(999.99)
-product.SetCategory(cat1.GetID()) // reference by ID
-
-err := ctx.Flush() // all three entities inserted in one batch
+Save(entities ...Entity) error
 ```
 
-## Reading Entities
+`Save` writes the entities you pass, in the order you pass them. A clean entity (no changes, not new, not deleted) is a no-op, duplicates of the same pointer are collapsed, and `nil` entries are skipped. Passing a single entity executes its statement directly; passing **more than one** wraps the write in a [transaction](/guide/transactions.html) automatically, so entities that belong together commit together. Inside an explicit `ctx.Transaction` every `Save` joins that transaction.
+
+What happens, in order:
+
+1. For each entity the generated code runs the `Before*` [callbacks](/guide/lifecycle_callbacks.html), builds its `INSERT`, `UPDATE` or `DELETE` into the database pipeline of its pool, registers the Redis keys the write makes stale and queues Redis Search hash writes. `CreatedAt` and `UpdatedAt` are set to `time.Now().UTC().Truncate(time.Second)` on insert (only when still zero, so a value you set yourself is kept), and `UpdatedAt` is refreshed on every update.
+2. The registered Redis keys are deleted (see [Redis Cache](/guide/redis_cache.html)).
+3. The SQL statements run — through the open transaction when there is one, otherwise directly on the pool. A SQL error is returned as-is and nothing below happens.
+4. Post-commit work runs once the rows are durable: the same Redis keys are deleted a second time, Redis pipelines (search hashes) execute, [entity events](/guide/entity_events.html) are published, `After*` handlers run, deleted entities leave the context cache, and finally every entity folds its change set into its origin values. Inside a transaction this step is deferred until `COMMIT`.
+
+After a successful `Save` the same pointer is clean, `new` is false, and it stays in the context cache: keep using it, change it, save it again.
+
+```go
+user.SetName("Alice Smith")
+err = ctx.Save(user) // UPDATE `UserEntity` SET `Name`=?,`UpdatedAt`=? WHERE `ID`=<id>
+```
+
+Errors you can get from `Save`:
+
+- the SQL error of the failing statement (rows not written; inside a transaction the transaction is rolled back);
+- `entity <type> <id> belongs to a different context; save it on the context that created or loaded it` — an entity can only be saved on the `Context` that created or loaded it;
+- `*fluxaorm.PostCommitError` — a step of the post-commit phase failed **after** the rows were committed. Do not retry the write; see [Transactions](/guide/transactions.html).
+
+There is no API to discard pending changes: drop the handle, or `ctx.Reload` it (which refuses while changes are pending, see below).
+
+## Reading
 
 ### GetByID
 
-To retrieve a single entity by its primary key, use `GetByID()`:
-
 ```go
-product, found, err := entities.ProductEntityProvider.GetByID(ctx, 12345)
+user, found, err := entities.UserEntityProvider.GetByID(ctx, 12345)
 if err != nil {
-    // handle error
+    return err
 }
 if !found {
-    // entity does not exist
+    return errors.New("user does not exist")
 }
-fmt.Println(product.GetName())  // "Laptop"
-fmt.Println(product.GetPrice()) // 999.99
+fmt.Println(user.GetName())
 ```
 
-The return signature is `(*XxxEntity, bool, error)`. The boolean indicates whether the entity was found.
+`GetByID` consults, in this order:
 
-`GetByID()` automatically uses the three-tier cache (context cache, Redis cache, MySQL) when available.
+1. the [context cache](/guide/context_cache.html) of `ctx` — a hit returns the very pointer you already hold;
+2. the [Redis row cache](/guide/redis_cache.html), when the entity has `orm:"redisCache"` and `ctx` is **not** inside a transaction — a negative entry (row known to be missing) returns `found == false` without touching MySQL;
+3. MySQL: `SELECT <all columns> FROM <table> WHERE ID = ? LIMIT 1` through `ctx.DB(pool)`, so inside a transaction the read sees that transaction's writes. The result (or a negative entry) is written to the Redis row cache and the entity is put in the context cache.
+
+`GetByID` returns [fake-deleted](/guide/fake_delete.html) rows.
 
 ### MustGetByID
 
-`MustGetByID()` is a convenience wrapper around `GetByID()` for cases where you expect the entity to exist. It removes the `bool` return value and **panics** if the entity is not found. Errors are still returned normally.
-
 ```go
-product, err := entities.ProductEntityProvider.MustGetByID(ctx, 12345)
-if err != nil {
-    // handle error
-}
-// No need to check "found" -- panics if entity does not exist
-fmt.Println(product.GetName())
+user, err := entities.UserEntityProvider.MustGetByID(ctx, 12345)
 ```
 
-The return signature is `(*XxxEntity, error)`. Use `MustGetByID()` when a missing entity indicates a programming error or data inconsistency that should not be silently ignored.
+Same as `GetByID` without the `found` flag: a missing row **panics** with `UserEntity with id 12345 not found`. Errors are still returned. Use it where a missing row is a programming error, not user input.
 
 ### GetByIDs
 
-To retrieve multiple entities by their IDs, use `GetByIDs()`:
-
 ```go
-products, err := entities.ProductEntityProvider.GetByIDs(ctx, 123, 456, 789)
-if err != nil {
-    // handle error
-}
-for _, product := range products {
-    fmt.Println(product.GetID(), product.GetName())
-}
+users, err := entities.UserEntityProvider.GetByIDs(ctx, 3, 1, 2, 1)
 ```
 
-The return signature is `([]*XxxEntity, error)`. The returned slice contains only the entities that were found -- missing IDs are silently skipped. The order of results matches the order of the input IDs (excluding missing ones).
+Returns the found entities in the order of the (de-duplicated) input, silently skipping ids that do not exist — the result may be shorter than the input. Ids already in the context cache are served from it; the rest are looked up in the Redis row cache with one pipelined round trip (outside transactions), and whatever is still missing is loaded with a single `SELECT ... WHERE ID IN (...)`. Every loaded row is written to both caches; ids that turn out not to exist get a negative cache entry.
 
-### SearchMany
+### Searching
 
-For general queries, use the type-safe query builder with `SearchMany()`:
+`SearchOne`, `SearchMany`, `SearchManyWithTotal` and `Count` take a `*fluxaorm.DBQuery` built from the provider's `Fields` descriptors. They select ids only and then hydrate through `GetByIDs`, so search results also come from and go into the context cache. They are documented in [Search](/guide/search.html); full-text and numeric search in Redis in [Redis Search](/guide/redis_search.html).
 
 ```go
-products, err := entities.ProductEntityProvider.SearchMany(ctx,
+users, total, err := entities.UserEntityProvider.SearchManyWithTotal(ctx,
     fluxaorm.NewQuery().
-        Filter(
-            entities.ProductEntityProvider.Fields.Price.Gt(100.0),
-            entities.ProductEntityProvider.Fields.Category.Eq(categoryID),
-        ).
+        Filter(entities.UserEntityProvider.Fields.Status.Is(enums.UserStatusList.Active)).
+        SortByASC(entities.UserEntityProvider.Fields.Name).
         Pager(fluxaorm.NewPager(1, 20)),
 )
 ```
 
-### SearchOne
+## Updating
 
-To retrieve a single entity matching a query. When filtering by a cached unique index, the cached lookup is used automatically:
+Load, change, save. Every entity returned by `GetByID`, `GetByIDs` or a `Search*` method can be saved on the context it came from:
 
 ```go
-product, found, err := entities.ProductEntityProvider.SearchOne(ctx,
-    fluxaorm.NewQuery().Filter(
-        entities.ProductEntityProvider.Fields.Name.Is("Laptop"),
-    ),
+users, err := entities.UserEntityProvider.SearchMany(ctx,
+    fluxaorm.NewQuery().Filter(entities.UserEntityProvider.Fields.Category.Eq(oldCategoryID)),
 )
-```
-
-### SearchManyWithTotal
-
-To get both results and total count (useful for pagination):
-
-```go
-products, totalRows, err := entities.ProductEntityProvider.SearchManyWithTotal(ctx,
-    fluxaorm.NewQuery().
-        Filter(entities.ProductEntityProvider.Fields.Category.Eq(categoryID)).
-        Pager(fluxaorm.NewPager(1, 20)),
-)
-fmt.Printf("Showing %d of %d total products\n", len(products), totalRows)
-```
-
-## Updating Entities
-
-In v2, updating an entity is straightforward: retrieve it, call setters on the fields you want to change, and flush. There is no need for `EditEntity()` or `EditEntityField()` -- the entity automatically tracks which fields have been modified (dirty tracking).
-
-```go
-product, found, err := entities.ProductEntityProvider.GetByID(ctx, 12345)
-if err != nil || !found {
-    // handle error or not found
-}
-
-product.SetName("Gaming Laptop")
-product.SetPrice(1299.99)
-err = ctx.Flush() // executes UPDATE ProductEntity SET Name=?, Price=? WHERE ID=12345
-```
-
-### How Dirty Tracking Works
-
-Each `Set<Field>()` call compares the new value against the current (original) value. If the value is the same, the setter is a no-op. Only actually changed fields are included in the UPDATE statement.
-
-```go
-product, _, _ := entities.ProductEntityProvider.GetByID(ctx, 12345)
-
-product.SetName("Same Name")  // no-op if Name is already "Same Name"
-product.SetPrice(1499.99)     // marks Price as dirty
-
-err := ctx.Flush() // UPDATE only includes Price (if Name was unchanged)
-```
-
-### Tracking Entities from Search Results
-
-Entities returned by `GetByID()` and `GetByIDs()` are automatically placed in the context cache. However, entities returned by `SearchMany()`, `SearchOne()`, and `SearchManyWithTotal()` are **not** automatically tracked for flush.
-
-To update entities returned by search methods, you need to register them with the context using `ctx.Track()`:
-
-```go
-products, _ := entities.ProductEntityProvider.SearchMany(ctx,
-    fluxaorm.NewQuery().Filter(entities.ProductEntityProvider.Fields.Price.Gt(100.0)),
-)
-for _, product := range products {
-    product.SetPrice(product.GetPrice() * 0.9) // 10% discount
-}
-err := ctx.Flush()
-```
-
-When you call `Set<Field>()` on an entity, the entity automatically tracks itself with the context if it was not already tracked.
-
-## Deleting Entities
-
-To delete an entity, call the `Delete()` method on it and then flush:
-
-```go
-product, found, err := entities.ProductEntityProvider.GetByID(ctx, 12345)
-if err != nil || !found {
-    // handle error or not found
-}
-
-product.Delete()
-err = ctx.Flush() // executes DELETE FROM ProductEntity WHERE ID = 12345
-```
-
-The `Delete()` method marks the entity for deletion and registers it with the context. The actual DELETE query is executed when `ctx.Flush()` is called.
-
-## Flush
-
-`ctx.Flush()` is the central method that executes all pending operations. It processes all tracked entities and:
-
-1. **Inserts** new entities created with `Provider.New()` or `Provider.NewWithID()`
-2. **Updates** existing entities that have dirty (modified) fields
-3. **Deletes** entities marked with `entity.Delete()`
-
-All SQL operations for the same MySQL pool are batched into a single transaction. Redis cache updates are sent via Redis pipelines. This ensures that all database operations are both fast and atomic.
-
-```go
-// Create
-cat := entities.CategoryEntityProvider.New(ctx)
-cat.SetCode("toys")
-cat.SetName("Toys")
-
-// Update
-product, _, _ := entities.ProductEntityProvider.GetByID(ctx, 12345)
-product.SetName("Updated Name")
-
-// Delete
-oldProduct, _, _ := entities.ProductEntityProvider.GetByID(ctx, 99999)
-oldProduct.Delete()
-
-// Execute all operations in one batch
-err := ctx.Flush()
-```
-
-After a successful flush, tracked entities are cleared from the context. If you need to make further changes, simply modify entities and call `Flush()` again.
-
-See [Lifecycle Callbacks](/guide/lifecycle_callbacks) to register handlers that execute after successful INSERT, UPDATE, or DELETE operations.
-
-### ClearFlush
-
-If you need to discard all pending operations without executing them, use `ClearFlush()`:
-
-```go
-product.SetName("Tentative Name")
-ctx.ClearFlush() // discards all pending inserts, updates, and deletes
-```
-
-## FlushAsync
-
-`ctx.FlushAsync(immediateRedisUpdates)` works like `Flush()` but instead of executing SQL directly against MySQL, it publishes the SQL queries to a Kafka topic (`_fluxa_async_sql`) for asynchronous processing. Pass `true` to update Redis cache and search indexes immediately (optimistic update), or `false` to defer all cache updates to the consumer alongside the SQL writes.
-
-```go
-product := entities.ProductEntityProvider.New(ctx)
-product.SetName("Async Product")
-product.SetPrice(29.99)
-
-err := ctx.FlushAsync(true) // SQL queued to Kafka; Redis cache updated immediately
-// or
-err = ctx.FlushAsync(false) // both SQL and Redis cache deferred to the consumer
-```
-
-To process the queued SQL operations, you need to run a consumer:
-
-```go
-consumer, err := ctx.GetAsyncSQLConsumer()
 if err != nil {
-    panic(err)
+    return err
 }
-// In a background goroutine or worker process:
-err = consumer.Consume(100, 5*time.Second) // process up to 100 events, block for 5s
-```
-
-This is useful for write-heavy workloads where you want to return a response quickly and defer the MySQL writes to a background worker.
-
-## Accessing Field Values
-
-All field values are accessed through generated typed getter methods:
-
-```go
-product, _, _ := entities.ProductEntityProvider.GetByID(ctx, 12345)
-
-// Getters
-id := product.GetID()           // uint64
-name := product.GetName()       // string
-price := product.GetPrice()     // float64
-catID := product.GetCategory()  // uint64 (reference ID)
-
-// Setters
-product.SetName("New Name")
-product.SetPrice(199.99)
-product.SetCategory(newCategoryID)
-```
-
-### Nullable Fields
-
-For nullable fields (pointer types in the struct definition), getters return pointers — except for nullable strings which return `string` (empty string `""` when NULL):
-
-```go
-type UserEntity struct {
-    ID      uint64  `orm:"redisCache"`
-    Name    string  `orm:"required"`
-    Age     *uint64 // nullable
-    Comment string  // nullable (no "required" tag)
+saveList := make([]fluxaorm.Entity, len(users))
+for i, user := range users {
+    user.SetCategory(newCategoryID)
+    saveList[i] = user
 }
-
-user, _, _ := entities.UserEntityProvider.GetByID(ctx, 1)
-age := user.GetAge()         // *uint64 (nil if NULL in database)
-comment := user.GetComment() // string ("" if NULL in database)
-
-// Setting nullable fields
-user.SetAge(nil)           // sets to NULL
-newAge := uint64(30)
-user.SetAge(&newAge)       // sets to 30
-user.SetComment("")        // sets to NULL
-user.SetComment("hello")   // sets to "hello"
+err = ctx.Save(saveList...) // one transaction, one UPDATE per changed user
 ```
 
-### Reference Fields
+The generated `UPDATE` lists only the changed columns and addresses the row by its literal id: ``UPDATE `UserEntity` SET `Category`=?,`UpdatedAt`=? WHERE `ID`=12345``.
 
-For reference fields (foreign keys to other entities), the generated code provides both an ID getter and a convenience method to load the referenced entity:
+## Deleting
 
 ```go
-// Get just the reference ID
-categoryID := product.GetCategoryID() // uint64
-
-// Load the referenced entity (performs a GetByID on the referenced Provider)
-category, found, err := product.GetCategory(ctx)
+Delete(entities ...Entity) error
+ForceDelete(entities ...Entity) error
 ```
 
-For each reference field, a `MustGet<Reference>` convenience method is also generated. It panics if the referenced entity is not found, removing the `bool` return value:
+Both write immediately (they call `Save` internally, so several entities are deleted in one transaction and the same post-commit steps run):
 
 ```go
-// Panics if the referenced category does not exist
-category, err := product.MustGetCategory(ctx)
+user, found, err := entities.UserEntityProvider.GetByID(ctx, 12345)
+if err != nil || !found {
+    return err
+}
+err = ctx.Delete(user) // DELETE FROM `UserEntity` WHERE `ID` = ?
 ```
 
-This works the same way for both required and optional references. Use `MustGet<Reference>` when you expect the referenced entity to always exist (e.g., a required foreign key that should never point to a missing row).
+- `Delete` honours [fake delete](/guide/fake_delete.html): on an entity with a `FakeDelete` field it issues an `UPDATE` that marks the row deleted instead of removing it.
+- `ForceDelete` always removes the row. On an entity without `FakeDelete` it behaves exactly like `Delete`.
+- Deleting an entity that was never saved fails with `ErrEntityNotPersisted` (`entity was never persisted: *entities.UserEntity 12345`).
+- After the write the entity is removed from the context cache, so a later `GetByID` on the same context goes to the database (and, for a hard delete, returns not found). Saving the deleted entity again does not re-issue the `DELETE`.
+
+## Reloading
+
+```go
+Reload(entities ...Entity) error
+```
+
+`Reload` re-reads each entity from MySQL **in place**: the pointer does not change, so every holder of that entity — including the context cache — sees the fresh row. It always reads MySQL (never the Redis row cache) through `ctx.DB(pool)`, so inside a transaction it sees the transaction's own writes. A reloaded entity is clean, and setters afterwards compare against the new values.
+
+```go
+if err := ctx.Reload(user); err != nil {
+    switch {
+    case errors.Is(err, fluxaorm.ErrEntityUnsavedChanges):
+        // save or drop the pending changes first
+    case errors.Is(err, fluxaorm.ErrEntityVanished):
+        // the row was deleted by someone else
+    default:
+        return err
+    }
+}
+```
+
+Entities are processed in order and the first failure stops the loop. Errors are wrapped as `reload entity <id>: <cause>`:
+
+| Error | Meaning |
+|:------|:--------|
+| `ErrEntityNotPersisted` | The entity is new; there is no row to read. |
+| `ErrEntityUnsavedChanges` | The entity has pending setter changes. Reloading would silently discard them, so it is refused before any query runs. |
+| `ErrEntityVanished` | The row no longer exists in MySQL. |
+
+## Error reference
+
+| Variable | Text | Returned by |
+|:---------|:-----|:------------|
+| `fluxaorm.ErrEntityNotPersisted` | `entity was never persisted` | `Delete`, `ForceDelete`, `Reload` |
+| `fluxaorm.ErrEntityUnsavedChanges` | `entity has unsaved changes` | `Reload` |
+| `fluxaorm.ErrEntityVanished` | `entity row no longer exists` | `Reload` |
+| `fluxaorm.ErrTxRollbackOnly` | `transaction is rollback-only` | `Transaction` (see [Transactions](/guide/transactions.html)) |
+| `*fluxaorm.PostCommitError` | `post-commit failure (database changes are committed): <cause>` | `Save`, `Delete`, `ForceDelete`, `Transaction` |
+
+All of them are matched with `errors.Is` / `errors.As` through the wrapping.
+
+::: tip One context per unit of work
+An entity belongs to the `Context` that created or loaded it and can only be saved there. Create a `Context` per request or job, and use `ctx.Clone()` when you need an independent unit of work with its own [context cache](/guide/context_cache.html); see [Context](/guide/context.html).
+:::

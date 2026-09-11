@@ -1,120 +1,106 @@
 # Fake Delete
 
-In many applications, you want to mark entities as deleted instead of permanently removing them from the database. FluxaORM supports this pattern through fake delete (also known as soft delete).
+Fake delete (soft delete) marks rows as deleted instead of removing them. Deleted rows disappear from searches but stay in the table and can still be loaded by id.
 
-## Enabling Fake Delete
+## Declaring it
 
-To enable fake delete on an entity, add a `FakeDelete bool` field to your entity struct:
+Add a field named exactly `FakeDelete` of type `bool` to the entity. No tag or interface is needed:
 
 ```go
 type UserEntity struct {
-    ID         uint64
-    Name       string
-    Email      string
+    ID         uint64 `orm:"redisCache"`
+    Name       string `orm:"required;length=100"`
+    Email      string `orm:"length=255"`
     FakeDelete bool
 }
 ```
 
-When the schema is validated, FluxaORM automatically:
+Although the Go field is a `bool`, the column is created with the same type as `ID` — `bigint unsigned NOT NULL DEFAULT '0'` — and a deleted row stores **its own ID** in it, `0` meaning alive. During [schema update](/guide/schema_update.html) FluxaORM also:
 
-1. Adds a `FakeDelete` column to the MySQL table (same type as the `bool` column).
-2. Adds a `FakeDelete` index to the table.
-3. Appends `FakeDelete` to all existing MySQL indexes (including unique indexes). This ensures that fake-deleted entities do not cause duplicate key constraint violations.
+- appends `FakeDelete` as the last column to every index (unique or not) that does not already contain it;
+- adds a standalone index on `FakeDelete` if none starts with it.
 
-## Deleting an Entity (Soft Delete)
+Storing the ID rather than `1` is what keeps extended unique indexes unique: two deleted users with the same e-mail are `(alice@example.com, 17)` and `(alice@example.com, 42)`, while the live one is `(alice@example.com, 0)`.
 
-Call `Delete()` on an entity to mark it as fake-deleted:
+The generated entity has the normal `GetFakeDelete() bool` / `SetFakeDelete(value bool)` accessors. `FakeDelete` has no descriptor in `Provider.Fields`, so it cannot appear in `Filter(...)`; the query methods handle it for you.
+
+## Deleting
 
 ```go
-user, found, err := UserEntityProvider.GetByID(ctx, 3)
-user.Delete()
-err = ctx.Flush() // UPDATE `UserEntity` SET `FakeDelete` = 1 WHERE `ID` = 3
+user, found, err := entities.UserEntityProvider.GetByID(ctx, 3)
+if err != nil || !found {
+    return err
+}
+
+err = ctx.Delete(user)      // UPDATE `UserEntity` SET `FakeDelete`=? WHERE `ID`=3   (FakeDelete = 3)
+err = ctx.ForceDelete(user) // DELETE FROM `UserEntity` WHERE `ID` = ?
 ```
 
-The `Delete()` method sets the `FakeDelete` field to `true` and tracks the entity for flushing. The entity remains in the database -- it is simply marked as deleted.
+- `ctx.Delete` sets `FakeDelete` and saves: the statement is an `UPDATE`, but the write is reported as a **delete**. The `OnAfterDelete` handler fires (not `OnAfterUpdate`), the entity is evicted from the [context cache](/guide/context_cache.html), the Redis Search hash is removed and the cached unique index keys are invalidated. Because it is technically an update, the synchronous `Register<Entity>BeforeUpdate` callbacks run, not `BeforeDelete`; see [Lifecycle Callbacks](/guide/lifecycle_callbacks.html).
+- `ctx.ForceDelete` removes the row with a real `DELETE`; `BeforeDelete` callbacks and `OnAfterDelete` fire.
+- Both are immediate and transactional exactly like `ctx.Save`; see [CRUD](/guide/crud.html#deleting).
 
-When using [Lifecycle Callbacks](/guide/lifecycle_callbacks), a soft delete via `Delete()` triggers the `AfterDelete` callback, not `AfterUpdate`.
-
-## Permanently Deleting an Entity
-
-Call `ForceDelete()` to permanently remove the entity from the database:
+To restore a row, set the flag back and save — this is a regular update:
 
 ```go
-user, found, err := UserEntityProvider.GetByID(ctx, 3)
-user.ForceDelete()
-err = ctx.Flush() // DELETE FROM `UserEntity` WHERE `ID` = 3
+user.SetFakeDelete(false)
+err = ctx.Save(user)
 ```
 
-`ForceDelete()` bypasses the fake delete mechanism and performs a real `DELETE` statement. This is only available on entities that have the `FakeDelete` field.
+## Reading deleted rows
 
-## Behavior of Fake-Deleted Entities
-
-Once an entity is fake-deleted, it is **excluded from search results** by default. All search methods automatically add `AND FakeDelete = 0` to filter out deleted rows:
-
-- `SearchMany`
-- `SearchOne`
-- `SearchManyWithTotal`
-- `SearchManyInRedis`
-- `SearchOneInRedis`
-- `SearchManyInRedisWithTotal`
-
-However, `GetByID` and `GetByIDs` **will still return** fake-deleted entities. You can check whether an entity has been fake-deleted by reading its `FakeDelete` field:
+`SearchOne`, `SearchMany`, `SearchManyWithTotal` and `Count` append `` `FakeDelete` = 0 `` to their `WHERE` clause, so deleted rows are excluded by default. `GetByID`, `MustGetByID` and `GetByIDs` do **not** filter: they return the row with `GetFakeDelete() == true`.
 
 ```go
-user, found, err := UserEntityProvider.GetByID(ctx, 3) // found = true, even if fake-deleted
+user, found, err := entities.UserEntityProvider.GetByID(ctx, 3) // found == true after ctx.Delete
 if user.GetFakeDelete() {
-    fmt.Println("This user has been deleted")
+    fmt.Println("deleted")
 }
 ```
 
-## Including Fake-Deleted Entities in Search Results
-
-If you need to include fake-deleted entities in search results, use `FilterWhere()` with `WithFakeDeletes()`:
+To include deleted rows in a search, attach a raw where clause with `WithFakeDeletes()`. Only `FilterWhere` can switch the filter off — `Filter` conditions cannot:
 
 ```go
-users, err := UserEntityProvider.SearchMany(ctx,
+users, err := entities.UserEntityProvider.SearchMany(ctx,
     fluxaorm.NewQuery().
-        Filter(UserEntityProvider.Fields.Status.Is("active")).
+        Filter(entities.UserEntityProvider.Fields.Name.Like("A%")).
         FilterWhere(fluxaorm.NewWhere("1").WithFakeDeletes()).
         Pager(fluxaorm.NewPager(1, 100)),
-) // returns all matching entities, including fake-deleted ones
+)
 ```
 
-Without `WithFakeDeletes()`, the same query would automatically filter out any rows where `FakeDelete = 1`.
+### Redis Search
 
-## Example: Full Lifecycle
+Fake-deleted rows are removed from the Redis Search hash when they are deleted, never written when inserted as deleted, and skipped by `ReindexRedisSearch`. `SearchOneInRedis`, `SearchManyInRedis` and `SearchManyInRedisWithTotal` therefore never return them, and `WithFakeDeletes()` has no effect on them. Restoring a row writes its hash again. See [Redis Search](/guide/redis_search.html).
+
+### Cached unique indexes
+
+The cached lookup in `SearchOne` (see [Redis Cache](/guide/redis_cache.html#cached-unique-indexes)) treats a deleted row as a miss: a cache hit is only accepted when the loaded row has `FakeDelete == 0`, and the SQL fallback adds `AND FakeDelete = 0`. Soft-deleting a row invalidates all of its cached unique keys.
+
+## Example
 
 ```go
-// Create a new user
-user := UserEntityProvider.New(ctx)
-user.SetName("Alice")
-user.SetEmail("alice@example.com")
-err := ctx.Flush()
+user := entities.UserEntityProvider.New(ctx)
+user.SetName("Alice").SetEmail("alice@example.com")
+err := ctx.Save(user)
 
-// Soft delete the user
-user.Delete()
-err = ctx.Flush()
+err = ctx.Delete(user) // soft delete
 
-// The user is excluded from normal searches
-users, err := UserEntityProvider.SearchMany(ctx,
+// Excluded from searches...
+users, err := entities.UserEntityProvider.SearchMany(ctx,
     fluxaorm.NewQuery().Pager(fluxaorm.NewPager(1, 100)),
-)
-// users does not include Alice
+) // does not contain Alice
 
-// But can still be loaded by ID
-user, found, err := UserEntityProvider.GetByID(ctx, user.GetID())
-// found = true, user.GetFakeDelete() = true
-
-// Include deleted users in search
-allUsers, err := UserEntityProvider.SearchMany(ctx,
+// ...unless asked for...
+all, err := entities.UserEntityProvider.SearchMany(ctx,
     fluxaorm.NewQuery().
         FilterWhere(fluxaorm.NewWhere("1").WithFakeDeletes()).
         Pager(fluxaorm.NewPager(1, 100)),
-)
-// allUsers includes Alice
+) // contains Alice
 
-// Permanently remove the user
-user.ForceDelete()
-err = ctx.Flush()
-// The row is now deleted from the database
+// ...but still loadable by id.
+user, found, err := entities.UserEntityProvider.GetByID(ctx, user.GetID())
+// found == true, user.GetFakeDelete() == true
+
+err = ctx.ForceDelete(user) // the row is gone
 ```
